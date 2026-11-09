@@ -47,8 +47,8 @@ function batchORequest(string $target = '/coroutine'): HttpRequest
 function batchOWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
-        static function (int $status, Headers $headers): void {},
-        static function (string $chunk): void {},
+        static function (): void {},
+        static function (): void {},
         static function (): void {},
         1_024,
     );
@@ -66,13 +66,13 @@ it('drains request-owned coroutine work before resetters and request completion'
             ResponseWriterInterface $writer,
             CoroutineScope $scope,
         ) use ($events): void {
-            $events[] = 'handler';
+            $events->append('handler');
             $child = $scope->spawn(static function () use ($events): void {
-                $events[] = 'child';
+                $events->append('child');
             });
             expect($child->cancellation()->deadline()->monotonicNanoseconds)
                 ->toBe($request->context->deadline()->monotonicNanoseconds);
-            $events[] = 'handler:return';
+            $events->append('handler:return');
             $writer->end();
         },
     );
@@ -93,7 +93,7 @@ it('drains request-owned coroutine work before resetters and request completion'
                     expect($this->runtime->activeTaskCount())->toBe(0)
                         ->and($context->completed())->toBeFalse()
                         ->and($context->cancellation->subscriptionCount())->toBe(0);
-                    $this->events[] = 'reset';
+                    $this->events->append('reset');
                 }
             },
         ]),
@@ -167,15 +167,15 @@ it('propagates request cancellation through suspended coroutine children before 
                 try {
                     $gate->future()->await();
                 } finally {
-                    $events[] = 'child:finally';
+                    $events->append('child:finally');
                 }
             });
             $loop->defer(static function (int $id) use ($events, $request): void {
                 unset($id);
-                $events[] = 'cancel';
+                $events->append('cancel');
                 $request->context->cancel(CancellationReason::HOST_CANCELLED);
             });
-            $events[] = 'handler:return';
+            $events->append('handler:return');
         },
     );
     $application = new RuntimeApplication(
@@ -194,7 +194,7 @@ it('propagates request cancellation through suspended coroutine children before 
                         ->and($context->completed())->toBeFalse()
                         ->and($context->cancellation->reason())->toBe(CancellationReason::HOST_CANCELLED)
                         ->and($context->cancellation->subscriptionCount())->toBe(0);
-                    $this->events[] = 'reset';
+                    $this->events->append('reset');
                 }
             },
         ]),
@@ -232,9 +232,9 @@ it('completes coroutine sleep through a SelectLoop timer without retaining the t
     $events = [];
 
     $runtime->run(function (CoroutineScope $scope) use (&$events): void {
-        $events[] = 'before';
+        $events->append('before');
         $scope->sleep(0.001);
-        $events[] = 'after';
+        $events->append('after');
     });
 
     expect($events)->toBe(['before', 'after'])
@@ -257,7 +257,12 @@ it('waits for real stream writability and unregisters the SelectLoop watcher', f
         $written = $runtime->run(function (CoroutineScope $scope) use ($left): int {
             $scope->waitWritable($left);
 
-            return fwrite($left, 'w');
+            $bytes = fwrite($left, 'w');
+            if ($bytes === false) {
+                throw new RuntimeException('Coroutine writable stream did not accept the byte.');
+            }
+
+            return $bytes;
         });
 
         expect($written)->toBe(1)

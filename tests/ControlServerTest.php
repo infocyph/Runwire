@@ -15,9 +15,20 @@ use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Preserve the production monotonic deadline contract inside test-owned code.
+ */
+function runwireControlTestDeadline(float $seconds): int
+{
+    return MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), $seconds);
+}
 
 it('serves bounded runtime control over a protected unix socket', function (int $publicationDelayMicroseconds): void {
-    $socket = sys_get_temp_dir() . '/runwire-control-test-' . getmypid() . '-' . bin2hex(random_bytes(4)) . '.sock';
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new RuntimeException('Unable to identify the control supervisor test process.');
+    }
+    $socket = sys_get_temp_dir() . '/runwire-control-test-' . $pid . '-' . bin2hex(random_bytes(4)) . '.sock';
     $resultFile = tempnam(sys_get_temp_dir(), 'runwire-control-result-');
     if ($resultFile === false) {
         throw new RuntimeException('Unable to allocate control result file.');
@@ -156,11 +167,14 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             $supervisor->run();
         } finally {
             pcntl_alarm(0);
+            if (!is_int($priorAlarmHandler) && !is_callable($priorAlarmHandler)) {
+                throw new RuntimeException('Cannot restore an unsupported prior SIGALRM handler.');
+            }
             pcntl_signal(SIGALRM, $priorAlarmHandler);
             pcntl_async_signals($priorAsyncSignals);
         }
 
-        if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), 3.0))) {
+        if (!ChildReaper::waitForUntil($clientPid, runwireControlTestDeadline(3.0))) {
             throw new RuntimeException('Control client did not exit before the result deadline.');
         }
         $raw = file_get_contents($resultFile);
@@ -182,9 +196,9 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             ->and(file_exists($socket))->toBeFalse()
             ->and($supervisor->status()->workers)->toBe([]);
     } finally {
-        if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::nowNanoseconds())) {
+        if (!ChildReaper::waitForUntil($clientPid, runwireControlTestDeadline(0.0))) {
             posix_kill($clientPid, SIGKILL);
-            if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), 1.0))) {
+            if (!ChildReaper::waitForUntil($clientPid, runwireControlTestDeadline(1.0))) {
                 throw new RuntimeException('Control client did not exit after cleanup.');
             }
         }

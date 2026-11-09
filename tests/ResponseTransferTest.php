@@ -28,7 +28,7 @@ function responseTransferWriter(LoopInterface $loop, int $pressureEvery = 0): Re
 
         public bool $started = false;
 
-        private $drainCallback = null;
+        private ?\Closure $drainCallback = null;
 
         /** @var list<callable(self): void> */
         private array $terminal = [];
@@ -73,7 +73,7 @@ function responseTransferWriter(LoopInterface $loop, int $pressureEvery = 0): Re
         #[\Override]
         public function onDrain(callable $callback): self
         {
-            $this->drainCallback = $callback;
+            $this->drainCallback = \Closure::fromCallable($callback);
 
             return $this;
         }
@@ -218,7 +218,7 @@ it('can preserve caller source ownership and blocking mode', function (): void {
     expect($transferred)->toBe(16)
         ->and($writer->body)->toBe('preserved-source')
         ->and(is_resource($source))->toBeTrue()
-        ->and((bool) ($after['blocked'] ?? false))->toBe((bool) ($before['blocked'] ?? false));
+        ->and(($after['blocked'] ?? false))->toBe(($before['blocked'] ?? false));
 
     fclose($source);
 });

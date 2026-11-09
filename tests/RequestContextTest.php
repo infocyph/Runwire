@@ -199,8 +199,8 @@ it('binds host requests to the resolved runtime and clears request state after h
         new BufferedRequestBody(''),
     );
     $writer = new CallbackResponseWriter(
-        static function (int $status, Headers $headers): void {},
-        static function (string $chunk): void {},
+        static function (): void {},
+        static function (): void {},
         static function (): void {},
         1_024,
     );

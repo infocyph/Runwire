@@ -54,8 +54,8 @@ function runwireSoakRequest(string $target): HttpRequest
 function runwireSoakWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
-        static function (int $status, Headers $headers): void {},
-        static function (string $chunk): void {},
+        static function (): void {},
+        static function (): void {},
         static function (): void {},
         1_024,
     );
@@ -112,6 +112,9 @@ function runwireSoakHttp1(int $requests): array
 
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
+    if (!is_string($response)) {
+        throw new RuntimeException('Unable to read HTTP/1.1 soak responses.');
+    }
     fclose($client);
 
     return [

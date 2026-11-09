@@ -14,6 +14,7 @@ use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use InvalidArgumentException;
+use RuntimeException;
 use Throwable;
 
 
@@ -46,7 +47,11 @@ it('reuses the same real keep-alive H1 socket for two requests and frees all lea
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
     expect($listener)->toBeResource();
     stream_set_blocking($listener, false);
-    $origin = 'http://' . stream_socket_get_name($listener, false);
+    $listenerAddress = stream_socket_get_name($listener, false);
+    if (!is_string($listenerAddress)) {
+        throw new RuntimeException('Unable to read pooled HTTP/1 origin listener address.');
+    }
+    $origin = 'http://' . $listenerAddress;
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 1);
     $numeric = new Dialer($loop);

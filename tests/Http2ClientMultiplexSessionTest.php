@@ -100,19 +100,21 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase02(): void
         );
     }
     $reset = (new FrameParser())->push($session->cancel(1));
+    $firstFailure = $failures['a'][0] ?? throw new RuntimeException('HTTP/2 client cancellation callback was not delivered.');
     expect($reset)->toHaveCount(1)
         ->and($reset[0]->knownType())->toBe(FrameType::RST_STREAM)
         ->and($reset[0]->streamId)->toBe(1)
         ->and($session->activeCount())->toBe(1)
-        ->and($failures['a'][0])->toBeInstanceOf(RuntimeException::class);
+        ->and($firstFailure)->toBeInstanceOf(RuntimeException::class);
     $lateCredit = (new FrameParser())->push($session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'late')));
     expect($lateCredit)->toHaveCount(1)->and($lateCredit[0]->streamId)->toBe(0);
     expect(fn() => $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, 'x')))
         ->toThrow(RuntimeException::class, 'unknown');
 
     $session->receive(new Frame(FrameType::RST_STREAM->value, 0, 3, pack('N', ErrorCode::CANCEL->value)));
+    $secondFailure = $failures['b'][0] ?? throw new RuntimeException('HTTP/2 peer reset callback was not delivered.');
     expect($session->activeCount())->toBe(0)
-        ->and($failures['b'][0])->toBeInstanceOf(RuntimeException::class);
+        ->and($secondFailure)->toBeInstanceOf(RuntimeException::class);
     $session->close();
     expect($failures['a'])->toHaveCount(1)
         ->and($failures['b'])->toHaveCount(1);

@@ -45,7 +45,6 @@ $latencies = [];
 $warmups = 4;
 $before = getrusage();
 $childrenBefore = getrusage(1);
-$begin = hrtime(true);
 for ($index = -$warmups; $index < $count; ++$index) {
     $loop = new SelectLoop();
     $status = 0;
@@ -85,6 +84,9 @@ for ($index = -$warmups; $index < $count; ++$index) {
                 $loop->stop();
             },
         );
+        $cleanup = static function () use ($client): void {
+            $client->close();
+        };
     } else {
         $executor = new ProcessExecutor($loop, 1, 8);
         $numeric = new Dialer($loop);
@@ -108,17 +110,16 @@ for ($index = -$warmups; $index < $count; ++$index) {
         } else {
             Http1OutboundClient::connect($loop, $dialer, $request, $headers, $body, $done, $options);
         }
+        $cleanup = static function () use ($dialer, $numeric, $executor): void {
+            $dialer->close();
+            $numeric->close();
+            $executor->close();
+        };
     }
     $loop->run();
     $elapsed = (hrtime(true) - $start) / 1_000_000;
     $loop->cancel($watchdog);
-    if ($kind === 'h3') {
-        $client->close();
-    } else {
-        $dialer->close();
-        $numeric->close();
-        $executor->close();
-    }
+    $cleanup();
     if ($error !== null || $completed !== 1 || $status !== 200
         || $received !== 'runwire-outbound-h3-peer-ok') {
         throw new RuntimeException('Independent outbound ' . $kind . ' did not produce an exact complete response.', 0, $error);
@@ -129,9 +130,10 @@ for ($index = -$warmups; $index < $count; ++$index) {
 }
 $after = getrusage();
 $childrenAfter = getrusage(1);
-if (!is_array($before) || !is_array($after)
-    || !is_array($childrenBefore) || !is_array($childrenAfter)) {
-    throw new RuntimeException('Process CPU and RSS profiling is not available.');
+foreach ([$before, $after, $childrenBefore, $childrenAfter] as $snapshot) {
+    if (!isset($snapshot['ru_utime.tv_sec'], $snapshot['ru_utime.tv_usec'], $snapshot['ru_stime.tv_sec'], $snapshot['ru_stime.tv_usec'], $snapshot['ru_maxrss'])) {
+        throw new RuntimeException('Process CPU and RSS profiling data is incomplete.');
+    }
 }
 $usage = static function (array $v): int {
     return (int) $v['ru_utime.tv_sec'] * 1_000_000
@@ -151,7 +153,7 @@ if ($seconds <= 0.0 || count($latencies) !== $count) {
 fwrite(STDOUT, json_encode([
     'schema' => 1,
     'protocol' => $kind,
-    'source_sha' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
+    'source_sha' => (($sourceSha = getenv('RUNWIRE_RUNTIME_BUILD')) === false || $sourceSha === '' || $sourceSha === '0') ? 'unknown' : $sourceSha,
     'php_version' => PHP_VERSION,
     'independent_peer' => $kind === 'h3' ? 'aioquic' : 'hyper-h2',
     'verified_tls_alpn' => true,

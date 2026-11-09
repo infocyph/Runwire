@@ -5,10 +5,16 @@ declare(strict_types=1);
 it('checks out the exact matched benchmark candidate in its own working tree', function (): void {
     $workflow = file_get_contents(dirname(__DIR__) . '/.github/workflows/release-certification.yml');
     expect($workflow)->toBeString()->toContain('  matched-performance:', '  candidate-soak:');
-    $matched = explode('  candidate-soak:', explode('  matched-performance:', $workflow, 2)[1], 2)[0];
+    if (!is_string($workflow)) {
+        throw new RuntimeException('Unable to read release certification workflow.');
+    }
+    $performance = explode('  matched-performance:', $workflow, 2)[1]
+        ?? throw new RuntimeException('Matched-performance section is missing.');
+    $matched = explode('  candidate-soak:', $performance, 2)[0];
     $checkout = explode(
         '      - name: Reject an unpinned, incomplete or incorrect candidate SHA',
-        explode('      - name: Checkout candidate exact head', $matched, 2)[1],
+        explode('      - name: Checkout candidate exact head', $matched, 2)[1]
+            ?? throw new RuntimeException('Candidate checkout step is missing.'),
         2,
     )[0];
     expect($checkout)->toContain('uses: actions/checkout@v7')

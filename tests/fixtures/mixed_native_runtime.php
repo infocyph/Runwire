@@ -28,8 +28,12 @@ if ($argc !== 7) {
     );
 }
 
-[$script, $tlsPort, $tcpPort, $udpPort, $certificate, $key, $eventLog] = $argv;
-unset($script);
+$tlsPort = $argv[1] ?? throw new InvalidArgumentException('Missing TLS listener port.');
+$tcpPort = $argv[2] ?? throw new InvalidArgumentException('Missing TCP listener port.');
+$udpPort = $argv[3] ?? throw new InvalidArgumentException('Missing UDP listener port.');
+$certificate = $argv[4] ?? throw new InvalidArgumentException('Missing certificate path.');
+$key = $argv[5] ?? throw new InvalidArgumentException('Missing private key path.');
+$eventLog = $argv[6] ?? throw new InvalidArgumentException('Missing event log path.');
 $http = new Server(
     name: 'mixed-http',
     address: '127.0.0.1:' . $tlsPort,

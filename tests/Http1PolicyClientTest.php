@@ -16,6 +16,7 @@ use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
+use RuntimeException;
 use Throwable;
 
 
@@ -43,6 +44,7 @@ it('follows one bounded independent H1 redirect without forwarding cross-origin 
     $completed = null;
     $failed = null;
 
+    /** @param resource $listener */
     $register = static function ($listener, string $name) use (
         $loop,
         &$servers,
@@ -140,8 +142,9 @@ it('follows one bounded independent H1 redirect without forwarding cross-origin 
             ->and(strtolower($requests['second']))->not->toContain('authorization:')
             ->and(strtolower($requests['second']))->not->toContain('cookie:')
             ->and(strtolower($requests['second']))->not->toContain('x-tenant:')
-            ->and($completed)->toBeInstanceOf(Connection::class)
-            ->and($completed->isPoolIdleSafe())->toBeTrue();
+            ->and($completed)->toBeInstanceOf(Connection::class);
+        $completed = $completed ?? throw new RuntimeException('HTTP/1 protocol fallback did not complete.');
+        expect($completed->isPoolIdleSafe())->toBeTrue();
     } finally {
         $completed?->abort();
         $loop->cancel($watchdog);

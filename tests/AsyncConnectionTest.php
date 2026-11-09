@@ -436,7 +436,11 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
     $baselineBytes = memory_get_usage(true);
     $baselineRss = runwireCurrentRssBytes();
     $rssSamples = [];
-    $fdBaseline = is_dir('/proc/self/fd') ? count(scandir('/proc/self/fd') ?: []) : null;
+    $initialFds = is_dir('/proc/self/fd') ? scandir('/proc/self/fd') : null;
+    if ($initialFds === false) {
+        throw new RuntimeException('Unable to inspect the initial process file descriptors.');
+    }
+    $fdBaseline = $initialFds === null ? null : count($initialFds);
 
     for ($iteration = 0; $iteration < 2_048; ++$iteration) {
         [$server, $peer] = runwireAsyncConnectionPair();
@@ -477,7 +481,11 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
                     $rssSamples[] = $currentRss;
                 }
                 if ($fdBaseline !== null) {
-                    expect(count(scandir('/proc/self/fd') ?: []))->toBeLessThanOrEqual($fdBaseline + 4);
+                    $currentFds = scandir('/proc/self/fd');
+                    if ($currentFds === false) {
+                        throw new RuntimeException('Unable to inspect process file descriptors.');
+                    }
+                    expect(count($currentFds))->toBeLessThanOrEqual($fdBaseline + 4);
                 }
             }
             expect($connection->closeReason())->toBe(CloseReason::LOCAL_ABORT)
@@ -497,14 +505,18 @@ it('releases socket watchers, timers and coroutine scopes through repeated live 
         expect($data)->toBe('tick-' . $iteration);
     }
     sort($latencies, SORT_NUMERIC);
-    $p99Milliseconds = $latencies[(int) ceil(count($latencies) * 0.99) - 1];
+    $p99Milliseconds = $latencies[(int) ceil((float) count($latencies) * 0.99) - 1];
     expect($p99Milliseconds)->toBeLessThan(750.0);
     gc_collect_cycles();
     expect(memory_get_usage(true))->toBeLessThanOrEqual($baselineBytes + 16 * 1_048_576)
         ->and($loop->diagnostics()->maxLagNanoseconds)->toBeLessThan(1_000_000_000);
 
     if ($fdBaseline !== null) {
-        expect(count(scandir('/proc/self/fd') ?: []))->toBeLessThanOrEqual($fdBaseline + 4);
+        $currentFds = scandir('/proc/self/fd');
+        if ($currentFds === false) {
+            throw new RuntimeException('Unable to inspect process file descriptors.');
+        }
+        expect(count($currentFds))->toBeLessThanOrEqual($fdBaseline + 4);
     }
     if (count($rssSamples) >= 2) {
         // Reject monotonic persistent RSS expansion across 32 checkpoints;

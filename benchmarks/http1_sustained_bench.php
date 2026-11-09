@@ -38,7 +38,7 @@ function http1SustainedCpuModel(): string
     if (is_array($lines)) {
         foreach ($lines as $line) {
             if (str_starts_with(strtolower($line), 'model name') && str_contains($line, ':')) {
-                return trim(substr($line, strpos($line, ':') + 1));
+                return trim(explode(':', $line, 2)[1]);
             }
         }
     }
@@ -72,9 +72,6 @@ function http1SustainedProcessTree(int $root): array
     $seen = [$root => true];
     while ($queue !== []) {
         $current = array_shift($queue);
-        if (!is_int($current)) {
-            continue;
-        }
         if (is_dir('/proc/' . $current)) {
             $found[] = $current;
         }
@@ -148,7 +145,7 @@ function http1SustainedTreeIoCounters(int $root): array
                 continue;
             }
             [$key, $raw] = explode(':', $line, 2);
-            if (array_key_exists($key, $totals) && preg_match('/^\\d+$/D', trim($raw)) === 1) {
+            if (in_array($key, ['syscr', 'syscw', 'rchar', 'wchar'], true) && preg_match('/^\\d+$/D', trim($raw)) === 1) {
                 $totals[$key] += max(0, (int) trim($raw));
             }
         }
@@ -170,7 +167,7 @@ function http1SustainedParseHead(string $head): array
 {
     $lines = explode("\r\n", $head);
     $statusLine = array_shift($lines);
-    if (!is_string($statusLine) || preg_match('/^HTTP\/1\.[01]\s+(\d{3})(?:\s|$)/', $statusLine, $matches) !== 1) {
+    if (preg_match('/^HTTP\/1\.[01]\s+(\d{3})(?:\s|$)/', $statusLine, $matches) !== 1) {
         throw new Http1SustainedProtocolError('Response status line is invalid.');
     }
 
@@ -180,8 +177,9 @@ function http1SustainedParseHead(string $head): array
         if (!str_contains($line, ':')) {
             continue;
         }
-        [$name, $value] = explode(':', $line, 2);
-        $name = strtolower(trim($name));
+        $parts = explode(':', $line, 2);
+        $name = strtolower(trim($parts[0]));
+        $value = $parts[1] ?? throw new Http1SustainedProtocolError('Response header has no value separator.');
         $value = trim($value);
         if ($name === 'content-length') {
             if ($value === '' || preg_match('/^\d+$/', $value) !== 1) {
@@ -595,7 +593,7 @@ function http1SustainedRun(
         if (stream_select($read, $write, $except, 0, 50_000) === false) {
             throw new RuntimeException('stream_select() failed in sustained benchmark client.');
         }
-        http1SustainedWriteReady($write, $sets['map'], $clients, $counter, $request);
+        http1SustainedWriteReady(array_values($write), $sets['map'], $clients, $counter, $request);
         foreach ($read as $stream) {
             $id = $sets['map'][(int) $stream] ?? null;
             if (is_int($id) && ($clients[$id]['active'] ?? false)) {
@@ -663,7 +661,9 @@ function http1SustainedExtensionVersions(): array
         if (!str_contains($entry, '=')) {
             continue;
         }
-        [$name, $version] = explode('=', $entry, 2);
+        $parts = explode('=', $entry, 2);
+        $name = $parts[0];
+        $version = $parts[1] ?? '';
         if ($name !== '' && $version !== '') {
             $versions[$name] = $version;
         }
@@ -691,6 +691,14 @@ function http1SustainedAssertCorrect(array $counter, string $phase): void
             . json_encode($counter, JSON_THROW_ON_ERROR),
         );
     }
+}
+
+/** Resolve a CLI benchmark metadata field, retaining the legacy empty/zero fallback. */
+function http1SustainedEnvironment(string $name, string $fallback): string
+{
+    $value = getenv($name);
+
+    return $value === false || $value === '' || $value === '0' ? $fallback : $value;
 }
 
 /**
@@ -725,10 +733,10 @@ function http1SustainedMain(array $argv): array
     $counter = $measured['counter'];
     $failures = $counter['errors_total'] + $counter['timeouts_total'] + $counter['validation_failures'];
     $requests = $counter['requests_total'];
-    $ticksPerSecond = function_exists('posix_sysconf') && defined('POSIX_SC_CLK_TCK')
-        ? (int) posix_sysconf(POSIX_SC_CLK_TCK)
-        : 100;
-    $ticksPerSecond = max(1, $ticksPerSecond);
+    $ticks = function_exists('posix_sysconf') && defined('POSIX_SC_CLK_TCK')
+        ? posix_sysconf(POSIX_SC_CLK_TCK)
+        : false;
+    $ticksPerSecond = is_int($ticks) && $ticks > 0 ? $ticks : 100;
     $cpu = $measured['elapsed'] > 0
         ? max(0.0, (float) ($measured['end_ticks'] - $measured['start_ticks']) / (float) $ticksPerSecond / $measured['elapsed'] * 100.0)
         : 0.0;
@@ -738,17 +746,17 @@ function http1SustainedMain(array $argv): array
     $continuousDurationPassed = $measured['elapsed'] >= $duration - 0.002;
     $result = [
         'runtime' => 'runwire-native',
-        'runtime_version' => getenv('RUNWIRE_RUNTIME_VERSION') ?: '2.0-candidate',
-        'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
+        'runtime_version' => http1SustainedEnvironment('RUNWIRE_RUNTIME_VERSION', '2.0-candidate'),
+        'runtime_build' => http1SustainedEnvironment('RUNWIRE_RUNTIME_BUILD', 'unknown'),
         'protocol' => 'http/1.1',
         'workload' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'verified-tls-H1' : 'plaintext-H1',
         'hardware_id' => php_uname('m') . '::' . http1SustainedCpuModel(),
         'host_os' => php_uname('a'),
         'host_cpu' => http1SustainedCpuModel(),
-        'php_version' => getenv('RUNWIRE_PHP_VERSION') ?: PHP_VERSION,
-        'instrumentation' => getenv('RUNWIRE_INSTRUMENTATION') ?: 'ci-smoke',
+        'php_version' => http1SustainedEnvironment('RUNWIRE_PHP_VERSION', PHP_VERSION),
+        'instrumentation' => http1SustainedEnvironment('RUNWIRE_INSTRUMENTATION', 'ci-smoke'),
         'tls' => getenv('RUNWIRE_BENCH_TLS') === '1' ? 'on-verified' : 'off',
-        'opcache' => getenv('RUNWIRE_OPCACHE') ?: 'unknown',
+        'opcache' => http1SustainedEnvironment('RUNWIRE_OPCACHE', 'unknown'),
         'connection_reuse' => http1BenchConnectionMode(),
         'response_body_bytes' => strlen(http1BenchResponseBody()),
         'extension_versions' => http1SustainedExtensionVersions(),

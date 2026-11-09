@@ -20,8 +20,12 @@ it('installs a 3.0 candidate as 3.0 in both independent Composer consumers', fun
 
 it('keeps portable package runtime requirements free of hard optional extensions', function (): void {
     $root = dirname(__DIR__);
+    $composerContent = file_get_contents($root . '/composer.json');
+    if (!is_string($composerContent)) {
+        throw new RuntimeException('Unable to read the package manifest.');
+    }
     $package = json_decode(
-        file_get_contents($root . '/composer.json'),
+        $composerContent,
         true,
         32,
         JSON_THROW_ON_ERROR,
@@ -61,17 +65,23 @@ it('excludes local data and development payloads from an actual Composer archive
             $directory,
         );
         expect(is_resource($process))->toBeTrue();
+        if (!is_resource($process)) {
+            throw new RuntimeException('Composer archive subprocess did not start.');
+        }
         fclose($pipes[0]);
         $stdout = stream_get_contents($pipes[1]);
         $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
-        expect(proc_close($process), (string) $stdout . (string) $stderr)->toBe(0);
+        $exitCode = proc_close($process);
+        if ($exitCode !== 0) {
+            throw new RuntimeException('Composer archive failed: ' . (string) $stdout . (string) $stderr);
+        }
         $archive = new PharData($directory . '/package/candidate.zip');
         expect(isset($archive['composer.json']))->toBeTrue()
             ->and(isset($archive['src/PackageFixture.php']))->toBeTrue();
         foreach ($forbidden as $path) {
-            expect(isset($archive[$path . '/local-only.fixture']), $path)->toBeFalse();
+            expect(isset($archive[$path . '/local-only.fixture']))->toBeFalse();
         }
     } finally {
         $entries = new RecursiveIteratorIterator(

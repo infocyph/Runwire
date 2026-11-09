@@ -37,10 +37,14 @@ it('selects HTTP/1.1 for cleartext native connections', function (): void {
     $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
+    if (!is_string($response)) {
+        throw new RuntimeException('Unable to read the native HTTP response.');
+    }
     fclose($client);
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+    expect($session)->not->toBeNull();
+    $session = $session ?? throw new RuntimeException('Expected an attached native HTTP session.');
+    expect($session->version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and($version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and($response)->toContain('h1');
 });
@@ -83,6 +87,9 @@ it('dispatches negotiated h2 without HTTP/1 protocol sniffing', function (): voi
     $loop->run();
     stream_set_blocking($client, false);
     $wire = stream_get_contents($client);
+    if (!is_string($wire)) {
+        throw new RuntimeException('Unable to read the HTTP/2 response bytes.');
+    }
     fclose($client);
 
     $body = '';
@@ -92,8 +99,9 @@ it('dispatches negotiated h2 without HTTP/1 protocol sniffing', function (): voi
         }
     }
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_2)
+    expect($session)->not->toBeNull();
+    $session = $session ?? throw new RuntimeException('Expected an attached native HTTP session.');
+    expect($session->version)->toBe(ProtocolVersion::HTTP_2)
         ->and($version)->toBe(ProtocolVersion::HTTP_2)
         ->and($body)->toBe('h2');
 });
@@ -128,6 +136,7 @@ it('drains an active HTTP/1.1 exchange without accepting another request', funct
         },
     );
     expect($session)->not->toBeNull();
+    $session = $session ?? throw new RuntimeException('Expected an attached native HTTP session.');
 
     fwrite(
         $client,
@@ -141,6 +150,9 @@ it('drains an active HTTP/1.1 exchange without accepting another request', funct
 
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
+    if (!is_string($response)) {
+        throw new RuntimeException('Unable to read the native HTTP response.');
+    }
     fclose($client);
 
     expect($requests)->toBe(1)
@@ -192,8 +204,9 @@ it('enables TCP_NODELAY for H1 without applying it to H2', function (): void {
     $connection = new Connection($loop, $server, tcpTransport: true);
     $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+    expect($session)->not->toBeNull();
+    $session = $session ?? throw new RuntimeException('Expected an attached native HTTP session.');
+    expect($session->version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(1);
 
     $connection->abort();
@@ -214,8 +227,9 @@ it('enables TCP_NODELAY for H1 without applying it to H2', function (): void {
     );
     $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_2)
+    expect($session)->not->toBeNull();
+    $session = $session ?? throw new RuntimeException('Expected an attached native HTTP session.');
+    expect($session->version)->toBe(ProtocolVersion::HTTP_2)
         ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(0);
 
     $connection->abort();
@@ -242,8 +256,9 @@ it('preserves an explicit H1 TCP_NODELAY override', function (): void {
     );
     $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+    expect($session)->not->toBeNull();
+    $session = $session ?? throw new RuntimeException('Expected an attached native HTTP session.');
+    expect($session->version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(0);
 
     $connection->abort();
@@ -272,8 +287,9 @@ it('applies a throughput-biased NODELAY default only when H1 is newly attached',
         http1TcpNoDelayDefault: false,
     );
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+    expect($session)->not->toBeNull();
+    $session = $session ?? throw new RuntimeException('Expected an attached native HTTP session.');
+    expect($session->version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(0);
 
     $connection->abort();
