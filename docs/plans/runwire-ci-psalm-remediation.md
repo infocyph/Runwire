@@ -1,6 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 151 — reject special filesystem sinks before blocking I/O
+
+- Parent `4a8663eecb0c8a4a01765630ace34a1bcee210c9`, PR #13 Security & Standards `42687104253`: **50 blocking Psalm findings** on PHP 8.4 and PHP 8.5 (32 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 2 TaintedSleep, 1 UnresolvableInclude); **PHPStan zero errors**. Four strict PHPForge QA configs, both HTTP/3+QUIC, benchmarks, Source Audit, hosted/native, Swoole, documentation and release-candidate jobs PASS. No ordinary type/exception analyzer errors remain.
+- **Batch 151 implementation:** The executor worker's bounded file read/write calls may operate on special device/FIFO paths even when given explicit byte limits, risking an indefinite blocking `fopen` or `file_get_contents`. Reject existing non-regular file kinds before these two operations while preserving stat, unlink, rename and optional-root semantics. The benchmark output validator similarly rejects existing non-regular leaves after its symlink guard. Cover existing-directory output rejection in the existing Pest suite and FIFO read/write rejection through an actual IPC worker with bounded request deadlines. Four PHP files including new test + tracker, one batch commit.
+- The checks are real input validation, not Psalm taint escapes, suppressions, scan exclusions, or weakening PHPForge. Some conservative taint findings can remain for intentional operator-controlled paths; count only exact-head successful analyzer runs. Next batches: audit source-loading and SSRF path flows, especially TLS benchmark autoloading and restricted executor operations, without replacing security verification with analyzer evasion.
+- Exact SHA regression, both static analyzers, four PHPForge QA configurations and full runtime/protocol CI **PENDING**. Keep PR open/draft/unmerged; no tag.
+
+
+
 ## Batch 150 — isolate intermittent ControlServer watchdog cause
 
 - Parent `822c543d3bbb13a7c3d16d39e541e5b33c6d69d7`, Security & Standards `42685418981`. Psalm PHP 8.5 **50 blocking issues**: 32 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 2 TaintedSleep, 1 UnresolvableInclude. PHPStan **PASS**. Strict QA PHP 8.4 stable and PHP 8.5 stable/lowest PASS, but PHP 8.4 prefer-lowest **fails only** on `tests/ControlServerTest.php:167` after 20 seconds (one failure, 1,218 other tests passing). Independent Source Audit, hosted/native, Swoole, HTTP/2, docs, benchmarks pass; HTTP/3+QUIC PHP 8.4 passes.

@@ -30,6 +30,7 @@ it('rejects symlinked output paths and unbounded benchmark sampling delays', fun
     try {
         expect(runwireBenchmarkOutputPath($directory . '/report.json'))->toBe($directory . '/report.json');
         expect(fn(): string => runwireBenchmarkOutputPath($link))->toThrow(RuntimeException::class);
+        expect(fn(): string => runwireBenchmarkOutputPath($directory))->toThrow(RuntimeException::class);
         expect(fn(): string => runwireBenchmarkOutputPath('php://memory'))->toThrow(RuntimeException::class);
         expect(runwireBenchmarkSampleInterval(1))->toBe(1)
             ->and(runwireBenchmarkSampleInterval(60))->toBe(60);

@@ -45,6 +45,9 @@ function runwireBenchmarkOutputPath(string $path): string
     if (is_link($resolved)) {
         throw new RuntimeException('Benchmark output must not follow a symlink.');
     }
+    if (file_exists($resolved) && !is_file($resolved)) {
+        throw new RuntimeException('Benchmark output must be a regular file.');
+    }
 
     return $resolved;
 }
