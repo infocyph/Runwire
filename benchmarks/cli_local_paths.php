@@ -90,3 +90,22 @@ function runwireBenchmarkSleepInterval(int $interval): bool
 
     return true;
 }
+
+/**
+ * Verify that a developer-selected checkout contains its own regular,
+ * non-symlinked Composer autoload file before executing that checkout's code.
+ *
+ * @throws \RuntimeException
+ */
+function runwireBenchmarkCheckAutoload(string $root): void
+{
+    $canonical = realpath($root);
+    if ($root === '' || $canonical === false || $root !== $canonical || !is_dir($root)) {
+        throw new RuntimeException('Benchmark source must be a canonical local directory.');
+    }
+
+    $path = $root . '/vendor/autoload.php';
+    if (realpath($path) !== $path || !is_file($path)) {
+        throw new RuntimeException('Benchmark source must contain its own regular Composer autoloader.');
+    }
+}

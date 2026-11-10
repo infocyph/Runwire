@@ -52,3 +52,29 @@ it('uses a bounded one-second sampling sleep and refuses unbounded intervals', f
     expect(fn(): bool => runwireBenchmarkSleepInterval(61))->toThrow(InvalidArgumentException::class);
     expect(runwireBenchmarkSleepInterval(1))->toBeTrue();
 });
+
+
+it('verifies a canonical Composer autoload path before executing selected source', function (): void {
+    $root = sys_get_temp_dir() . '/runwire-autoload-root-' . bin2hex(random_bytes(5));
+    $vendor = $root . '/vendor';
+    expect(mkdir($root, 0700))->toBeTrue()
+        ->and(mkdir($vendor, 0700))->toBeTrue();
+
+    $autoload = $vendor . '/autoload.php';
+    $outside = tempnam(sys_get_temp_dir(), 'runwire-autoload-outside-');
+    \PHPUnit\Framework\Assert::assertIsString($outside);
+    file_put_contents($autoload, "<?php\n");
+
+    try {
+        runwireBenchmarkCheckAutoload($root);
+        expect(fn(): void => runwireBenchmarkCheckAutoload($root . '/..'))->toThrow(RuntimeException::class);
+        unlink($autoload);
+        expect(symlink($outside, $autoload))->toBeTrue();
+        expect(fn(): void => runwireBenchmarkCheckAutoload($root))->toThrow(RuntimeException::class);
+    } finally {
+        unlink($autoload);
+        unlink($outside);
+        rmdir($vendor);
+        rmdir($root);
+    }
+});

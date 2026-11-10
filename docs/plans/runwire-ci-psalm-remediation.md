@@ -1,6 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 158 — validate selected TLS source checkout before dynamic loading
+
+- Parent `e1344fa1c24ac0952ce4f630977795c6e027301d`, Batch 157. The HTTP/1 TLS benchmark accepts a source checkout root by CLI and executes its Composer autoload file. It previously checked only `is_file($root . '/vendor/autoload.php')`, allowing vendor/autoload symlinks to redirect execution to outside code without an explicit checkout containment check.
+- **Batch 158 candidate:** Canonicalize the selected source root; ensure the checkout's Composer autoloader exists as an actual non-symlinked regular file inside its vendor directory; reject noncanonical roots and symlink escapes before preserving the existing deliberate `require $root . '/vendor/autoload.php'`. Put the trust check in the existing benchmark CLI helper and test a valid checkout, a noncanonical root and a malicious symlinked autoload leaf. Three PHP files + tracker, one commit.
+- Do not change the selected-source CLI contract, TLS certificate handling, HTTP/1 benchmark protocols, input port validation, analyzer scope or PHPForge policies. `TaintedInclude` and `UnresolvableInclude` can remain conservatively reported because the source is still explicitly operator-selected; claims of zero require exact-head analyzer evidence, not comments/suppressions.
+- Exact SHA full QA, PHPStan/Psalm, benchmarks, HTTP/2/3, hosted/native, Source Audit and docs **PENDING**. PR draft/open/unmerged; no tag.
+
+
+
 ## Batch 157 — exact-head Pint correction without weakening coverage
 
 - Parent `972e42f21d5e1b80c0729736eb338b63a1cbe36d`, Security & Standards `42745624371` PHP 8.4 / PHP 8.5 analysis both **46 Psalm findings**, **PHPStan PASS (0)**, Composer audit PASS. Breakdown: 30 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 1 UnresolvableInclude. Batch 156 reduced 48 → 46 while adding unique atomic evidence writes and their regression test. Source Audit, docs, hosted/native, Swoole, HTTP/2/3+QUIC, benchmarks, release candidate PASS on parent.
