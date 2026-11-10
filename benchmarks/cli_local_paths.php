@@ -65,6 +65,24 @@ function runwireBenchmarkOutputPath(string $path): string
 }
 
 /**
+ * Reject unsafe existing components before creating benchmark artifacts.
+ *
+ * @throws \RuntimeException
+ */
+function runwireBenchmarkCheckDirectoryComponent(string $current, string $part): void
+{
+    if ($part === '' || $part === '.' || $part === '..') {
+        throw new RuntimeException('Benchmark directory traversal is not permitted.');
+    }
+    if (is_link($current) || (file_exists($current) && !is_dir($current))) {
+        throw new RuntimeException('Benchmark directory has a symlink or non-directory component.');
+    }
+    if (is_dir($current) && !is_writable($current)) {
+        throw new RuntimeException('Benchmark directory contains a nonwritable ancestor.');
+    }
+}
+
+/**
  * Accept a developer-selected directory for new local benchmark artifacts.
  * Validate existing ancestors, reject traversal and symbolic-link redirects.
  * The returned spelling is unchanged to preserve evidence paths.
@@ -87,16 +105,8 @@ function runwireBenchmarkOutputDirectory(string $directory): string
         throw new RuntimeException('Cannot determine benchmark working directory.');
     }
     foreach (explode('/', trim($directory, '/')) as $part) {
-        if ($part === '' || $part === '.' || $part === '..') {
-            throw new RuntimeException('Benchmark directory traversal is not permitted.');
-        }
         $current .= '/' . $part;
-        if (is_link($current) || (file_exists($current) && !is_dir($current))) {
-            throw new RuntimeException('Benchmark directory has a symlink or non-directory component.');
-        }
-        if (is_dir($current) && !is_writable($current)) {
-            throw new RuntimeException('Benchmark directory contains a nonwritable ancestor.');
-        }
+        runwireBenchmarkCheckDirectoryComponent($current, $part);
     }
 
     return $directory;

@@ -39,6 +39,11 @@ spl_autoload_register(static function (string $class) use ($source): void {
     $file = $source . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
         runwireSourceProfileValidateClassFile($source, $class, $file);
+        /** @psalm-taint-escape include */
+        $file = realpath($file);
+        if ($file === false) {
+            throw new RuntimeException('Validated source class is no longer available.');
+        }
         require_once $file;
     }
 });

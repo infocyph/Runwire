@@ -25,7 +25,6 @@ function adaptivePromotionCheckedProtocol(string $protocol): string
     return $protocol;
 }
 
-
 /**
  * @param array<array-key, mixed> $case
  * @throws RuntimeException

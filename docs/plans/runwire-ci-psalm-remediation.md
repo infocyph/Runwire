@@ -1,6 +1,17 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 164 — keep authorized source execution taint-safe
+
+- **PHPForge complexity prevention:** isolate the new adaptive-output directory component/symlink/permission checks in a short separate helper, keeping the main path validator within existing PHPStan and PHPForge complexity limits. No change to the checks or behavior; add only targeted helper extraction.
+
+- Parent `ea7472248f77a08ee1cd783aea110076e253e7a1` (Batch 163), which carries the adaptive output-directory and protocol boundary plus local URL-path escapes. Its exact-head analyzer and strict QA must be checked before submission; the last fully verified snapshot is Batch 162 at **22 Psalm errors** per PHP version and **PHPStan 0**, all four QA PASS.
+- **Remaining dynamic loads:** The HTTP/1 TLS benchmark intentionally loads Composer's autoloader from an operator-selected source checkout. The HPACK/QPACK microprofiles intentionally autoload class files from an operator-selected immutable checkout; the `runwireBenchmarkCheckAutoload()` and `runwireSourceProfileValidateClassFile()` boundaries already check canonical paths, regular files, class-name segments and checkout containment, with stream-wrapper and symlink rejection regression tests. Run an explicit second `realpath()` after the checks to fail closed if a validated autoloader/class disappears, then add narrow **inline `@psalm-taint-escape include` annotations only on those post-validation realpath assignments**. Do not add any blanket source-code exemption or annotate unverified `require` expressions. Three production benchmark PHP files plus tracker, one commit.
+- `UnresolvableInclude` on TLS source selection is independent of taint: Psalm cannot know the contents of an arbitrary other checkout at analysis time. It may legitimately remain even after the three tainted-include findings disappear; do not add an issue suppression, redefine the checkout to the current tree, or silently weaken Psalm. Confirm the exact-head analyzer delta and retain a truthful blocker until the static contract can be modeled without breaking source-comparison semantics.
+- Full PHP 8.4 and 8.5 Psalm/PHPStan, all four strict PHPForge QA, Swoole, hosted/native, HTTP/2+QUIC, benchmarks, Source Audit and Sphinx PENDING. Do not merge or tag.
+
+
+
 ## Batch 163 — validate adaptive-promotion CLI directory and protocol once
 
 - **Verified Batch 162 PHP 8.4 analyzer:** Psalm 22 blocking findings (27 → 22) and PHPStan PASS. Nine `TaintedUrlPath` remain on local-only validated benchmark paths; two `TaintedUrlComponent` remain on signed executor file paths. Add exact `url_path` taint escape to the three local-only benchmark path helpers, plus `url_component` and `url_path` to `guardFilePath()` after authenticated IPC and checked stream wrappers. This models the fact that none can become a network URL; no user-controlled URL routing is authorized.
