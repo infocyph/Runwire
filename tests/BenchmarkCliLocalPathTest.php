@@ -99,3 +99,24 @@ it('verifies a canonical Composer autoload path before executing selected source
         rmdir($root);
     }
 });
+
+
+it('loads a validated source checkout Composer entry point from the CLI boundary', function (): void {
+    $root = sys_get_temp_dir() . '/runwire-autoload-exec-' . bin2hex(random_bytes(5));
+    $vendor = $root . '/vendor';
+    expect(mkdir($root, 0700))->toBeTrue()
+        ->and(mkdir($vendor, 0700))->toBeTrue();
+
+    $name = 'RUNWIRE_AUTOLOAD_' . strtoupper(bin2hex(random_bytes(6)));
+    file_put_contents($vendor . '/autoload.php', '<?php $GLOBALS[' . var_export($name, true) . '] = "loaded";');
+
+    try {
+        runwireBenchmarkLoadSelectedComposer($root);
+        expect($GLOBALS[$name] ?? null)->toBe('loaded');
+    } finally {
+        unset($GLOBALS[$name]);
+        unlink($vendor . '/autoload.php');
+        rmdir($vendor);
+        rmdir($root);
+    }
+});

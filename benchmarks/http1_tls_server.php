@@ -33,12 +33,7 @@ if (!is_file($root . '/vendor/autoload.php') || $port < 1 || $port > 65_535
     || !is_file($certificate) || !is_file($key)) {
     throw new InvalidArgumentException('TLS server needs installed source, a port, certificate and key.');
 }
-/** @psalm-taint-escape include */
-$autoloadPath = realpath($root . '/vendor/autoload.php');
-if ($autoloadPath === false) {
-    throw new RuntimeException('Validated Composer autoloader is no longer available.');
-}
-require $autoloadPath;
+runwireBenchmarkLoadSelectedComposer($root);
 
 $benchmarkBody = http1BenchResponseBody();
 

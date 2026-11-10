@@ -169,3 +169,24 @@ function runwireBenchmarkCheckAutoload(string $root): void
         throw new RuntimeException('Benchmark source must contain its own regular Composer autoloader.');
     }
 }
+
+/**
+ * Load the explicitly authorized benchmark checkout's Composer environment.
+ *
+ * Unlike a web-controlled include, this is an operator-selected source tree
+ * whose canonical Composer entry point was checked before this call.
+ *
+ * @throws \RuntimeException
+ */
+function runwireBenchmarkLoadSelectedComposer(string $root): void
+{
+    runwireBenchmarkCheckAutoload($root);
+
+    /** @psalm-taint-escape include */
+    $autoload = realpath($root . '/vendor/autoload.php');
+    if ($autoload === false) {
+        throw new RuntimeException('Selected Composer autoloader is no longer available.');
+    }
+
+    require $autoload;
+}

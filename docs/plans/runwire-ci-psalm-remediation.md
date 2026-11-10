@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 165 — isolate the intentional dynamic Composer bootstrap
+
+- Parent `b0f5e0b3836672fe8b88f62b0c8eb3af1d70f58d` Batch 164. The only remaining non-taint analyzer contract may be `UnresolvableInclude` on the HTTP/1 TLS benchmark top-level `require` of a **developer-selected external checkout**, which Psalm cannot resolve statically. Do not disable include checking, suppress this issue, or replace the selected checkout with the current build.
+- **Candidate:** Move the deliberately dynamic bootstrap into a small dedicated `runwireBenchmarkLoadSelectedComposer()` operation immediately beside the existing canonical `runwireBenchmarkCheckAutoload()` helper, revalidate at the use site, and include the same selected `vendor/autoload.php` inside that explicit trusted boundary. Keep the original pre-check before TLS option validation and execute bootstrap at the same point as before. Use an approved narrow `include` taint escape only on the post-validation canonical path. Add Pest coverage that checks the loader really executes a selected checkout's Composer entrypoint and cleans up the temporary fixture. Three PHP files + tracker, one commit.
+- This is an ownership/security-boundary refactor, not an exclusion or suppression. Psalm may still correctly report `UnresolvableInclude` for arbitrary developer-supplied code; if so, **retain it as an explicit release blocker**, not a fake zero. Full exact-head PHPStan/Psalm/QA and native/hosted/QUIC/Source Audit/docs verification required; no merge or release.
+
+
+
 ## Batch 164 — keep authorized source execution taint-safe
 
 - **PHPForge complexity prevention:** isolate the new adaptive-output directory component/symlink/permission checks in a short separate helper, keeping the main path validator within existing PHPStan and PHPForge complexity limits. No change to the checks or behavior; add only targeted helper extraction.
