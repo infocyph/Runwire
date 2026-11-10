@@ -1,6 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 153 — prevent microprofile autoload traversal outside source checkout
+
+- Parent `cb7ca30c51ec7c88fa76ec706602bf3316fb40de`, Batch 152. The U08 HPACK/QPACK microprofiles deliberately load PHP classes from a developer-selected source checkout. The existing two autoloaders only check `is_file`, which follows symlinks outside the selected checkout and trusts arbitrary class-name path segments; the 40-character revision label is not an independently verified checkout identity.
+- **Batch 153 implementation:** Introduce a single bounded class-file resolver shared by both source profiles, require valid PHP identifier segments, canonicalize each class file and reject any symlink resolving outside the selected source checkout before running code. Preserve the explicit selected-source operation, input revision label, output JSON schema and benchmark workload. Add regression tests for valid classes, non-Runwire classes, missing classes, traversal strings and outside-checkout symlink attempts. Four PHP files including helper/test plus tracker, one coherent batch.
+- Note: arbitrary developer-selected checkouts are still executable PHP. This is a CLI trust boundary and the two `TaintedInclude` diagnostics may remain until that trust decision can be modeled under approved policy. Do not invent a sanitizer, suppress the scanner, alter the source selection API, or claim a security finding resolved before exact-head analyzer evidence.
+- Exact new SHA both analyzers, four PHPForge QA configurations, Source Audit, hosted/native, HTTP/2, HTTP/3+QUIC, Swoole, benchmarks and Sphinx **PENDING**. PR remains open, draft and unmerged.
+
+
+
 ## Batch 152 — reconcile Batch 151 analyzer and QA regressions
 
 - Parent `66c92fa0f6e78530a95f7b13fc1260d26d15bf03`, Security & Standards `42741931898`: **51 Psalm blocking findings** on PHP 8.4/8.5 (50 original plus `InternalClass` in an HTTP/2 test), **PHPStan 1 error** (`complexity.functionLike` on `guardFilePath()`: measured 14 vs maximum 12), Composer audit PASS. Four strict QA variants fail 2 PHPCS unused-parameter warnings in the new FIFO test; Pest and Pint pass.

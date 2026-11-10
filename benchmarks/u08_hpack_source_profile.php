@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/source_profile_class_file.php';
+
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
@@ -34,12 +36,8 @@ if ($source === false || !is_dir($source)
 }
 
 spl_autoload_register(static function (string $class) use ($source): void {
-    $prefix = 'Infocyph\\Runwire\\';
-    if (!str_starts_with($class, $prefix)) {
-        return;
-    }
-    $file = $source . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
-    if (is_file($file)) {
+    $file = runwireSourceProfileClassFile($source, $class);
+    if ($file !== null) {
         require_once $file;
     }
 });
