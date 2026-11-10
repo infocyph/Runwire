@@ -30,6 +30,33 @@ function runwireControlTestDeadline(float $seconds): int
     return MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), $seconds);
 }
 
+/**
+ * A socket pathname can be published before its listener starts accepting.
+ * Retry the actual connection, not the filesystem existence check.
+ *
+ * @return resource
+ * @throws \RuntimeException
+ */
+function runwireControlTestConnect(string $socket, float $timeoutSeconds = 3.0): mixed
+{
+    $deadline = runwireControlTestDeadline($timeoutSeconds);
+    $errno = 0;
+    $error = '';
+    do {
+        $stream = stream_socket_client('unix://' . $socket, $errno, $error, 0.2);
+        if (is_resource($stream)) {
+            return $stream;
+        }
+        usleep(10_000);
+    } while (MonotonicTime::nowNanoseconds() < $deadline);
+
+    throw new RuntimeException(sprintf(
+        'Unable to connect to control socket: %s (%d).',
+        $error !== '' ? $error : 'unknown error',
+        $errno,
+    ));
+}
+
 it('serves bounded runtime control over a protected unix socket', function (int $publicationDelayMicroseconds): void {
     $pid = getmypid();
     if ($pid === false) {
@@ -51,22 +78,7 @@ it('serves bounded runtime control over a protected unix socket', function (int 
 
     if ($clientPid === 0) {
         $request = static function (array $payload) use ($socket): array {
-            $deadline = microtime(true) + 3.0;
-            $stream = false;
-            do {
-                $errno = 0;
-                $error = '';
-                $stream = stream_socket_client('unix://' . $socket, $errno, $error, 0.2);
-                if (is_resource($stream)) {
-                    break;
-                }
-                usleep(10_000);
-            } while (microtime(true) < $deadline);
-
-            if (!is_resource($stream)) {
-                throw new RuntimeException('Unable to connect to control socket.');
-            }
-
+            $stream = runwireControlTestConnect($socket);
             stream_set_timeout($stream, 2);
             $wire = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
             if (fwrite($stream, $wire) !== strlen($wire)) {
@@ -84,18 +96,7 @@ it('serves bounded runtime control over a protected unix socket', function (int 
         };
 
         try {
-            $deadline = microtime(true) + 3.0;
-            while (!file_exists($socket) && microtime(true) < $deadline) {
-                usleep(5_000);
-            }
-            if (!file_exists($socket)) {
-                throw new RuntimeException('Control socket was not created.');
-            }
-
-            $oversized = stream_socket_client('unix://' . $socket, $errno, $error, 1.0);
-            if (!is_resource($oversized)) {
-                throw new RuntimeException('Unable to connect oversized-request client.');
-            }
+            $oversized = runwireControlTestConnect($socket);
             fwrite($oversized, str_repeat('x', 600) . "\n");
             stream_set_timeout($oversized, 1);
             $oversizedReply = fgets($oversized);
@@ -232,6 +233,58 @@ it('serves bounded runtime control over a protected unix socket', function (int 
         }
     }
 })->with(['immediate publication' => 0, 'delayed publication' => 50_000]);
+
+it('retries a control client when the socket exists before listen readiness', function (): void {
+    $socket = sys_get_temp_dir() . '/runwire-control-not-ready-' . bin2hex(random_bytes(6)) . '.sock';
+    $errno = 0;
+    $error = '';
+    $bound = stream_socket_server('unix://' . $socket, $errno, $error, STREAM_SERVER_BIND);
+    \PHPUnit\Framework\Assert::assertIsResource($bound);
+    expect(file_exists($socket))->toBeTrue();
+
+    $serverPid = pcntl_fork();
+    if ($serverPid === -1) {
+        fclose($bound);
+        unlink($socket);
+        throw new RuntimeException('Unable to fork delayed control listener.');
+    }
+    if ($serverPid === 0) {
+        fclose($bound);
+        usleep(100_000);
+        unlink($socket);
+        $listener = stream_socket_server('unix://' . $socket, $errno, $error);
+        if (!is_resource($listener)) {
+            (Closure::fromCallable('exit'))(1);
+        }
+        $accepted = stream_socket_accept($listener, 2.0);
+        $connected = is_resource($accepted);
+        if ($connected) {
+            fwrite($accepted, "ready\n");
+            fclose($accepted);
+        }
+        fclose($listener);
+        (Closure::fromCallable('exit'))($connected ? 0 : 1);
+    }
+
+    fclose($bound);
+    $client = null;
+    try {
+        $client = runwireControlTestConnect($socket, 2.0);
+        stream_set_timeout($client, 2);
+        expect(fgets($client))->toBe("ready\n");
+    } finally {
+        if (is_resource($client)) {
+            fclose($client);
+        }
+        if (!ChildReaper::waitForUntil($serverPid, runwireControlTestDeadline(3.0))) {
+            posix_kill($serverPid, SIGKILL);
+            ChildReaper::waitForUntil($serverPid, runwireControlTestDeadline(1.0));
+        }
+        if (file_exists($socket)) {
+            unlink($socket);
+        }
+    }
+});
 
 it('rejects unsafe control options', function (): void {
     runwireOwnedControlServerTestCase01();
