@@ -8,6 +8,7 @@ declare(strict_types=1);
  * virtual-file source can cross the read boundary.
  *
  * @throws \RuntimeException
+ * @psalm-taint-specialize
  */
 function runwireBenchmarkReadablePath(string $path): string
 {
@@ -27,6 +28,7 @@ function runwireBenchmarkReadablePath(string $path): string
  * Restrict output to an existing local writable parent without symlink leaves.
  *
  * @throws \RuntimeException
+ * @psalm-taint-specialize
  */
 function runwireBenchmarkOutputPath(string $path): string
 {

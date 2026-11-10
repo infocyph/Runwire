@@ -1,6 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 160 — isolate cross-script taint propagation without erasing taint
+
+- Parent `43bf178368df5fbe811068bd6c2c3792743fc8c8` (Batch 159), exact-head PHP 8.4 and PHP 8.5 both show **46 blocking Psalm findings**: 30 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude and 1 UnresolvableInclude. PHPStan **PASS (0)**, four PHPForge QA variants **PASS**. No ordinary type or exception-contract findings remain.
+- **Identified root cause:** Psalm's taint path for `benchmarks/soak_resource_profile.php:221` traces back to **`benchmarks/adaptive_http3_server.php`'s unrelated CLI `$argv[4]`**, flowing through the globally shared `runwireBenchmarkOutputPath()`. Multiple script entry points are analyzed in the same graph and the helper is impure, so the absence of function specialization causes cross-call taint pollution.
+- **Batch 160:** Add Psalm's documented `@psalm-taint-specialize` to exactly the two shared benchmark local-path validators (`runwireBenchmarkReadablePath` and `runwireBenchmarkOutputPath`). Unlike `@psalm-taint-escape`, this does **not** classify tainted inputs as safe and still reports the path at any call site whose argument is actually tainted; it only prevents unrelated calls from contaminating one another. PHPForge's `SkipDirectiveScanner` lists `@psalm-taint-escape` and `@psalm-assert-untainted` as prohibited, **not** `@psalm-taint-specialize`. Keep all path checks, runtime behavior, exceptions, rules, scanner scope and thresholds unchanged; existing benchmark input/output tests verify the boundary. **One PHP file + tracker, one commit**.
+- Verify both Psalm+PHPStan, four strict PHPForge QA, benchmarks, Source Audit, native/hosted, Swoole, QUIC and docs at the exact new HEAD. If findings remain for genuinely tainted CLI arguments, **do not hide those paths or invent sanitizer proofs**; treat them separately. No merge, no tag.
+
+
+
 ## Batch 159 — refuse symlinked adaptive promotion final output targets
 
 - **Batch 158 exact-head regression:** PHP 8.4/8.5 analyzers each report two new `InvalidReturnStatement` issues and PHPStan reports two `return.void` issues because the newly added source validation Pest callbacks used `fn(): void =>` on a void-returning method; strict QA syntax/Pest fails with the corresponding PHP fatal error. Correct both callbacks to ordinary expression closures in this batch, without altering the trust check or tests. The new final-symlink regression test is likewise declared without an invalid void expression return.
