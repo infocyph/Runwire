@@ -155,6 +155,7 @@ function adaptivePromotionWriteJson(string $path, array $value): void
         throw new RuntimeException('Unable to create adaptive promotion directory: ' . $directory);
     }
 
+    $path = runwireBenchmarkOutputPath($path);
     $temporary = adaptivePromotionTemporaryFile($directory);
 
     try {

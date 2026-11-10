@@ -12,9 +12,13 @@ it('publishes adaptive promotion JSON without following predictable temporary sy
     file_put_contents($outside, 'unchanged');
     $target = $root . '/summary.json';
     $legacy = $target . '.tmp';
+    $linkedTarget = $root . '/linked-target.json';
     expect(symlink($outside, $legacy))->toBeTrue();
+    expect(symlink($outside, $linkedTarget))->toBeTrue();
 
     try {
+        expect(fn() => adaptivePromotionWriteJson($linkedTarget, ['passed' => false]))
+            ->toThrow(RuntimeException::class);
         adaptivePromotionWriteJson($target, ['passed' => true]);
         expect(json_decode((string) file_get_contents($target), true, flags: JSON_THROW_ON_ERROR))
             ->toBe(['passed' => true]);
@@ -26,6 +30,7 @@ it('publishes adaptive promotion JSON without following predictable temporary sy
             ->and(glob($root . '/runwire-promotion-*'))->toBe([]);
     } finally {
         unlink($legacy);
+        unlink($linkedTarget);
         if (is_file($target)) {
             unlink($target);
         }

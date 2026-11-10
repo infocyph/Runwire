@@ -67,10 +67,10 @@ it('verifies a canonical Composer autoload path before executing selected source
 
     try {
         runwireBenchmarkCheckAutoload($root);
-        expect(fn(): void => runwireBenchmarkCheckAutoload($root . '/..'))->toThrow(RuntimeException::class);
+        expect(fn() => runwireBenchmarkCheckAutoload($root . '/..'))->toThrow(RuntimeException::class);
         unlink($autoload);
         expect(symlink($outside, $autoload))->toBeTrue();
-        expect(fn(): void => runwireBenchmarkCheckAutoload($root))->toThrow(RuntimeException::class);
+        expect(fn() => runwireBenchmarkCheckAutoload($root))->toThrow(RuntimeException::class);
     } finally {
         unlink($autoload);
         unlink($outside);

@@ -1,12 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
-## Batch 158 — validate selected TLS source checkout before dynamic loading
+## Batch 159 — refuse symlinked adaptive promotion final output targets
 
-- Parent `e1344fa1c24ac0952ce4f630977795c6e027301d`, Batch 157. The HTTP/1 TLS benchmark accepts a source checkout root by CLI and executes its Composer autoload file. It previously checked only `is_file($root . '/vendor/autoload.php')`, allowing vendor/autoload symlinks to redirect execution to outside code without an explicit checkout containment check.
-- **Batch 158 candidate:** Canonicalize the selected source root; ensure the checkout's Composer autoloader exists as an actual non-symlinked regular file inside its vendor directory; reject noncanonical roots and symlink escapes before preserving the existing deliberate `require $root . '/vendor/autoload.php'`. Put the trust check in the existing benchmark CLI helper and test a valid checkout, a noncanonical root and a malicious symlinked autoload leaf. Three PHP files + tracker, one commit.
-- Do not change the selected-source CLI contract, TLS certificate handling, HTTP/1 benchmark protocols, input port validation, analyzer scope or PHPForge policies. `TaintedInclude` and `UnresolvableInclude` can remain conservatively reported because the source is still explicitly operator-selected; claims of zero require exact-head analyzer evidence, not comments/suppressions.
-- Exact SHA full QA, PHPStan/Psalm, benchmarks, HTTP/2/3, hosted/native, Source Audit and docs **PENDING**. PR draft/open/unmerged; no tag.
+- **Batch 158 exact-head regression:** PHP 8.4/8.5 analyzers each report two new `InvalidReturnStatement` issues and PHPStan reports two `return.void` issues because the newly added source validation Pest callbacks used `fn(): void =>` on a void-returning method; strict QA syntax/Pest fails with the corresponding PHP fatal error. Correct both callbacks to ordinary expression closures in this batch, without altering the trust check or tests. The new final-symlink regression test is likewise declared without an invalid void expression return.
+
+
+- Parent `a7deb8197305c1915581ce8dbcf8555a8bb38d82` (Batch 158 canonical HTTP/1 TLS source verification). The adaptive benchmark's atomic publication uses `rename($temporary, $path)`; POSIX rename does not follow the final symlink, but accepting an attacker-planted output leaf can unexpectedly replace a user-created symbolic link in a directory selected by the CLI.
+- **Batch 159 candidate:** Reuse the existing validated output-path boundary at the final adaptive promotion JSON publication sink after ensuring the destination directory exists. This checks wrapper/NUL/length, writable canonical directory and rejects symlink or non-regular output leaves; preserve its unique temp creation and atomic rename. Expand the atomic-write test to reject a symlinked final destination while verifying normal repeated publication and unchanged off-tree evidence. Two PHP files + tracker, one commit.
+- No new CLI args, PHPForge scope relaxation, Psalm suppression or dependency changes. Exact-head four QA, Psalm/PHPStan, runtime/protocol Source Audit, benchmarks and docs PENDING. PR remains draft/open/unmerged.
 
 
 
