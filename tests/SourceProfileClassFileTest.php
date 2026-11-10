@@ -16,13 +16,14 @@ it('confines source microprofile class loading to its selected checkout', functi
     expect(symlink($outside, $linked))->toBeTrue();
 
     try {
-        expect(runwireSourceProfileClassFile($root, 'Infocyph\\Runwire\\Http\\Http2\\Hpack\\Encoder'))
-            ->toBe($inside);
-        expect(runwireSourceProfileClassFile($root, 'Other\\Namespace\\Encoder'))->toBeNull();
-        expect(runwireSourceProfileClassFile($root, 'Infocyph\\Runwire\\Unknown'))->toBeNull();
-        expect(fn(): ?string => runwireSourceProfileClassFile($root, 'Infocyph\\Runwire\\..\\Secret'))
+        expect(runwireSourceProfileValidateClassFile($root, 'Infocyph\\Runwire\\Http\\Http2\\Hpack\\Encoder', $inside))->toBeTrue();
+        expect(fn(): bool => runwireSourceProfileValidateClassFile($root, 'Other\\Namespace\\Encoder', $inside))
             ->toThrow(InvalidArgumentException::class);
-        expect(fn(): ?string => runwireSourceProfileClassFile($root, 'Infocyph\\Runwire\\Http\\Http2\\Hpack\\Decoder'))
+        expect(fn(): bool => runwireSourceProfileValidateClassFile($root, 'Infocyph\\Runwire\\Unknown', $root . '/Unknown.php'))
+            ->toThrow(RuntimeException::class);
+        expect(fn(): bool => runwireSourceProfileValidateClassFile($root, 'Infocyph\\Runwire\\..\\Secret', $inside))
+            ->toThrow(InvalidArgumentException::class);
+        expect(fn(): bool => runwireSourceProfileValidateClassFile($root, 'Infocyph\\Runwire\\Http\\Http2\\Hpack\\Decoder', $linked))
             ->toThrow(RuntimeException::class);
     } finally {
         unlink($linked);

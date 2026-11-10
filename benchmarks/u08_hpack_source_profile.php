@@ -36,8 +36,13 @@ if ($source === false || !is_dir($source)
 }
 
 spl_autoload_register(static function (string $class) use ($source): void {
-    $file = runwireSourceProfileClassFile($source, $class);
-    if ($file !== null) {
+    $prefix = 'Infocyph\\Runwire\\';
+    if (!str_starts_with($class, $prefix)) {
+        return;
+    }
+    $file = $source . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+    if (is_file($file)) {
+        runwireSourceProfileValidateClassFile($source, $class, $file);
         require_once $file;
     }
 });

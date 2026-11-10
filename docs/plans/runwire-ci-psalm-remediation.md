@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 154 — correct microprofile analyzer contracts without dropping validation
+
+- Parent `c51c73d6fe5ad975954d78b7056111b4cedcb5a2`, Security & Standards `42743567907`, PHP 8.4 analyzer `129590399341`: Psalm **54 blocking findings** (50 existing plus 2 new `UnresolvableInclude` and 2 return-specificity errors in Batch 153), PHPStan PASS. The new source resolver introduced these 4 diagnostic regressions by returning the include path through an opaque helper; this does not improve class-path safety over an explicit pre-execution guard.
+- **Batch 154 corrective implementation:** Keep the historic source-relative `require_once $file` construction in both U08 benchmark autoloaders so analyzers can inspect the intended CLI include; call a shared, test-backed `runwireSourceProfileValidateClassFile()` immediately before the require to prohibit malformed class segments, unexpected class-to-file mapping and out-of-source symlinks. Use a boolean-true-on-success validation contract instead of an inaccurate `non-empty-string` return annotation. Adapt regression tests for valid classes, missing classes, unrelated namespaces, traversal and outside-source symlinks. Four PHP files (two scripts, validator, test) plus tracker; one corrective commit.
+- Preserve existing profile output schema, source selection and checksums. No taint escapes, CLI removals, suppressions or detector changes. Exact new HEAD all analyzers, PHPForge QA, Swoole, QUIC, benchmarks, hosted/native, Source Audit and Sphinx **PENDING**. The independently planned fixed-duration sample waits follow after this corrective batch. PR remains draft/open/unmerged.
+
+
+
 ## Batch 153 — prevent microprofile autoload traversal outside source checkout
 
 - Parent `cb7ca30c51ec7c88fa76ec706602bf3316fb40de`, Batch 152. The U08 HPACK/QPACK microprofiles deliberately load PHP classes from a developer-selected source checkout. The existing two autoloaders only check `is_file`, which follows symlinks outside the selected checkout and trusts arbitrary class-name path segments; the 40-character revision label is not an independently verified checkout identity.
