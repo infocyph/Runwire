@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 167 — restore Composer Normalize without altering scoped security permissions
+
+- Parent `b94d94b3a1b8f1d8ec24f5b09ac6100578b4749e`, Batch 166, Security & Standards `42772630823`: PHPForge Skip Directive Scanner **PASS** with the new 15 exact rules; Pest, Pint, PHPCS, syntax, reference integrity, duplicate detection, Deptrac, Rector and comment policy **PASS**. PHP 8.4 QA stable and lowest fail solely **Composer Normalize** because the new policy object keys are not in required normalized order. The two Psalm/PHPStan analyzer jobs were still running when this correction was prepared.
+- **Batch 167:** Reorder only the keys of the 15 `extra.phpforge.skipper_policy.rules` objects to the Composer Normalize order (`directive`, `issue` where present, `paths`, `reason`, `security` for sanitizers, `taint` where present). Verify that the parsed rules are semantically identical before submission. No code, reviewed sanitizer hashes, issue permissions, workflow inputs, dependencies, scan thresholds or security behavior change.
+- Re-run exact-head Composer Normalize, four PHPForge QA variants, Psalm/PHPStan PHP 8.4/8.5, QUIC, hosted/native/Swoole, Source Audit, docs and benchmark jobs. Do not declare release-ready until the same SHA passes. PR stays open/draft/unmerged.
+
+
+
 ## Batch 166 — adopt PHPForge's default-deny path-scoped skipper policy and resolve intentional dynamic Composer include
 
 - Parent `d53b90d12a4f7262cfc9d9ed602eb206b8238602`, Batch 165. Exact-head Security & Standards `42766064418`: Psalm PHP 8.4 and 8.5 each have **one `UnresolvableInclude`** at `benchmarks/cli_local_paths.php:191`. PHPStan **PASS (zero errors)** and four strict PHPForge QA configurations **PASS**. Source Audit, Sphinx, hosted, native, Swoole, HTTP/2, clean install and both benchmark jobs pass; PHP 8.5 QUIC was still running at the first inspection.

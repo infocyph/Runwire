@@ -80,11 +80,10 @@
                 "default": "deny",
                 "rules": [
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/cli_local_paths.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "file",
                         "reason": "Reviewed bounded local evidence and validated Composer checkout boundaries, covered by CLI path and bootstrap regression tests.",
                         "security": {
                             "sanitizer": "benchmarks/cli_local_paths.php",
@@ -92,14 +91,14 @@
                             "tests": [
                                 "tests/BenchmarkCliLocalPathTest.php"
                             ]
-                        }
+                        },
+                        "taint": "file"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/cli_local_paths.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "ssrf",
                         "reason": "Reviewed bounded local evidence and validated Composer checkout boundaries, covered by CLI path and bootstrap regression tests.",
                         "security": {
                             "sanitizer": "benchmarks/cli_local_paths.php",
@@ -107,14 +106,14 @@
                             "tests": [
                                 "tests/BenchmarkCliLocalPathTest.php"
                             ]
-                        }
+                        },
+                        "taint": "ssrf"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/cli_local_paths.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "url_component",
                         "reason": "Reviewed bounded local evidence and validated Composer checkout boundaries, covered by CLI path and bootstrap regression tests.",
                         "security": {
                             "sanitizer": "benchmarks/cli_local_paths.php",
@@ -122,14 +121,14 @@
                             "tests": [
                                 "tests/BenchmarkCliLocalPathTest.php"
                             ]
-                        }
+                        },
+                        "taint": "url_component"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/cli_local_paths.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "url_path",
                         "reason": "Reviewed bounded local evidence and validated Composer checkout boundaries, covered by CLI path and bootstrap regression tests.",
                         "security": {
                             "sanitizer": "benchmarks/cli_local_paths.php",
@@ -137,14 +136,14 @@
                             "tests": [
                                 "tests/BenchmarkCliLocalPathTest.php"
                             ]
-                        }
+                        },
+                        "taint": "url_path"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/cli_local_paths.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "include",
                         "reason": "Reviewed bounded local evidence and validated Composer checkout boundaries, covered by CLI path and bootstrap regression tests.",
                         "security": {
                             "sanitizer": "benchmarks/cli_local_paths.php",
@@ -152,14 +151,14 @@
                             "tests": [
                                 "tests/BenchmarkCliLocalPathTest.php"
                             ]
-                        }
+                        },
+                        "taint": "include"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/adaptive_promotion_matrix.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "file",
                         "reason": "Reviewed allowlisted benchmark protocol and authorized local artifact directory with symlink-resistant atomic publication.",
                         "security": {
                             "sanitizer": "benchmarks/adaptive_promotion_matrix.php",
@@ -167,14 +166,14 @@
                             "tests": [
                                 "tests/AdaptivePromotionAtomicWriteTest.php"
                             ]
-                        }
+                        },
+                        "taint": "file"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/adaptive_promotion_matrix.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "ssrf",
                         "reason": "Reviewed allowlisted benchmark protocol and authorized local artifact directory with symlink-resistant atomic publication.",
                         "security": {
                             "sanitizer": "benchmarks/adaptive_promotion_matrix.php",
@@ -182,14 +181,14 @@
                             "tests": [
                                 "tests/AdaptivePromotionAtomicWriteTest.php"
                             ]
-                        }
+                        },
+                        "taint": "ssrf"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/adaptive_promotion_matrix.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "url_component",
                         "reason": "Reviewed allowlisted benchmark protocol and authorized local artifact directory with symlink-resistant atomic publication.",
                         "security": {
                             "sanitizer": "benchmarks/adaptive_promotion_matrix.php",
@@ -197,14 +196,14 @@
                             "tests": [
                                 "tests/AdaptivePromotionAtomicWriteTest.php"
                             ]
-                        }
+                        },
+                        "taint": "url_component"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/u08_hpack_source_profile.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "include",
                         "reason": "Reviewed canonical checkout class-name and source-file containment before explicit HPACK profile loading.",
                         "security": {
                             "sanitizer": "benchmarks/u08_hpack_source_profile.php",
@@ -212,14 +211,14 @@
                             "tests": [
                                 "tests/SourceProfileClassFileTest.php"
                             ]
-                        }
+                        },
+                        "taint": "include"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "benchmarks/u08_qpack_source_profile.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "include",
                         "reason": "Reviewed canonical checkout class-name and source-file containment before explicit QPACK profile loading.",
                         "security": {
                             "sanitizer": "benchmarks/u08_qpack_source_profile.php",
@@ -227,14 +226,14 @@
                             "tests": [
                                 "tests/SourceProfileClassFileTest.php"
                             ]
-                        }
+                        },
+                        "taint": "include"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "tools/executor-worker.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "file",
                         "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
                         "security": {
                             "sanitizer": "tools/executor-worker.php",
@@ -243,14 +242,14 @@
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
                             ]
-                        }
+                        },
+                        "taint": "file"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "tools/executor-worker.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "ssrf",
                         "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
                         "security": {
                             "sanitizer": "tools/executor-worker.php",
@@ -259,14 +258,14 @@
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
                             ]
-                        }
+                        },
+                        "taint": "ssrf"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "tools/executor-worker.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "url_component",
                         "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
                         "security": {
                             "sanitizer": "tools/executor-worker.php",
@@ -275,14 +274,14 @@
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
                             ]
-                        }
+                        },
+                        "taint": "url_component"
                     },
                     {
+                        "directive": "@psalm-taint-escape",
                         "paths": [
                             "tools/executor-worker.php"
                         ],
-                        "directive": "@psalm-taint-escape",
-                        "taint": "url_path",
                         "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
                         "security": {
                             "sanitizer": "tools/executor-worker.php",
@@ -291,14 +290,15 @@
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
                             ]
-                        }
+                        },
+                        "taint": "url_path"
                     },
                     {
+                        "directive": "@psalm-suppress",
+                        "issue": "UnresolvableInclude",
                         "paths": [
                             "benchmarks/cli_local_paths.php"
                         ],
-                        "directive": "@psalm-suppress",
-                        "issue": "UnresolvableInclude",
                         "reason": "Intentional developer-selected Composer checkout; validated canonical autoload entrypoint cannot be statically resolved by Psalm and must remain dynamically loaded."
                     }
                 ]
