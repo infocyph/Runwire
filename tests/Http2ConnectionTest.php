@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 
-use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
@@ -369,7 +368,7 @@ function runwireOwnedHttp2ConnectionTestCase09(): void
         }
     }
 
-    expect($scheduler->adaptiveState())->toBe(AdaptiveLoadState::THROUGHPUT)
+    expect($scheduler->adaptiveState()->value)->toBe('throughput')
         ->and($http2->activeStreams())->toBe(32)
         ->and($ended)->toBe(3);
 }

@@ -26,16 +26,20 @@ it('rejects symlinked output paths and unbounded benchmark sampling delays', fun
     $target = $directory . '/target.json';
     $link = $directory . '/linked.json';
     file_put_contents($target, '{}');
+    $fifo = $directory . '/named-pipe';
+    \PHPUnit\Framework\Assert::assertTrue(posix_mkfifo($fifo, 0600));
     \PHPUnit\Framework\Assert::assertTrue(symlink($target, $link));
     try {
         expect(runwireBenchmarkOutputPath($directory . '/report.json'))->toBe($directory . '/report.json');
         expect(fn(): string => runwireBenchmarkOutputPath($link))->toThrow(RuntimeException::class);
         expect(fn(): string => runwireBenchmarkOutputPath($directory))->toThrow(RuntimeException::class);
+        expect(fn(): string => runwireBenchmarkOutputPath($fifo))->toThrow(RuntimeException::class);
         expect(fn(): string => runwireBenchmarkOutputPath('php://memory'))->toThrow(RuntimeException::class);
         expect(runwireBenchmarkSampleInterval(1))->toBe(1)
             ->and(runwireBenchmarkSampleInterval(60))->toBe(60);
         expect(fn(): int => runwireBenchmarkSampleInterval(61))->toThrow(InvalidArgumentException::class);
     } finally {
+        unlink($fifo);
         unlink($link);
         unlink($target);
         rmdir($directory);

@@ -24,6 +24,7 @@ it('refuses FIFO data operations in the actual off-loop executor before opening 
             $fifo,
             16,
             static function (string $bytes, ?Throwable $error) use (&$errors): void {
+                expect($bytes)->toBe('');
                 $errors['read'] = $error;
             },
             deadline: $deadline,
@@ -32,6 +33,7 @@ it('refuses FIFO data operations in the actual off-loop executor before opening 
             $fifo,
             'data',
             static function (int $written, ?Throwable $error) use (&$errors): void {
+                expect($written)->toBe(0);
                 $errors['write'] = $error;
             },
             deadline: $deadline,

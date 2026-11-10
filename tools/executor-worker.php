@@ -54,12 +54,7 @@ function guardFilePath(array $args, string $name): string
         || str_contains($path, "\0") || str_contains($path, '://')) {
         throw new InvalidArgumentException('Invalid executor filesystem path or stream wrapper.');
     }
-    // Bounded reads and writes must never block on a FIFO, socket or device.
-    // Metadata and unlink operations retain their existing file-kind behavior.
-    if ($name === 'path' && (isset($args['length']) || isset($args['data']))
-        && file_exists($path) && !is_file($path)) {
-        throw new RuntimeException('Executor bounded file operations require a regular file.');
-    }
+    guardFileDataKind($args, $name, $path);
     $root = $args['root'] ?? null;
     if ($root === null) {
         return $path;
@@ -85,6 +80,24 @@ function guardFilePath(array $args, string $name): string
     guardFilePathPermissions($args, $name, $path, $parent);
 
     return $path;
+}
+
+/**
+ * Refuse special-file I/O before opening potentially blocking FIFOs or devices.
+ * Metadata and unlink operations retain existing file-kind semantics.
+ *
+ * @param array<mixed> $args
+ * @throws \RuntimeException
+ */
+function guardFileDataKind(array $args, string $name, string $path): void
+{
+    if ($name !== 'path' || (!isset($args['length']) && !isset($args['data']))) {
+        return;
+    }
+
+    if (file_exists($path) && !is_file($path)) {
+        throw new RuntimeException('Executor bounded file operations require a regular file.');
+    }
 }
 
 /**

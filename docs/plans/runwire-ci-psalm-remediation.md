@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 152 — reconcile Batch 151 analyzer and QA regressions
+
+- Parent `66c92fa0f6e78530a95f7b13fc1260d26d15bf03`, Security & Standards `42741931898`: **51 Psalm blocking findings** on PHP 8.4/8.5 (50 original plus `InternalClass` in an HTTP/2 test), **PHPStan 1 error** (`complexity.functionLike` on `guardFilePath()`: measured 14 vs maximum 12), Composer audit PASS. Four strict QA variants fail 2 PHPCS unused-parameter warnings in the new FIFO test; Pest and Pint pass.
+- **Batch 152 submitted:** Extract the special-file check into a small helper to restore worker path-guard complexity without changing semantics. Assert HTTP/2 state via its public string scalar rather than a direct reference to an `@internal` enum constant. Add FIFO callback value assertions and named FIFO output-path coverage in the two tests. Four actual PHP files + tracker, one batch commit.
+- Preserve existing HMAC authentication, restricted-root behavior, asynchronous deadline handling and all published API contracts. No taint escapes, scanner ignores, custom analyzers or PHPForge policy changes. Exact new SHA strict QA and both static analyzers **PENDING**; full native, Swoole, HTTP/2, QUIC, benchmarks, Source Audit, docs and hosted checks also required. PR remains draft/open/unmerged.
+
+
+
 ## Batch 151 — reject special filesystem sinks before blocking I/O
 
 - Parent `4a8663eecb0c8a4a01765630ace34a1bcee210c9`, PR #13 Security & Standards `42687104253`: **50 blocking Psalm findings** on PHP 8.4 and PHP 8.5 (32 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 2 TaintedSleep, 1 UnresolvableInclude); **PHPStan zero errors**. Four strict PHPForge QA configs, both HTTP/3+QUIC, benchmarks, Source Audit, hosted/native, Swoole, documentation and release-candidate jobs PASS. No ordinary type/exception analyzer errors remain.
