@@ -9,6 +9,24 @@ const ADAPTIVE_PROMOTION_PROTOCOLS = ['http1', 'h2', 'h3'];
 const ADAPTIVE_PROMOTION_PHASES = ['low_before', 'medium', 'transition_up', 'high', 'transition_down', 'low_after'];
 
 /**
+ * The only protocol values accepted by the developer CLI.
+ *
+ * @throws \InvalidArgumentException
+ * @psalm-taint-escape file
+ * @psalm-taint-escape ssrf
+ * @psalm-taint-escape url_component
+ */
+function adaptivePromotionCheckedProtocol(string $protocol): string
+{
+    if (!in_array($protocol, ADAPTIVE_PROMOTION_PROTOCOLS, true)) {
+        throw new InvalidArgumentException('--protocol must be http1, h2 or h3.');
+    }
+
+    return $protocol;
+}
+
+
+/**
  * @param array<array-key, mixed> $case
  * @throws RuntimeException
  */
@@ -925,6 +943,7 @@ function adaptivePromotionRunTrial(
  * @param list<string> $argv
  * @return array{action:string,protocol:string,output:string,cases:list<string>,seconds:float,warmup:float,diagnostic:bool,resume:bool}
  * @throws \InvalidArgumentException
+ * @throws \RuntimeException
  */
 function adaptivePromotionArguments(array $argv): array
 {
@@ -962,9 +981,7 @@ function adaptivePromotionArguments(array $argv): array
             throw new InvalidArgumentException('Unknown adaptive promotion option: ' . $argument);
         }
     }
-    if (!in_array($options['protocol'], ADAPTIVE_PROMOTION_PROTOCOLS, true)) {
-        throw new InvalidArgumentException('--protocol must be http1, h2 or h3.');
-    }
+    $options['protocol'] = adaptivePromotionCheckedProtocol($options['protocol']);
 
     return $options;
 }
@@ -1152,7 +1169,7 @@ function adaptivePromotionMain(array $argv): int
         return 0;
     }
 
-    $output = rtrim($options['output'], '/');
+    $output = runwireBenchmarkOutputDirectory(rtrim($options['output'], '/'));
     $environmentPath = $output . '/' . $options['protocol'] . '-environment.json';
     if ($options['action'] === 'evaluate') {
         $report = adaptivePromotionEvaluate(

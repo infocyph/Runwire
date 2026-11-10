@@ -13,6 +13,7 @@ declare(strict_types=1);
  * @psalm-taint-escape file
  * @psalm-taint-escape ssrf
  * @psalm-taint-escape url_component
+ * @psalm-taint-escape url_path
  */
 function runwireBenchmarkReadablePath(string $path): string
 {
@@ -37,6 +38,7 @@ function runwireBenchmarkReadablePath(string $path): string
  * @psalm-taint-escape file
  * @psalm-taint-escape ssrf
  * @psalm-taint-escape url_component
+ * @psalm-taint-escape url_path
  */
 function runwireBenchmarkOutputPath(string $path): string
 {
@@ -60,6 +62,44 @@ function runwireBenchmarkOutputPath(string $path): string
     }
 
     return $resolved;
+}
+
+/**
+ * Accept a developer-selected directory for new local benchmark artifacts.
+ * Validate existing ancestors, reject traversal and symbolic-link redirects.
+ * The returned spelling is unchanged to preserve evidence paths.
+ *
+ * @throws \RuntimeException
+ * @psalm-taint-escape file
+ * @psalm-taint-escape ssrf
+ * @psalm-taint-escape url_component
+ * @psalm-taint-escape url_path
+ */
+function runwireBenchmarkOutputDirectory(string $directory): string
+{
+    if ($directory === '' || strlen($directory) > 4096 || str_contains($directory, "\0")
+        || str_contains($directory, '://')) {
+        throw new RuntimeException('Benchmark directory must be a local path.');
+    }
+
+    $current = str_starts_with($directory, '/') ? '' : getcwd();
+    if (!is_string($current)) {
+        throw new RuntimeException('Cannot determine benchmark working directory.');
+    }
+    foreach (explode('/', trim($directory, '/')) as $part) {
+        if ($part === '' || $part === '.' || $part === '..') {
+            throw new RuntimeException('Benchmark directory traversal is not permitted.');
+        }
+        $current .= '/' . $part;
+        if (is_link($current) || (file_exists($current) && !is_dir($current))) {
+            throw new RuntimeException('Benchmark directory has a symlink or non-directory component.');
+        }
+        if (is_dir($current) && !is_writable($current)) {
+            throw new RuntimeException('Benchmark directory contains a nonwritable ancestor.');
+        }
+    }
+
+    return $directory;
 }
 
 /**

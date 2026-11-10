@@ -47,6 +47,27 @@ it('rejects symlinked output paths and unbounded benchmark sampling delays', fun
 });
 
 
+it('validates CLI output directories while preserving intended local paths', function (): void {
+    $root = sys_get_temp_dir() . '/runwire-dir-validation-' . bin2hex(random_bytes(5));
+    expect(mkdir($root, 0700))->toBeTrue();
+    $linked = $root . '/link';
+    expect(symlink(sys_get_temp_dir(), $linked))->toBeTrue();
+    try {
+        expect(runwireBenchmarkOutputDirectory($root . '/nested/new'))->toBe($root . '/nested/new');
+        expect(fn(): string => runwireBenchmarkOutputDirectory($root . '/../escape'))
+            ->toThrow(RuntimeException::class);
+        expect(fn(): string => runwireBenchmarkOutputDirectory($linked . '/file'))
+            ->toThrow(RuntimeException::class);
+        expect(fn(): string => runwireBenchmarkOutputDirectory('phar://unsafe.phar'))
+            ->toThrow(RuntimeException::class);
+        expect(fn(): string => runwireBenchmarkOutputDirectory($root . '/./duplicate'))
+            ->toThrow(RuntimeException::class);
+    } finally {
+        unlink($linked);
+        rmdir($root);
+    }
+});
+
 it('uses a bounded one-second sampling sleep and refuses unbounded intervals', function (): void {
     expect(fn(): bool => runwireBenchmarkSleepInterval(0))->toThrow(InvalidArgumentException::class);
     expect(fn(): bool => runwireBenchmarkSleepInterval(61))->toThrow(InvalidArgumentException::class);

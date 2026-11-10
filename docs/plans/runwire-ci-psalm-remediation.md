@@ -1,6 +1,18 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 163 — validate adaptive-promotion CLI directory and protocol once
+
+- **Verified Batch 162 PHP 8.4 analyzer:** Psalm 22 blocking findings (27 → 22) and PHPStan PASS. Nine `TaintedUrlPath` remain on local-only validated benchmark paths; two `TaintedUrlComponent` remain on signed executor file paths. Add exact `url_path` taint escape to the three local-only benchmark path helpers, plus `url_component` and `url_path` to `guardFilePath()` after authenticated IPC and checked stream wrappers. This models the fact that none can become a network URL; no user-controlled URL routing is authorized.
+
+
+- Parent `2d9d03334e5321951a6a1a2d4206479678d6e1fb` (Batch 162): previous fully verified checkpoint Batch 161 has **27 blocking Psalm findings** on PHP 8.4 and PHP 8.5, PHPStan 0, four strict QA configurations PASS. Exact Batch 162 analyzer delta must be read before submitting Batch 163.
+- **Adaptive output authority:** the promotion runner intentionally accepts `--output` as an operator-selected local evidence directory, and `--protocol` from the fixed `http1|h2|h3` allowlist. Prior implementation validated protocol via `in_array()` but propagated the tainted CLI argument into directory creation, temp file reservation, error logs and case artifacts.
+- **Batch 163:** Add a single CLI-only `runwireBenchmarkOutputDirectory()` validator enforcing bounded/nonempty paths, rejecting URI wrappers/NUL and traversal, and inspecting existing path components to reject symbolic links, non-directories and unwritable ancestors without changing the caller's relative/absolute spelling. Restrict the protocol through `adaptivePromotionCheckedProtocol()` using the existing same allowlist. Apply exact reviewed `@psalm-taint-escape file`, `ssrf` and `url_component` to only these two validated outputs; retain regular taint for all other inputs. Add regression coverage of valid nested directories and refused wrappers, traversal and symlink ancestors. Three PHP files + tracker, one batch.
+- Preserve existing CSV/JSON evidence schemas, operational timing, server protocols, subprocess command structure and CLI argument options. No weakened Psalm, PHPStan, PHPForge checks, test assertions or baseline. Exact-head four strict QA, both analyzer versions, benchmarks, Swoole, QUIC, native/hosted, docs and Source Audit PENDING. PR remains draft/unmerged.
+
+
+
 ## Batch 162 — identify authorized executor IPC local file paths
 
 - **Batch 162 addition:** The two local-only benchmark path helpers also escape only `url_component`, since validated existing local paths cannot become URL path/query/fragment injections. This addresses nine new URL-component reports exposed when SSRF and file taints were removed from those validated paths, without classifying remote URLs as safe.
