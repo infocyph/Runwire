@@ -137,6 +137,7 @@ function adaptivePromotionTemporaryFile(string $directory): string
         if (is_string($temporary) && is_file($temporary)) {
             unlink($temporary);
         }
+
         throw new RuntimeException('Unable to reserve a local adaptive promotion temporary file.');
     }
 

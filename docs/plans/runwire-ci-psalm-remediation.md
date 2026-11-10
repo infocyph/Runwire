@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 157 — exact-head Pint correction without weakening coverage
+
+- Parent `972e42f21d5e1b80c0729736eb338b63a1cbe36d`, Security & Standards `42745624371` PHP 8.4 / PHP 8.5 analysis both **46 Psalm findings**, **PHPStan PASS (0)**, Composer audit PASS. Breakdown: 30 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 1 UnresolvableInclude. Batch 156 reduced 48 → 46 while adding unique atomic evidence writes and their regression test. Source Audit, docs, hosted/native, Swoole, HTTP/2/3+QUIC, benchmarks, release candidate PASS on parent.
+- **Regression:** all four PHPForge QA configurations fail *only* Pint `blank_line_before_statement` in `benchmarks/adaptive_promotion_matrix.php`, inside the temporary-file reservation failure branch. Pest, PHPCS, Rector, Deptrac, source/reference/syntax, duplicate and skip checks PASS.
+- **Batch 157 submitted:** Correct the single blank line before the throw, preserving security hardening, test assertions and exact code behavior. One PHP file plus this tracker, one commit; do not pad 100. Recheck four PHPForge QA, Psalm/PHPStan, Source Audit and runtime/protocol checks on exact new SHA. No suppressions, exclusions, baseline changes, merge, tag or release.
+
+
+
 ## Batch 156 — secure atomic publication of adaptive promotion JSON
 
 - Parent `f5a7cc00d5d43b2f16224336719d34f07bc6ef2c`, Batch 155. The adaptive benchmark writer previously writes to the **predictable** `$path . '.tmp'` before `rename()`, allowing another process with writable directory access to plant a symlink or collide with parallel runs. This is a concrete write-target vulnerability independent of Psalm's conservative CLI path taint.
