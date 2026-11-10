@@ -122,7 +122,7 @@ it('rejects stream-wrapper filesystem paths before worker dispatch', function ()
     $filesystem = new AsyncFileSystem($executor);
 
     try {
-        foreach (['php://memory', 'data://text/plain,secret', 'http://127.0.0.1/secret'] as $path) {
+        foreach (['php://memory', 'data://text/plain,secret', 'http://127.0.0.1/secret', 'phar://archive.phar/config', 'compress.zlib://php://memory'] as $path) {
             expect(fn(): int => $filesystem->read($path, 16, static function (): void {}))
                 ->toThrow(InvalidArgumentException::class);
             expect(fn(): int => $filesystem->write($path, 'data', static function (): void {}))

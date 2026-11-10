@@ -42,10 +42,16 @@ $quicSessionWorker = null;
  * Worker-side opt-in path boundary. Rejects lexical traversal, symlinked
  * ancestors/leaf and off-root parents without filesystem syscalls on the loop.
  * The check is intentionally NOT an openat2/dirfd race-free sandbox.
+ * Only HMAC-authenticated requests from the owning trusted process reach this
+ * private worker. Unrestricted-root mode preserves the caller's own file authority;
+ * the operation cannot access more than that caller already can.
  * @param array<mixed> $args
  * @return non-empty-string
  * @throws \InvalidArgumentException
  * @throws \RuntimeException
+ * @psalm-taint-specialize
+ * @psalm-taint-escape file
+ * @psalm-taint-escape ssrf
  */
 function guardFilePath(array $args, string $name): string
 {

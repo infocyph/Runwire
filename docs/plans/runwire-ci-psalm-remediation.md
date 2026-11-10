@@ -1,6 +1,17 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 162 — identify authorized executor IPC local file paths
+
+- **Batch 162 addition:** The two local-only benchmark path helpers also escape only `url_component`, since validated existing local paths cannot become URL path/query/fragment injections. This addresses nine new URL-component reports exposed when SSRF and file taints were removed from those validated paths, without classifying remote URLs as safe.
+
+
+- Parent `0d20148ffdd8b0109a26aa04dc853453b0a9798c` (Batch 161) introduces reviewed `file` / `ssrf` sanitizers solely on the benchmark CLI path validators. Batch 161 exact-head PHP 8.4 and 8.5 analyzers both report **27 blocking Psalm findings** (9 TaintedUrlComponent, 11 TaintedFile, 3 TaintedSSRF, 3 TaintedInclude, 1 UnresolvableInclude), **PHPStan 0**, and all four PHPForge QA variants PASS.
+- **Batch 162:** `tools/executor-worker.php` is a private HMAC-authenticated subprocess started by the owning Runwire process; an unauthenticated STDIN message cannot reach its operation switch. Its `guardFilePath()` rejects missing/oversized paths, NUL, URI wrappers, and when `root` is enabled, noncanonical root, traversal, symlinks, off-root parents and inappropriate read/write permissions; special-file I/O is also refused for bounded reads/writes. The rootless path mode intentionally exposes only the same local-file authority as its owning process. Model this **specific verified trusted-parent boundary** with `@psalm-taint-escape file` and `@psalm-taint-escape ssrf` on `guardFilePath()` plus per-call specialization, not on raw STDIN/JSON or other workers. Existing async file security tests verify off-root, symlink and wrapper rejection; broaden wrapper regression to `phar://` and `compress.zlib://`. **Two PHP files + tracker, one commit.**
+- The sanitizer records the process authorization model; it does NOT imply a race-free filesystem sandbox and must not weaken the optional root policy or IPC HMAC. No analyzer suppression, baseline or scope change, no new runtime complexity or dependencies. Verify both Psalm/PHPStan versions, all four PHPForge QA, benchmarks, Source Audit and protocol/native/hosted lanes on exact SHA before claiming a reduction. PR remains open/draft/unmerged.
+
+
+
 ## Batch 161 — reviewed benchmark path sanitizers (file and SSRF)
 
 - Parent `d98dec5eaf0214ca5ad600872b4589a7127532c1` includes the approved reusable PHPForge `skipper_allowed_directives: '["@psalm-taint-escape"]'` setting. This CI setting allows precise reviewed taint sanitizers while all other skip directives remain blocked; PHPStan, Psalm and four PHPForge QA variants remain required.

@@ -12,6 +12,7 @@ declare(strict_types=1);
  * @psalm-taint-specialize
  * @psalm-taint-escape file
  * @psalm-taint-escape ssrf
+ * @psalm-taint-escape url_component
  */
 function runwireBenchmarkReadablePath(string $path): string
 {
@@ -35,6 +36,7 @@ function runwireBenchmarkReadablePath(string $path): string
  * @psalm-taint-specialize
  * @psalm-taint-escape file
  * @psalm-taint-escape ssrf
+ * @psalm-taint-escape url_component
  */
 function runwireBenchmarkOutputPath(string $path): string
 {
