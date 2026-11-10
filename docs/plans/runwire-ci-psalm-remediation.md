@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 155 — bound uninterruptible soak sampling to one-second slices
+
+- Parent `1038d607acae69106fdd053305236a1c1ceaefc0`, Batch 154. Last fully verified PHP 8.4/8.5 analyzer baseline prior to source-profile changes was **50 Psalm findings and 0 PHPStan errors**; Batch 153 had four newly induced Psalm diagnostics and Batch 154 corrects their cause, with its exact-head checks still pending at preparation. Do not assume Batch 154 is green before reading those logs.
+- **Batch 155 candidate:** Keep the existing CLI sampler interval contract (1–60 seconds), but replace its single `time_nanosleep($interval, 0)` call in the two soak profilers with a shared helper issuing at most 60 fixed one-second nanosleeps. Respect signal-interrupted early return, preserve existing failure messages and all evidence output. Unlike a caller-controlled long blocking operation, each underlying syscall is bounded to one second. Regression test rejects 0/61 and checks one-second success. **Four actual PHP files + tracker** in one commit.
+- This is a runtime responsiveness and upper-bound hardening change, **not** a taint annotation/suppression or analyzer configuration change. The two `TaintedSleep` findings are considered eliminated only if exact-head Psalm confirms that. Full PHPForge QA, Psalm/PHPStan, native/hosted, QUIC, Swoole, benchmarks, Source Audit, docs **PENDING**. No merge or tag.
+
+
+
 ## Batch 154 — correct microprofile analyzer contracts without dropping validation
 
 - Parent `c51c73d6fe5ad975954d78b7056111b4cedcb5a2`, Security & Standards `42743567907`, PHP 8.4 analyzer `129590399341`: Psalm **54 blocking findings** (50 existing plus 2 new `UnresolvableInclude` and 2 return-specificity errors in Batch 153), PHPStan PASS. The new source resolver introduced these 4 diagnostic regressions by returning the include path through an opaque helper; this does not improve class-path safety over an explicit pre-execution guard.

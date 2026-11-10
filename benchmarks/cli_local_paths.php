@@ -65,3 +65,28 @@ function runwireBenchmarkSampleInterval(int $interval): int
 
     return $interval;
 }
+
+/**
+ * Sleep for a bounded sample interval in one-second chunks.
+ *
+ * A subprocess interrupted by a signal can resume its loop promptly instead
+ * of committing to a single potentially long blocking system call.
+ *
+ * @throws \InvalidArgumentException
+ */
+function runwireBenchmarkSleepInterval(int $interval): bool
+{
+    $interval = runwireBenchmarkSampleInterval($interval);
+    while ($interval > 0) {
+        $result = time_nanosleep(1, 0);
+        if ($result === false) {
+            return false;
+        }
+        if (is_array($result)) {
+            return true;
+        }
+        --$interval;
+    }
+
+    return true;
+}

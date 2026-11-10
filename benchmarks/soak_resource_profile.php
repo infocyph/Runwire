@@ -244,7 +244,7 @@ function soakSampleProcess(int $pid, string $path, int $interval): void
             fflush($output);
             ++$total;
             // External observer only: do not suspend a Runwire worker or event loop.
-            if (time_nanosleep($interval, 0) === false) {
+            if (!runwireBenchmarkSleepInterval($interval)) {
                 throw new RuntimeException('Resource sample interval could not be observed.');
             }
         }

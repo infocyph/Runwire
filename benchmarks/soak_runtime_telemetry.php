@@ -216,7 +216,7 @@ function soakSampleRuntimeHttp(int $port, int $rootPid, string $path, int $inter
             $snapshot['elapsed_seconds'] = round((hrtime(true) - $start) / 1_000_000_000, 3);
             fwrite($file, json_encode($snapshot, JSON_THROW_ON_ERROR) . "\n");
             fflush($file);
-            if (time_nanosleep($interval, 0) === false) {
+            if (!runwireBenchmarkSleepInterval($interval)) {
                 throw new RuntimeException('Internal telemetry sample interval could not be observed.');
             }
         }

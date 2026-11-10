@@ -45,3 +45,10 @@ it('rejects symlinked output paths and unbounded benchmark sampling delays', fun
         rmdir($directory);
     }
 });
+
+
+it('uses a bounded one-second sampling sleep and refuses unbounded intervals', function (): void {
+    expect(fn(): bool => runwireBenchmarkSleepInterval(0))->toThrow(InvalidArgumentException::class);
+    expect(fn(): bool => runwireBenchmarkSleepInterval(61))->toThrow(InvalidArgumentException::class);
+    expect(runwireBenchmarkSleepInterval(1))->toBeTrue();
+});
