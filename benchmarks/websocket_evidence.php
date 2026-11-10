@@ -474,7 +474,8 @@ function wsLatencies(mixed $value): array
  */
 function wsWorkerResult(mixed $value): array
 {
-    if (!is_array($value) || !is_string($value['error_sample'] ?? null)) {
+    $errorSample = is_array($value) ? ($value['error_sample'] ?? null) : null;
+    if (!is_array($value) || !is_string($errorSample)) {
         throw new WebSocketEvidenceProtocolFailure('Worker returned an incomplete evidence object.');
     }
     $result = [
@@ -485,7 +486,7 @@ function wsWorkerResult(mixed $value): array
         'timeouts' => wsCounter($value, 'timeouts'),
         'validation_failures' => wsCounter($value, 'validation_failures'),
         'latencies' => wsLatencies($value['latencies'] ?? null),
-        'error_sample' => $value['error_sample'],
+        'error_sample' => $errorSample;
     ];
     if ($result['successful_messages'] > $result['messages']
         || count($result['latencies']) !== $result['successful_messages']) {

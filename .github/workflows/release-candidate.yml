@@ -53,13 +53,13 @@ jobs:
           taskset -c "$(jq -r '.server_cpu' build/release-cpu-affinity.json)" true
           taskset -c "$(jq -r '.client_cpu' build/release-cpu-affinity.json)" true
 
-      - name: Capture reproducible 2.1.2 benchmark runner topology
+      - name: Capture reproducible published 3.0 benchmark runner topology
         shell: bash
         run: |
           set -euo pipefail
           python3 benchmarks/release_topology_inventory.py > build/release-topology-inventory.json
           jq -e '.schema == "runwire-comparator-topology-v1"
-            and .published_baseline == "7e9bf20ad0737a187dfed77b723791b141b36378"
+            and .published_baseline == "054737bc6a8d4025a8d05fabb8ad390f66ee47ae"
             and .candidate_source == env.GITHUB_SHA
             and .experiment.paired_trials == 5
             and .experiment.trial_seconds == 180

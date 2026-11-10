@@ -440,8 +440,8 @@ function adaptivePromotionValidateRecord(array $record, array $case, string $mod
         throw new RuntimeException('Trial is missing identity, correct responses or mandatory phases.');
     }
 
-    foreach ($phases as $name => $value) {
-        $phase = adaptiveMatrixPhase($value, $name);
+    foreach (ADAPTIVE_PROMOTION_PHASES as $name) {
+        $phase = adaptiveMatrixPhase($phases[$name], $name);
         $target = match ($name) {
             'medium' => $case['medium'],
             'high', 'transition_up' => $case['high'],
@@ -516,7 +516,8 @@ function adaptivePromotionTransitionFailures(string $name, array $fixed): array
 {
     $failures = [];
     foreach (['transition_up', 'transition_down'] as $phase) {
-        $delta = is_array($fixed[$phase] ?? null) ? $fixed[$phase] : [];
+        $candidate = $fixed[$phase] ?? null;
+        $delta = is_array($candidate) ? $candidate : [];
         if (adaptivePromotionDelta($delta['throughput_ratio'] ?? null, 0.0) < 0.99
             || adaptivePromotionDelta($delta['p95_absolute_delta_ms'] ?? null, INF) > 0.1
             || adaptivePromotionDelta($delta['p99_absolute_delta_ms'] ?? null, INF) > 0.1) {
@@ -535,7 +536,8 @@ function adaptivePromotionMaterialGains(string $name, array $fixed): array
 {
     $gains = [];
     foreach (['low_before', 'medium', 'high', 'low_after'] as $phase) {
-        $delta = is_array($fixed[$phase] ?? null) ? $fixed[$phase] : [];
+        $candidate = $fixed[$phase] ?? null;
+        $delta = is_array($candidate) ? $candidate : [];
         $ratio = adaptivePromotionDelta($delta['throughput_ratio'] ?? null, 0.0);
         $noise = adaptivePromotionDelta($delta['combined_rps_cv_percent'] ?? null, INF) * 2.0;
         if ($ratio >= 1.05 && ($ratio - 1.0) * 100.0 > $noise) {
@@ -553,7 +555,8 @@ function adaptivePromotionEvaluateCase(string $name, mixed $result): array
         return ['failures' => [$name . ': missing or invalid trial evidence'], 'gains' => []];
     }
     $failures = [];
-    $comparisons = is_array($result['comparisons'] ?? null) ? $result['comparisons'] : [];
+    $comparisonData = $result['comparisons'] ?? null;
+    $comparisons = is_array($comparisonData) ? $comparisonData : [];
     foreach (array_slice(ADAPTIVE_PROMOTION_MODES, 0, 3) as $baseline) {
         $comparison = $comparisons[$baseline] ?? null;
         if (!is_array($comparison)
@@ -1106,11 +1109,13 @@ function adaptivePromotionRunSelected(string $output, array $selected, array $id
 function adaptivePromotionSavedIdentity(string $path): array
 {
     $identity = adaptivePromotionLoadJson($path);
-    if (!is_string($identity['build'] ?? null) || !is_string($identity['environment_id'] ?? null)) {
+    $build = $identity['build'] ?? null;
+    $environmentId = $identity['environment_id'] ?? null;
+    if (!is_string($build) || !is_string($environmentId)) {
         throw new RuntimeException('Adaptive promotion environment identity is malformed.');
     }
 
-    return ['build' => $identity['build'], 'environment_id' => $identity['environment_id']];
+    return ['build' => $build, 'environment_id' => $environmentId];
 }
 
 /**

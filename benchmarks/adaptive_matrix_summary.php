@@ -333,6 +333,12 @@ if (realpath($argv[0] ?? '') === __FILE__) {
     if (!isset($argc, $argv)) {
         throw new \RuntimeException('CLI arguments are unavailable.');
     }
-    $records = array_map(adaptiveMatrixLoad(...), array_slice($argv, 1));
+    $records = [];
+    foreach (array_slice($argv, 1) as $path) {
+        if (!is_string($path)) {
+            throw new RuntimeException('Adaptive matrix evidence path must be a string.');
+        }
+        $records[] = adaptiveMatrixLoad($path);
+    }
     fwrite(STDOUT, json_encode(adaptiveMatrixSummarize($records), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
 }

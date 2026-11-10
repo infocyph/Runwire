@@ -44,7 +44,8 @@ function adaptiveCompareIdentity(array $auto, array $fixed, string $baselineMode
     if (!in_array($baselineMode, ['fixed', 'latency', 'throughput'], true)) {
         throw new RuntimeException('Invalid adaptive comparison baseline mode.');
     }
-    if (!is_string($auto['protocol'] ?? null) || $auto['protocol'] !== ($fixed['protocol'] ?? null)) {
+    $protocol = $auto['protocol'] ?? null;
+    if (!is_string($protocol) || $protocol !== ($fixed['protocol'] ?? null)) {
         throw new RuntimeException('Adaptive comparison protocol mismatch.');
     }
     if (($auto['mode'] ?? null) !== 'auto' || ($fixed['mode'] ?? null) !== $baselineMode) {
@@ -54,7 +55,7 @@ function adaptiveCompareIdentity(array $auto, array $fixed, string $baselineMode
         throw new RuntimeException('Adaptive comparison requires correct summaries.');
     }
 
-    return $auto['protocol'];
+    return $protocol;
 }
 
 /**
