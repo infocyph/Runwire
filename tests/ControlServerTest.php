@@ -35,6 +35,8 @@ function runwireControlTestDeadline(float $seconds): int
  * Retry the actual connection, not the filesystem existence check.
  *
  * @return resource
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
  * @throws \RuntimeException
  */
 function runwireControlTestConnect(string $socket, float $timeoutSeconds = 3.0): mixed
@@ -257,8 +259,9 @@ it('retries a control client when the socket exists before listen readiness', fu
             (Closure::fromCallable('exit'))(1);
         }
         $accepted = stream_socket_accept($listener, 2.0);
-        $connected = is_resource($accepted);
-        if ($connected) {
+        $connected = false;
+        if (is_resource($accepted)) {
+            $connected = true;
             fwrite($accepted, "ready\n");
             fclose($accepted);
         }
