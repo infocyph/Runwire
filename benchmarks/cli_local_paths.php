@@ -6,9 +6,12 @@ declare(strict_types=1);
  * Accept only an existing regular local CLI evidence file. This intentionally
  * permits an operator-selected source, but no stream-wrapper network or
  * virtual-file source can cross the read boundary.
+ * The local source is deliberately selected by an authorized CLI operator.
  *
  * @throws \RuntimeException
  * @psalm-taint-specialize
+ * @psalm-taint-escape file
+ * @psalm-taint-escape ssrf
  */
 function runwireBenchmarkReadablePath(string $path): string
 {
@@ -25,10 +28,13 @@ function runwireBenchmarkReadablePath(string $path): string
 }
 
 /**
- * Restrict output to an existing local writable parent without symlink leaves.
+ * Restrict a developer-selected output to a writable local regular-file path,
+ * without following symlinks or allowing network stream wrappers.
  *
  * @throws \RuntimeException
  * @psalm-taint-specialize
+ * @psalm-taint-escape file
+ * @psalm-taint-escape ssrf
  */
 function runwireBenchmarkOutputPath(string $path): string
 {

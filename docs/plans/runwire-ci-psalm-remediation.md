@@ -1,6 +1,15 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 161 — reviewed benchmark path sanitizers (file and SSRF)
+
+- Parent `d98dec5eaf0214ca5ad600872b4589a7127532c1` includes the approved reusable PHPForge `skipper_allowed_directives: '["@psalm-taint-escape"]'` setting. This CI setting allows precise reviewed taint sanitizers while all other skip directives remain blocked; PHPStan, Psalm and four PHPForge QA variants remain required.
+- **Verified parent:** Batch 160 `d436d7a` had 46 Psalm errors on both PHP 8.4 and PHP 8.5 (30 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude, 1 UnresolvableInclude), PHPStan PASS and all four strict QA variants PASS; specialization alone did not change tainted CLI paths.
+- **Batch 161:** Add exact `@psalm-taint-escape file` and `@psalm-taint-escape ssrf` to `runwireBenchmarkReadablePath()` and `runwireBenchmarkOutputPath()` **only**. Each is a developer-operated CLI boundary, not a route from an untrusted HTTP request. Existing real guards reject stream wrappers, NUL, invalid/non-regular read sources, unavailable/unwritable output parents, symlink output leaves and output device/FIFO paths, while permitting deliberate local operator file choices. Test-backed with `BenchmarkCliLocalPathTest.php`, `AsyncFileSpecialFileSafetyTest.php` and the existing CLI/runtime fixtures. This declares checked input authorization; no blanket taint escape on dynamic PHP inclusion or authenticated worker IPC.
+- Preserve all runtime code, performance, filenames, test assertions and existing PHPForge policy. **One PHP file + tracker, one commit**, no arbitrary padding. Exact new SHA Psalm/PHPStan on PHP 8.4/8.5, all four strict QA, native/QUIC/HTTP2, Swoole, Source Audit, benchmarks and docs PENDING. No merge or tag.
+
+
+
 ## Batch 160 — isolate cross-script taint propagation without erasing taint
 
 - Parent `43bf178368df5fbe811068bd6c2c3792743fc8c8` (Batch 159), exact-head PHP 8.4 and PHP 8.5 both show **46 blocking Psalm findings**: 30 TaintedFile, 12 TaintedSSRF, 3 TaintedInclude and 1 UnresolvableInclude. PHPStan **PASS (0)**, four PHPForge QA variants **PASS**. No ordinary type or exception-contract findings remain.
