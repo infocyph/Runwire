@@ -1,6 +1,16 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 166 — adopt PHPForge's default-deny path-scoped skipper policy and resolve intentional dynamic Composer include
+
+- Parent `d53b90d12a4f7262cfc9d9ed602eb206b8238602`, Batch 165. Exact-head Security & Standards `42766064418`: Psalm PHP 8.4 and 8.5 each have **one `UnresolvableInclude`** at `benchmarks/cli_local_paths.php:191`. PHPStan **PASS (zero errors)** and four strict PHPForge QA configurations **PASS**. Source Audit, Sphinx, hosted, native, Swoole, HTTP/2, clean install and both benchmark jobs pass; PHP 8.5 QUIC was still running at the first inspection.
+- PHPForge `main` has replaced global `skipper_allowed_directives` with exact, default-deny `skipper_policy` rules. Each sanitization rule requires a specific file, taint type, matching source SHA-256 and separate security regression test path. The previous reusable workflow input is deprecated and must be removed. The policy lives in `composer.json > extra.phpforge.skipper_policy` and is discovered automatically by the current PHPForge workflow.
+- **Batch 166:** Reconcile only the five preexisting reviewed taint-sanitizer files, with SHA-256 attestations and their existing tests, using the new policy. Explicitly authorize **one** `@psalm-suppress UnresolvableInclude` in `benchmarks/cli_local_paths.php`, directly before the intentionally dynamic `require $autoload`. Existing code validates canonical checkout path, non-symlinked regular Composer entrypoint, rechecks at use, and has an execution test. This is a *known, intentional dynamic include which Psalm cannot resolve statically*, not a newly untrusted load. All other suppressed issue types, paths and execution skips remain prohibited; no issue baseline, scan reduction or disabled Psalm include analysis.
+- **Three changed files**: `benchmarks/cli_local_paths.php`, `composer.json`, and `.github/workflows/security-standards.yml`, plus tracker. One coherent commit under the 100-file batch ceiling. No framework/runtime/protocol behavior or dependency version changes.
+- **Release gate:** Run Psalm and PHPStan PHP 8.4/8.5, PHPForge QA four variants (including new skipper checks), benchmarks, native/hosted, HTTP/2/QUIC, Source Audit, docs, and release candidate on the **same final SHA**. Zero analyzer findings is not certified until exact-head CI. Keep PR draft, open and unmerged; no tag or release.
+
+
+
 ## Batch 165 — isolate the intentional dynamic Composer bootstrap
 
 - Parent `b0f5e0b3836672fe8b88f62b0c8eb3af1d70f58d` Batch 164. The only remaining non-taint analyzer contract may be `UnresolvableInclude` on the HTTP/1 TLS benchmark top-level `require` of a **developer-selected external checkout**, which Psalm cannot resolve statically. Do not disable include checking, suppress this issue, or replace the selected checkout with the current build.

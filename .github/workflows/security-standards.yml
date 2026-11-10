@@ -23,8 +23,7 @@ jobs:
       contents: read
     with:
       php_versions: '["8.4","8.5"]'
-      # Allow reviewed Psalm sanitizers; other skip directives remain blocked.
-      skipper_allowed_directives: '["@psalm-taint-escape"]'
+      # Exact per-file skip exceptions and sanitizer evidence are audited in composer.json.
       # PHPForge defaults to a 300-second per-tool limit. Runwire's full
       # integration-heavy Pest suite may exceed that on the slowest QA lane.
       # Keep a finite 15-minute limit; genuine deadlocks still fail the job.

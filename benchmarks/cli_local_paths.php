@@ -188,5 +188,6 @@ function runwireBenchmarkLoadSelectedComposer(string $root): void
         throw new RuntimeException('Selected Composer autoloader is no longer available.');
     }
 
+    /** @psalm-suppress UnresolvableInclude */
     require $autoload;
 }
