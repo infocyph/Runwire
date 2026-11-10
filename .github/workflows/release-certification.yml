@@ -89,7 +89,7 @@ jobs:
           }
           printf 'Frozen 3.0 candidate: %s\n' "$actual"
 
-      - name: Checkout published 2.1.2 baseline at immutable SHA
+      - name: Checkout published 3.0 baseline at immutable SHA
         uses: actions/checkout@v7
         with:
           ref: ${{ env.BASELINE_SHA }}
@@ -257,7 +257,7 @@ jobs:
             sleep 0.02
           done
 
-          export RUNWIRE_RUNTIME_VERSION="3.0.0-candidate"
+          export RUNWIRE_RUNTIME_VERSION="3.0.x-candidate"
           export RUNWIRE_RUNTIME_BUILD="$RUNWIRE_CANDIDATE_BUILD"
           export RUNWIRE_PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
           export RUNWIRE_INSTRUMENTATION="release-certification-soak"
