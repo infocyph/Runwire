@@ -8,7 +8,7 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
 it('wakes the worker control flow when stop is requested', function (): void {
-    [$readyParent, $readyChild] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$readyParent, $readyChild] = runwireWorkerContextTestSocketPair();
     $context = new WorkerContext('test', 0, 1, posix_getpid(), posix_getppid(), $readyChild);
     $stop = $context->stopStream();
 
@@ -28,7 +28,7 @@ it('wakes the worker control flow when stop is requested', function (): void {
 });
 
 it('requests a planned stop when the logical request recycle budget is reached', function (): void {
-    [$readyParent, $readyChild] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$readyParent, $readyChild] = runwireWorkerContextTestSocketPair();
     $context = new WorkerContext(
         'test',
         0,
@@ -57,7 +57,7 @@ it('requests a planned stop when the logical request recycle budget is reached',
 
 
 it('observes supervisor stop control through the attached worker loop', function (): void {
-    [$readyParent, $readyChild] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$readyParent, $readyChild] = runwireWorkerContextTestSocketPair();
     $context = new WorkerContext('test', 0, 1, posix_getpid(), posix_getppid(), $readyChild);
     $loop = new SelectLoop();
     $context->attachLoop($loop);
@@ -84,7 +84,10 @@ it('observes supervisor stop control through the attached worker loop', function
 
 it('coalesces sustained worker request activity without saturating the lifecycle channel', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    if (!isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
     [$readyParent, $readyChild] = $pair;
     stream_set_blocking($readyParent, false);
     $context = new WorkerContext('high-rps', 0, 1, posix_getpid(), posix_getppid(), $readyChild);
@@ -127,7 +130,10 @@ it('coalesces sustained worker request activity without saturating the lifecycle
 
 it('retains immediate busy and idle state when a worker has no attached loop', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    if (!isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
     [$parent, $child] = $pair;
     $context = new WorkerContext('without-loop', 0, 1, posix_getpid(), posix_getppid(), $child);
 
@@ -141,3 +147,17 @@ it('retains immediate busy and idle state when a worker has no attached loop', f
         fclose($parent);
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireWorkerContextTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if (!isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

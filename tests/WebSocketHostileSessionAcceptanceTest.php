@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
@@ -10,7 +12,16 @@ use Infocyph\Runwire\WebSocket\WebSocketMessage;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
 
+
 it('isolates simultaneous fragmented, invalid-control, oversized and cancelled WebSocket sessions', function (): void {
+    runwireOwnedWebSocketHostileSessionAcceptanceTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketHostileSessionAcceptanceTestCase01(): void
+{
     $loop = new SelectLoop();
     $options = new WebSocketOptions(
         maxFramePayloadBytes: 64,
@@ -31,7 +42,7 @@ it('isolates simultaneous fragmented, invalid-control, oversized and cancelled W
 
     try {
         for ($index = 0; $index < $count; ++$index) {
-            [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+            [$socket, $peer] = runwireWebSocketHostileSessionAcceptanceTestSocketPair();
             stream_set_blocking($peer, false);
             $budget = new ByteBudget(256);
             $connection = new Connection($loop, $socket, bufferBudget: $budget);
@@ -73,16 +84,8 @@ it('isolates simultaneous fragmented, invalid-control, oversized and cancelled W
         foreach ($sessions as $index => $session) {
             $mode = $index % 4;
             $response = stream_get_contents($peers[$index]);
-            if ($mode === 0) {
-                expect($delivered[$index])->toBeTrue()
-                    ->and($response)->toContain(WebSocketWireCodec::frame(0xA, 'hb'));
-            } elseif ($mode === 1) {
-                expect($response)->toContain(WebSocketWireCodec::frame(0x8, pack('n', 1002) . 'WebSocket control frames must be final and at most 125 bytes.'));
-            } elseif ($mode === 2) {
-                expect($response)->toContain(WebSocketWireCodec::frame(0x8, pack('n', 1009) . 'Fragmented WebSocket message exceeds the configured ceiling.'));
-            } else {
-                expect($delivered)->not->toHaveKey($index);
-            }
+            \PHPUnit\Framework\Assert::assertIsString($response);
+            runwireHostileWebSocketReply($mode, $index, $delivered, $response);
             expect($budgets[$index]->used())->toBeLessThanOrEqual(256);
             $sockets[$index]->abort();
             expect($session->isClosed())->toBeTrue()
@@ -104,4 +107,36 @@ it('isolates simultaneous fragmented, invalid-control, oversized and cancelled W
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
-});
+}
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireWebSocketHostileSessionAcceptanceTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}
+
+/**
+ * @param array<int,bool> $delivered
+ * @throws \Throwable
+ */
+function runwireHostileWebSocketReply(int $mode, int $index, array $delivered, string $response): void
+{
+    if ($mode === 0) {
+        expect($delivered[$index])->toBeTrue()
+            ->and($response)->toContain(WebSocketWireCodec::frame(0xA, 'hb'));
+    } elseif ($mode === 1) {
+        expect($response)->toContain(WebSocketWireCodec::frame(0x8, pack('n', 1002) . 'WebSocket control frames must be final and at most 125 bytes.'));
+    } elseif ($mode === 2) {
+        expect($response)->toContain(WebSocketWireCodec::frame(0x8, pack('n', 1009) . 'Fragmented WebSocket message exceeds the configured ceiling.'));
+    } else {
+        expect($delivered)->not->toHaveKey($index);
+    }
+}

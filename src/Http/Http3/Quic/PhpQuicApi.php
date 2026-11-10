@@ -38,6 +38,8 @@ final class PhpQuicApi
 
     /**
      * Return the native accept-connection event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function acceptConnectionEvent(): int
     {
@@ -46,6 +48,8 @@ final class PhpQuicApi
 
     /**
      * Return the accept-connection mask including errors.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function acceptConnectionEvents(): int
     {
@@ -54,6 +58,8 @@ final class PhpQuicApi
 
     /**
      * Return the native accept-stream event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function acceptStreamEvent(): int
     {
@@ -62,6 +68,8 @@ final class PhpQuicApi
 
     /**
      * Return the accept-stream mask including errors.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function acceptStreamEvents(): int
     {
@@ -70,6 +78,7 @@ final class PhpQuicApi
 
     /**
      * Assert that the required ext-quic runtime surface is available.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function assertAvailable(): void
     {
@@ -89,13 +98,12 @@ final class PhpQuicApi
             return false;
         }
         foreach (self::REQUIRED_CLASS_NAMES as $name) {
-            if (!class_exists(self::className($name))) {
+            $class = self::className($name);
+            if (!class_exists($class)) {
                 return false;
             }
-        }
-        foreach (self::REQUIRED_METHODS as $name => $methods) {
-            foreach ($methods as $method) {
-                if (!method_exists(self::className($name), $method)) {
+            foreach (self::REQUIRED_METHODS[$name] ?? [] as $method) {
+                if (!method_exists($class, $method)) {
                     return false;
                 }
             }
@@ -106,6 +114,8 @@ final class PhpQuicApi
 
     /**
      * Return the native QUIC error event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function errorEvent(): int
     {
@@ -115,6 +125,9 @@ final class PhpQuicApi
     /**
      * @param array<int|string, array{0: object, 1: int}> $items
      * @return array<int|string, int>
+     * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function poll(array $items, ?float $timeoutSeconds = null): array
     {
@@ -141,6 +154,8 @@ final class PhpQuicApi
 
     /**
      * Return the native readable event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function readEvent(): int
     {
@@ -149,6 +164,8 @@ final class PhpQuicApi
 
     /**
      * Return the readable event mask including errors.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function readEvents(): int
     {
@@ -157,6 +174,8 @@ final class PhpQuicApi
 
     /**
      * Return the native writable event mask.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function writeEvent(): int
     {
@@ -165,6 +184,8 @@ final class PhpQuicApi
 
     /**
      * Return the writable event mask including errors.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
      */
     public static function writeEvents(): int
     {
@@ -176,6 +197,10 @@ final class PhpQuicApi
         return self::extensionNamespace() . '\\' . $name;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
+     */
     private static function event(string $name): int
     {
         $constant = self::symbol($name);
@@ -201,6 +226,9 @@ final class PhpQuicApi
         return implode('', ['Qu', 'ic']);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function pollCallback(): Closure
     {
         $poll = self::pollFunction();

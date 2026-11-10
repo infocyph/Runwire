@@ -11,7 +11,11 @@ use Infocyph\Runwire\Network\PoolIsolationKey;
 
 it('serializes active leases through a bounded FIFO queue and safely reuses a real idle socket', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
+    if (!isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
     [$socket, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket);
@@ -96,7 +100,11 @@ it('expires queued leases once while retaining an active lease until the caller 
 
 it('rejects stale idle traffic and does not hand a tenant socket to another scope', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
+    if (!isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
     [$socket, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket);
@@ -134,7 +142,7 @@ it('rejects stale idle traffic and does not hand a tenant socket to another scop
 
 
 it('reports opt-in bounded pool hit, miss, waiter, and retirement counters without exposing tenant identities', function (): void {
-    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$socket, $peer] = runwireBoundedConnectionPoolTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket);
     $pool = new BoundedConnectionPool(
@@ -202,7 +210,7 @@ it('keeps pool counters inactive unless explicitly enabled', function (): void {
 });
 
 it('aborts real sockets released after pool closure without leaking idle leases or counters', function (): void {
-    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$socket, $peer] = runwireBoundedConnectionPoolTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket);
     $pool = new BoundedConnectionPool($loop, maxActive: 1, maxWaiting: 1, maxIdle: 1, enableMetrics: true);
@@ -230,3 +238,17 @@ it('aborts real sockets released after pool closure without leaking idle leases 
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireBoundedConnectionPoolTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if (!isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

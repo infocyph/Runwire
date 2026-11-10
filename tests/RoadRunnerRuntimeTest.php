@@ -19,6 +19,10 @@ use Infocyph\Runwire\Runtime\RuntimeSelector;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * @throws \OverflowException
+ * @throws \InvalidArgumentException
+ */
 function roadRunnerRuntimeRequest(string $target): HttpRequest
 {
     return new HttpRequest(
@@ -79,15 +83,15 @@ it('normalizes RoadRunner host requests into the common HTTP contract', function
     };
 
     $request = new RoadRunnerSession($worker, $httpWorker)->waitRequest(1_024);
+    \PHPUnit\Framework\Assert::assertNotNull($request);
 
-    expect($request)->not->toBeNull()
-        ->and($request?->method)->toBe('POST')
-        ->and($request?->target)->toBe('/rr?q=1')
-        ->and($request?->version)->toBe(ProtocolVersion::HTTP_3)
-        ->and($request?->headers->all('x-trace-id'))->toBe(['one', 'two'])
-        ->and($request?->body->read())->toBe('{"ok":true}')
-        ->and($request?->peerAddress)->toBe('203.0.113.7:44321')
-        ->and($request?->encrypted)->toBeTrue();
+    expect($request->method)->toBe('POST')
+        ->and($request->target)->toBe('/rr?q=1')
+        ->and($request->version)->toBe(ProtocolVersion::HTTP_3)
+        ->and($request->headers->all('x-trace-id'))->toBe(['one', 'two'])
+        ->and($request->body->read())->toBe('{"ok":true}')
+        ->and($request->peerAddress)->toBe('203.0.113.7:44321')
+        ->and($request->encrypted)->toBeTrue();
 });
 
 it('streams RoadRunner response frames and recycles after the generic request budget', function (): void {
@@ -104,6 +108,10 @@ it('streams RoadRunner response frames and recycles after the generic request bu
 
         private bool $stopped = false;
 
+        /**
+         * @throws \OverflowException
+         * @throws \InvalidArgumentException
+         */
         public function __construct()
         {
             $this->requests = [
@@ -113,6 +121,7 @@ it('streams RoadRunner response frames and recycles after the generic request bu
             ];
         }
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void
         {
             $this->responses[] = [
@@ -123,12 +132,17 @@ it('streams RoadRunner response frames and recycles after the generic request bu
             ];
         }
 
+        #[\Override]
         public function stop(): void
         {
             $this->stopped = true;
             ++$this->stops;
         }
 
+        /**
+         * @throws \RuntimeException
+         */
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             if ($maxRequestBodyBytes < 1) {
@@ -190,6 +204,7 @@ it('suppresses RoadRunner HEAD response body frames', function (): void {
         /** @var list<array{status: int, body: string, headers: array<string, list<string>>, end: bool}> */
         public array $responses = [];
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void
         {
             $this->responses[] = [
@@ -200,8 +215,13 @@ it('suppresses RoadRunner HEAD response body frames', function (): void {
             ];
         }
 
+        #[\Override]
         public function stop(): void {}
 
+        /**
+         * @throws \RuntimeException
+         */
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             if ($maxRequestBodyBytes < 1) {
@@ -248,15 +268,19 @@ it('reports RoadRunner host protocols without claiming Runwire wire ownership', 
 
 it('enforces declared Content-Length in RoadRunner response writers', function (): void {
     $session = new class implements RoadRunnerSessionInterface {
+        /** @var list<array{int,string,array<string,list<string>>,bool}> */
         public array $responses = [];
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void
         {
             $this->responses[] = [$status, $body, $headers, $endOfStream];
         }
 
+        #[\Override]
         public function stop(): void {}
 
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             unset($maxRequestBodyBytes);

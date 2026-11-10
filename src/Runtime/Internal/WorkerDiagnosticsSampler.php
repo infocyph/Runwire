@@ -24,6 +24,8 @@ final class WorkerDiagnosticsSampler
 
     /**
      * Creates a diagnostics sampler using the configured report interval.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function __construct(
         private readonly WorkerContext $context,

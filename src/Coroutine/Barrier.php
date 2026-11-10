@@ -27,6 +27,7 @@ final class Barrier
      * Creates a reusable coroutine barrier for the configured number of parties.
      *
      * @internal
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly FiberScheduler $scheduler,
@@ -54,7 +55,14 @@ final class Barrier
         return $this->parties;
     }
 
-    /** Waits for all parties and returns the completed generation number. */
+    /**
+     * Waits for all parties and returns the completed generation number.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\BarrierBrokenException
+     * @throws \Throwable
+     * @throws \Infocyph\Runwire\Coroutine\Exception\SynchronizationException
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     */
     public function wait(): int
     {
         $cancellation = $this->scheduler->currentCancellation();
@@ -102,6 +110,9 @@ final class Barrier
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function breakGeneration(int $generation): void
     {
         if ($this->generation !== $generation) {
@@ -120,6 +131,9 @@ final class Barrier
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function completeGeneration(int $generation): void
     {
         $waiters = $this->waiters;

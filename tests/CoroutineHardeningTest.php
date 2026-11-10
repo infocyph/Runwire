@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+
 
 it('cleans child cancellation ownership when task admission is rejected', function (): void {
     $runtime = new CoroutineRuntime(policy: new CoroutinePolicy(maxTasks: 1, maxReadyBacklog: 1));
@@ -16,7 +19,7 @@ it('cleans child cancellation ownership when task admission is rejected', functi
         for ($attempt = 0; $attempt < 128; ++$attempt) {
             try {
                 $scope->spawn(static function (): void {});
-                test()->fail('Expected child task admission to be rejected.');
+                \PHPUnit\Framework\Assert::fail('Expected child task admission to be rejected.');
             } catch (CoroutineOverflowException) {
                 // The root task consumes the only task slot; rejected child sources must be disposed.
             }
@@ -65,7 +68,7 @@ it('settles suspended task cancellation and concurrent future completion only on
                 $task->cancel(CancellationReason::HOST_CANCELLED);
             }
 
-            expect(fn() => $task->await())->toThrow(\Infocyph\Runwire\Exception\CancelledException::class)
+            expect(fn() : mixed => $task->await())->toThrow(\Infocyph\Runwire\Exception\CancelledException::class)
                 ->and($future->result())->toBe($i)
                 ->and(fn() => $deferred->resolve(-1))->toThrow(
                     \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException::class,
@@ -134,10 +137,13 @@ it('enforces one channel waiter per primitive without leaking the accepted suspe
         $child = $scope->spawn(static fn(): mixed => $channel->receive());
         $scope->yieldNow();
 
-        expect(fn() => $channel->receive())->toThrow(CoroutineOverflowException::class);
+        expect(fn() : mixed => $channel->receive())->toThrow(CoroutineOverflowException::class);
         $channel->send('accepted');
 
-        return $child->await();
+        $result = $child->await();
+        \PHPUnit\Framework\Assert::assertIsString($result);
+
+        return $result;
     });
 
     expect($result)->toBe('accepted')

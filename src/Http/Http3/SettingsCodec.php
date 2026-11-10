@@ -22,6 +22,8 @@ final class SettingsCodec
 
     /**
      * Decode a SETTINGS payload and reject duplicate or reserved identifiers.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public static function decode(string $payload): Settings
     {
@@ -53,6 +55,7 @@ final class SettingsCodec
 
     /**
      * Encode validated HTTP/3 SETTINGS values.
+     * @throws \InvalidArgumentException
      */
     public static function encode(Settings $settings): string
     {

@@ -21,7 +21,7 @@ final class SignalBridge
 
     private bool $previousAsyncSignals = false;
 
-    /** @var array<int, callable|int> */
+    /** @var array<int, callable|int|string> */
     private array $previousHandlers = [];
 
     /** @var resource|null */
@@ -39,6 +39,7 @@ final class SignalBridge
 
     /**
      * Restore prior signal handlers and release wake-channel resources.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function close(): void
     {
@@ -56,6 +57,7 @@ final class SignalBridge
 
     /**
      * Reset inherited supervisor signal state inside a forked child process.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function normalizeChild(): void
     {
@@ -77,6 +79,7 @@ final class SignalBridge
      * Install signal handlers and start delivering pending signal batches.
      *
      * @param callable(list<int>): void $consumer
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function open(callable $consumer): void
     {
@@ -87,16 +90,17 @@ final class SignalBridge
 
     private function closeStreams(): void
     {
-        if (is_resource($this->read)) {
-            fclose($this->read);
-        }
-
-        if (is_resource($this->write)) {
-            fclose($this->write);
-        }
-
+        $read = $this->read;
+        $write = $this->write;
         $this->read = null;
         $this->write = null;
+
+        if (is_resource($read)) {
+            fclose($read);
+        }
+        if (is_resource($write)) {
+            fclose($write);
+        }
     }
 
     private function dispatch(): void
@@ -111,7 +115,7 @@ final class SignalBridge
     }
 
     /**
-     * @param resource $stream
+     * @param resource|closed-resource $stream
      */
     private function drain(mixed $stream): void
     {
@@ -123,6 +127,9 @@ final class SignalBridge
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function installHandlers(): void
     {
         $this->previousAsyncSignals = pcntl_async_signals();
@@ -144,6 +151,9 @@ final class SignalBridge
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function openWakeChannel(): void
     {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -167,6 +177,9 @@ final class SignalBridge
         );
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function restoreHandlers(): void
     {
         if ($this->previousHandlers === []) {
@@ -174,6 +187,9 @@ final class SignalBridge
         }
 
         foreach ($this->previousHandlers as $signal => $handler) {
+            if (!is_int($handler) && !is_callable($handler)) {
+                throw new SupervisorException('Cannot restore an unsupported previous signal handler.');
+            }
             pcntl_signal($signal, $handler);
         }
 

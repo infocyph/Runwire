@@ -24,7 +24,12 @@ final class ConnectionScopeOwnership
 
     private function __construct(private readonly LoopInterface $loop, private readonly CancellationToken $token) {}
 
-    /** Attach exactly one token and the earliest inherited or explicit deadline. */
+    /**
+     * Attach exactly one token and the earliest inherited or explicit deadline.
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     public static function attach(
         Connection $connection,
         LoopInterface $loop,
@@ -95,13 +100,14 @@ final class ConnectionScopeOwnership
 
     private static function earliest(RequestDeadline $inherited, ?RequestDeadline $requested): RequestDeadline
     {
-        if ($requested?->monotonicNanoseconds === null) {
+        if ($requested === null || $requested->monotonicNanoseconds === null) {
             return $inherited;
         }
-        if ($inherited->monotonicNanoseconds === null) {
+        $inheritedNs = $inherited->monotonicNanoseconds;
+        if ($inheritedNs === null) {
             return $requested;
         }
 
-        return $requested->monotonicNanoseconds < $inherited->monotonicNanoseconds ? $requested : $inherited;
+        return $requested->monotonicNanoseconds < $inheritedNs ? $requested : $inherited;
     }
 }

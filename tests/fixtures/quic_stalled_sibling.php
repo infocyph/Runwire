@@ -8,6 +8,9 @@ use Infocyph\Runwire\Network\QuicClientSession;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 4 || filter_var($argv[2], FILTER_VALIDATE_INT) === false) {
     throw new InvalidArgumentException('Expected independent QUIC host, port and trusted CA.');
 }
@@ -19,16 +22,18 @@ $complete = false;
 $siblingBefore = false;
 $siblingAfter = false;
 $resetCompleted = false;
-$timeout = null;
+/** @var ArrayObject<string,int> $timers */
+$timers = new ArrayObject();
 
-$fail = static function (Throwable $error) use (&$failure, &$timeout, $loop, $session): void {
+$fail = static function (Throwable $error) use (&$failure, $timers, $loop, $session): void {
     $failure ??= $error;
-    if (is_int($timeout)) {
+    $timeout = $timers['timeout'] ?? null;
+    if ($timeout !== null) {
         $loop->cancel($timeout);
     }
     $session->dispose();
 };
-$timeout = $loop->delay(8.0, static function () use ($fail): void {
+$timers['timeout'] = $loop->delay(8.0, static function () use ($fail): void {
     $fail(new RuntimeException('Independent QUIC stalled-peer and sibling-progress test timed out.'));
 });
 
@@ -59,7 +64,6 @@ $echo = static function (string $payload, callable $success) use ($session, $loo
                     }
 
                     $received = '';
-                    $poll = null;
                     $poll = static function () use (&$poll, &$received, $session, $loop, $fail, $stream, $payload, $success): void {
                         $session->command(
                             'read',
@@ -121,7 +125,7 @@ try {
             &$siblingAfter,
             &$resetCompleted,
             &$complete,
-            &$timeout,
+            $timers,
         ): void {
             if ($error !== null || !is_array($connected) || ($connected['verified'] ?? null) !== true
                 || ($connected['alpn'] ?? null) !== 'runwire-echo') {
@@ -143,7 +147,7 @@ try {
                     &$siblingAfter,
                     &$resetCompleted,
                     &$complete,
-                    &$timeout,
+                    $timers,
                 ): void {
                     if ($error !== null || !is_array($opened) || !is_int($opened['stream'] ?? null)) {
                         $fail($error ?? new RuntimeException('Stalled QUIC peer stream failed admission.'));
@@ -168,7 +172,7 @@ try {
                             &$siblingAfter,
                             &$resetCompleted,
                             &$complete,
-                            &$timeout,
+                            $timers,
                         ): void {
                             if ($error !== null || !is_array($written) || ($written['written'] ?? null) !== strlen($payload)) {
                                 $fail($error ?? new RuntimeException('Stalled QUIC stream could not send request.'));
@@ -185,7 +189,7 @@ try {
                                 &$siblingAfter,
                                 &$resetCompleted,
                                 &$complete,
-                                &$timeout,
+                                $timers,
                             ): void {
                                 $siblingBefore = true;
                                 if (!$session->active()) {
@@ -206,7 +210,7 @@ try {
                                         &$siblingAfter,
                                         &$resetCompleted,
                                         &$complete,
-                                        &$timeout,
+                                        $timers,
                                     ): void {
                                         if ($error !== null || !is_array($result)
                                             || ($result['reset'] ?? null) !== true || !$session->active()) {
@@ -221,7 +225,7 @@ try {
                                             $fail,
                                             &$siblingAfter,
                                             &$complete,
-                                            &$timeout,
+                                            $timers,
                                         ): void {
                                             $siblingAfter = true;
                                             $session->command(
@@ -233,7 +237,7 @@ try {
                                                     $loop,
                                                     $fail,
                                                     &$complete,
-                                                    &$timeout,
+                                                    $timers,
                                                 ): void {
                                                     if ($error !== null || !is_array($closed)
                                                         || ($closed['closed'] ?? null) !== true) {
@@ -242,9 +246,7 @@ try {
                                                         return;
                                                     }
                                                     $complete = true;
-                                                    if (is_int($timeout)) {
-                                                        $loop->cancel($timeout);
-                                                    }
+                                                    $loop->cancel($timers['timeout']);
                                                 },
                                             );
                                         });

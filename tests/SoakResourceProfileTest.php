@@ -10,7 +10,7 @@ function soakResourceTestSamples(int $rssStep = 0, int $fdStep = 0): array
     $samples = [];
     for ($i = 0; $i <= 120; ++$i) {
         $samples[] = [
-            'elapsed' => $i * 15.0,
+            'elapsed' => (float) $i * 15.0,
             'processes' => 2,
             'rss' => 100_000_000 + $i * $rssStep,
             'virtual' => 300_000_000,
@@ -41,7 +41,12 @@ it('rejects growing RSS and persistent descriptors', function (): void {
 it('rejects truncated, nonmonotonic and incomplete samples', function (): void {
     $short = soakAnalyzeSamples(array_slice(soakResourceTestSamples(), 0, 20));
     $bad = soakResourceTestSamples();
-    $bad[20]['elapsed'] = 10.0;
+    foreach ($bad as $index => &$sample) {
+        if ($index === 20) {
+            $sample['elapsed'] = 10.0;
+        }
+    }
+    unset($sample);
     expect($short['passed'])->toBeFalse()
         ->and($short['status'])->toBe('insufficient_evidence')
         ->and(fn() => soakAnalyzeSamples($bad))->toThrow(RuntimeException::class);
@@ -55,7 +60,11 @@ it('counts a real Linux worker process tree rather than only a root server PID',
         return;
     }
 
-    $current = soakReadProcessTree(getmypid());
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new RuntimeException('Unable to identify current Linux process.');
+    }
+    $current = soakReadProcessTree($pid);
     expect($current['processes'])->toBeGreaterThanOrEqual(1)
         ->and($current['rss'])->toBeGreaterThan(0)
         ->and($current['fd'])->toBeGreaterThan(0);

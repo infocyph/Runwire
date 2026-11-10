@@ -21,6 +21,8 @@ final readonly class Future
 
     /**
      * Wait for completion and return the resolved value or throw the rejection.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function await(): mixed
     {
@@ -31,7 +33,11 @@ final readonly class Future
         return $this->scheduler->awaitFuture($this);
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function awaitCommitted(): mixed
     {
         if ($this->state->completed()) {
@@ -41,7 +47,11 @@ final readonly class Future
         return $this->scheduler->awaitFuture($this, true, true);
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function awaitForCleanup(): mixed
     {
         if ($this->state->completed()) {
@@ -61,13 +71,19 @@ final readonly class Future
 
     /**
      * Return the completed value or throw the stored failure.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function result(): mixed
     {
         return $this->state->result();
     }
 
-    /** @internal @param Closure(): void $waiter */
+    /**
+     * @internal @param Closure(): void $waiter
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     */
     public function subscribe(Closure $waiter): ?int
     {
         return $this->state->subscribe($waiter);

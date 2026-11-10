@@ -2,6 +2,14 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests\Fixtures;
+
+
+require_once dirname(__DIR__) . '/Support/SocketFixture.php';
+
+use InvalidArgumentException;
+use RuntimeException;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Network\AsyncDialer;
@@ -37,7 +45,7 @@ $handler = new CoroutineRequestHandler(
         if ($request->target === '/dial') {
             $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
             if (!is_resource($listener)) {
-                throw new RuntimeException($error);
+                throw \Infocyph\Runwire\Tests\Support\socketFailure($error, 'Socket operation failed.');
             }
             $executor = new ProcessExecutor($loop, 1, 4);
             try {
@@ -45,7 +53,11 @@ $handler = new CoroutineRequestHandler(
                 if (!is_string($address)) {
                     throw new RuntimeException('Hosted dial test could not resolve a listener address.');
                 }
-                $port = (int) substr($address, strrpos($address, ':') + 1);
+                $separator = strrpos($address, ':');
+                if ($separator === false) {
+                    throw new RuntimeException('Hosted listener did not expose a TCP port.');
+                }
+                $port = (int) substr($address, $separator + 1);
                 $dialer = new HappyEyeballsDialer($loop, new Dialer($loop), new AsyncDnsResolver($executor));
                 $connection = (new AsyncDialer($dialer, $scope))->connect('tcp://localhost:' . $port);
                 $connection->abort();
@@ -83,7 +95,12 @@ $handler = new CoroutineRequestHandler(
             $sender = $scope->spawn(function () use ($scope, $right): int {
                 $scope->waitWritable($right);
 
-                return fwrite($right, 's');
+                $written = fwrite($right, 's');
+                if ($written === false) {
+                    throw new RuntimeException('Hosted acceptance socket could not be written.');
+                }
+
+                return $written;
             });
 
             $scope->sleep(0.001);

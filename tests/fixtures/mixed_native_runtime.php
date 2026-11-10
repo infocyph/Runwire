@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/benchmarks/cli_local_paths.php';
+
 use Infocyph\Runwire\DatagramServer;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http3\Http3Options;
@@ -22,14 +24,35 @@ use Infocyph\Runwire\Supervisor\SupervisorEvent;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 7) {
     throw new InvalidArgumentException(
         'Usage: mixed_native_runtime.php <tls-port> <tcp-port> <udp-port> <cert> <key> <event-log>',
     );
 }
 
-[$script, $tlsPort, $tcpPort, $udpPort, $certificate, $key, $eventLog] = $argv;
-unset($script);
+/** @throws InvalidArgumentException */
+function mixedNativePort(string $value): int
+{
+    if (!ctype_digit($value) || strlen($value) > 5) {
+        throw new InvalidArgumentException('Listener ports must be decimal integers.');
+    }
+    $port = (int) $value;
+    if ($port < 1 || $port > 65_535) {
+        throw new InvalidArgumentException('Listener ports must be between 1 and 65535.');
+    }
+
+    return $port;
+}
+
+$tlsPort = mixedNativePort($argv[1]);
+$tcpPort = mixedNativePort($argv[2]);
+$udpPort = mixedNativePort($argv[3]);
+$certificate = $argv[4] ?? throw new InvalidArgumentException('Missing certificate path.');
+$key = $argv[5] ?? throw new InvalidArgumentException('Missing private key path.');
+$eventLog = runwireBenchmarkOutputPath($argv[6] ?? throw new InvalidArgumentException('Missing event log path.'));
 $http = new Server(
     name: 'mixed-http',
     address: '127.0.0.1:' . $tlsPort,

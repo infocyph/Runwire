@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use InvalidArgumentException;
+use Throwable;
+
 
 it('resolves localhost off-loop after a busy worker without stalling the timer heartbeat', function (): void {
     $loop = new SelectLoop();
@@ -48,8 +53,8 @@ it('validates DNS names and settles cancellations only once', function (): void 
     $count = 0;
     $executor->submit('sleep', ['milliseconds' => 60], static function (): void {});
     $id = $resolver->resolve('localhost', function (array $addresses, ?Throwable $error) use (&$count): void {
-        expect($addresses)->toBe([])
-            ->and($error)->toBeInstanceOf(Throwable::class);
+        \PHPUnit\Framework\Assert::assertInstanceOf(Throwable::class, $error);
+        expect($addresses)->toBe([]);
         ++$count;
     }, $source->token());
     $source->cancel(CancellationReason::HOST_CANCELLED);

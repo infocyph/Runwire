@@ -28,6 +28,10 @@ final readonly class Http1OutboundClient
      * @param callable(int, \Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public static function connect(
         LoopInterface $loop,
@@ -39,10 +43,10 @@ final readonly class Http1OutboundClient
         ?DialOptions $dialOptions = null,
     ): int {
         $parts = parse_url($request->uri);
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
+        if (!is_array($parts) || !is_string($host)) {
             throw new InvalidArgumentException('HTTP/1.1 client requires a valid absolute origin.');
         }
-        $host = $parts['host'];
         $secure = strtolower($parts['scheme'] ?? '') === 'https';
         // Validate the exact intended H1 transport before doing DNS, socket
         // admission or TLS handshakes. H2/H3-only policy must never silently
@@ -89,6 +93,9 @@ final readonly class Http1OutboundClient
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function verifiedOptions(string $host, bool $secure, DialOptions $options): DialOptions
     {
         $tls = $options->tls;

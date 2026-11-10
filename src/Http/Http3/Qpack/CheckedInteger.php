@@ -16,6 +16,7 @@ final class CheckedInteger
 {
     /**
      * Add two non-negative integers or fail with the supplied HTTP/3 protocol error.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public static function add(int $left, int $right, ErrorCode $errorCode, string $message): int
     {
@@ -28,6 +29,7 @@ final class CheckedInteger
 
     /**
      * Multiply two non-negative integers or fail with the supplied HTTP/3 protocol error.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public static function multiply(int $left, int $right, ErrorCode $errorCode, string $message): int
     {

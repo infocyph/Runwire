@@ -50,6 +50,7 @@ final class PhpQuicHttp3Worker
     /**
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @param callable(Throwable): void|null $connectionFailureObserver
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly PhpQuicListener $listener,
@@ -74,7 +75,6 @@ final class PhpQuicHttp3Worker
             throw new InvalidArgumentException('HTTP/3 handshake timeout must be finite and between 0 and 60 seconds.');
         }
 
-        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->connectionLimit = $connectionLimit;
         $this->handler = $handlerClosure;
@@ -118,6 +118,7 @@ final class PhpQuicHttp3Worker
 
     /**
      * Force-close all pending and active HTTP/3 connections.
+     * @throws \Throwable
      */
     public function forceClose(): void
     {
@@ -140,6 +141,7 @@ final class PhpQuicHttp3Worker
 
     /**
      * Stop accepting new connections and begin graceful draining.
+     * @throws \Throwable
      */
     public function stopAccepting(): void
     {
@@ -156,6 +158,10 @@ final class PhpQuicHttp3Worker
 
     /**
      * Execute one bounded HTTP/3 worker polling cycle.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
+     * @throws \LogicException
      */
     public function tick(?float $timeoutSeconds = self::DEFAULT_POLL_TIMEOUT_SECONDS): void
     {
@@ -204,6 +210,10 @@ final class PhpQuicHttp3Worker
         return hrtime(true) / 1_000_000_000;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
+     */
     private function acceptConnections(): void
     {
         $remaining = $this->connectionLimit - $this->connectionCount();

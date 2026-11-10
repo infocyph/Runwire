@@ -28,6 +28,10 @@ final readonly class Http2OutboundClient
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection,?Throwable):void $onComplete
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function connect(
         LoopInterface $loop,
@@ -39,19 +43,20 @@ final readonly class Http2OutboundClient
         ?DialOptions $options = null,
     ): int {
         $parts = parse_url($request->uri);
+        $originHost = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || strtolower($parts['scheme'] ?? '') !== 'https'
-            || !is_string($parts['host'] ?? null) || $parts['host'] === '') {
+            || !is_string($originHost) || $originHost === '') {
             throw new InvalidArgumentException('HTTP/2 outbound client requires a secure absolute HTTPS origin.');
         }
         if ($request->protocol->negotiate('h2', true) !== ProtocolVersion::HTTP_2) {
             throw new InvalidArgumentException('HTTP/2 outbound protocol policy rejected ALPN h2.');
         }
-        $host = trim($parts['host'], '[]');
+        $host = trim($originHost, '[]');
         $port = $parts['port'] ?? 443;
         $options = self::verifiedOptions($host, $options ?? new DialOptions());
 
         return $dialer->connect(
-            'tcp://' . $parts['host'] . ':' . $port,
+            'tcp://' . $originHost . ':' . $port,
             static function (?Connection $connection, ?Throwable $error) use (
                 $loop,
                 $request,
@@ -84,6 +89,9 @@ final readonly class Http2OutboundClient
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function verifiedOptions(string $host, DialOptions $options): DialOptions
     {
         $tls = $options->tls ?? new TlsClientOptions($host, alpnProtocols: ['h2']);

@@ -37,6 +37,7 @@ final class ReadyQueue
 
     /**
      * Remove and return the next ready item.
+     * @throws \LogicException
      */
     public function dequeue(): ReadyItem
     {
@@ -52,6 +53,7 @@ final class ReadyQueue
 
     /**
      * Queue a task for resumption when it is not already pending.
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      */
     public function enqueue(
         Task $task,

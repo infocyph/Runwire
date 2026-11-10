@@ -15,6 +15,7 @@ final readonly class ProcessPolicy
      * @param list<string>|null $allowedExecutables null allows any absolute executable
      * @param list<string> $allowedEnvironmentKeys empty forbids explicit environment variables
      * @param list<string> $allowedCwdRoots empty forbids cwd overrides
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public ?array $allowedExecutables = null,
@@ -54,7 +55,10 @@ final readonly class ProcessPolicy
         self::validateCwdRoots($allowedCwdRoots);
     }
 
-    /** @param list<string> $roots */
+    /**
+     * @param list<string> $roots
+     * @throws \InvalidArgumentException
+     */
     private static function validateCwdRoots(array $roots): void
     {
         foreach ($roots as $root) {
@@ -64,7 +68,10 @@ final readonly class ProcessPolicy
         }
     }
 
-    /** @param list<string> $keys */
+    /**
+     * @param list<string> $keys
+     * @throws \InvalidArgumentException
+     */
     private static function validateEnvironmentKeys(array $keys): void
     {
         foreach ($keys as $key) {
@@ -74,7 +81,10 @@ final readonly class ProcessPolicy
         }
     }
 
-    /** @param list<string> $executables */
+    /**
+     * @param list<string> $executables
+     * @throws \InvalidArgumentException
+     */
     private static function validateExecutables(array $executables): void
     {
         foreach ($executables as $executable) {
@@ -84,7 +94,10 @@ final readonly class ProcessPolicy
         }
     }
 
-    /** @param array<string, int> $limits */
+    /**
+     * @param array<string, int> $limits
+     * @throws \InvalidArgumentException
+     */
     private static function validateIntegerLimits(array $limits): void
     {
         foreach ($limits as $name => $value) {
@@ -94,6 +107,9 @@ final readonly class ProcessPolicy
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeLimits(
         float $maxTimeoutSeconds,
         float $maxTerminationGraceSeconds,

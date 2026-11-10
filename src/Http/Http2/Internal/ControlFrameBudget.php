@@ -31,6 +31,7 @@ final class ControlFrameBudget
 
     /**
      * Consume budget for a recognized control frame.
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      */
     public function consume(?FrameType $type): void
     {

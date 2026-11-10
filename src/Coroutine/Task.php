@@ -19,12 +19,18 @@ use Throwable;
 
 /**
  * Represents a scheduler-owned coroutine task and its completion state.
+ *
+ * Completion is written only from the constructor callback return value.
+ * @template-covariant TResult = mixed
  */
 final class Task
 {
     private readonly Deferred $completion;
 
-    /** @var Fiber<mixed, mixed, mixed, mixed> */
+    /**
+     * @phpstan-var Fiber<mixed, mixed, mixed, mixed>
+     * @psalm-var Fiber[impure]
+     */
     private readonly Fiber $fiber;
 
     private bool $observed = false;
@@ -33,7 +39,10 @@ final class Task
 
     private ?Throwable $terminalError = null;
 
-    /** @internal */
+    /**
+     * @internal
+     * @param callable(): TResult $callback
+     */
     public function __construct(
         private readonly int $id,
         FiberScheduler $scheduler,
@@ -55,20 +64,36 @@ final class Task
 
     /**
      * Wait for task completion and return its result.
+     * @return TResult
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function await(): mixed
     {
         $this->markObserved();
 
-        return $this->completion->future()->await();
+        // The task alone completes this future, using its callback result.
+        /** @var TResult $result */
+        $result = $this->completion->future()->await();
+
+        return $result;
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @return TResult
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function awaitForCleanup(): mixed
     {
         $this->markObserved();
 
-        return $this->completion->future()->awaitForCleanup();
+        // The task alone completes this future, using its callback result.
+        /** @var TResult $result */
+        $result = $this->completion->future()->awaitForCleanup();
+
+        return $result;
     }
 
     /**
@@ -87,7 +112,10 @@ final class Task
         return $this->cancellationSource->token();
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function dispatch(ReadyItem $item): mixed
     {
         $previous = $this->state;
@@ -153,7 +181,10 @@ final class Task
         };
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function markRunnable(): bool
     {
         if ($this->isComplete() || $this->state === TaskState::RUNNABLE) {
@@ -176,12 +207,19 @@ final class Task
 
     /**
      * Return the completed task result or throw its terminal failure.
+     * @return TResult
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function result(): mixed
     {
         $this->markObserved();
 
-        return $this->completion->future()->result();
+        // The task alone completes this future, using its callback result.
+        /** @var TResult $result */
+        $result = $this->completion->future()->result();
+
+        return $result;
     }
 
     /**
@@ -198,6 +236,9 @@ final class Task
         return $this->taskLocals;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function finishCancelled(CancelledException $error): void
     {
         $this->state = TaskState::CANCELLED;
@@ -208,6 +249,9 @@ final class Task
         $this->notifyChange();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function finishCompleted(mixed $value): void
     {
         $this->state = TaskState::COMPLETED;
@@ -217,6 +261,9 @@ final class Task
         $this->notifyChange();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function finishFailed(Throwable $error): void
     {
         $this->state = TaskState::FAILED;

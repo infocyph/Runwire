@@ -20,6 +20,7 @@ final readonly class CommandValidator
 
     /**
      * Validates and normalizes a command for execution.
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
      */
     public function validate(Command $command): PreparedCommand
     {
@@ -55,6 +56,7 @@ final readonly class CommandValidator
     /**
      * @param list<string> $arguments
      * @return list<string>
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
      */
     private function arguments(array $arguments, int $totalBytes): array
     {
@@ -85,6 +87,9 @@ final readonly class CommandValidator
         return $arguments;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     */
     private function cwd(?string $cwd): ?string
     {
         if ($cwd === null) {
@@ -109,6 +114,7 @@ final readonly class CommandValidator
     /**
      * @param array<string, string> $environment
      * @return array<string, string>
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
      */
     private function environment(array $environment): array
     {
@@ -141,6 +147,9 @@ final readonly class CommandValidator
         return $environment;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     */
     private function executable(string $executable): string
     {
         if (!str_starts_with($executable, DIRECTORY_SEPARATOR)) {

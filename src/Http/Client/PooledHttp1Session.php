@@ -51,6 +51,8 @@ final class PooledHttp1Session
      * Construct one immutable connection trust domain, shared by H1 requests.
      * @param string $scope Opaque worker/tenant identifier; do not reuse across tenants.
      * @param string|null $tlsPolicyIdentity Revisioned certificate/trust policy for HTTPS.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -104,7 +106,10 @@ final class PooledHttp1Session
         $this->pool = new BoundedConnectionPool($loop, maxActive: $maxConnections, enableMetrics: true);
     }
 
-    /** Close idle connections and cancel active work; remaining callbacks settle once. */
+    /**
+     * Close idle connections and cancel active work; remaining callbacks settle once.
+     * @throws \Throwable
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -124,6 +129,7 @@ final class PooledHttp1Session
     /**
      * Bounded pool counters, including actual healthy keep-alive reuse.
      * @return array<string, int|bool>
+     * @throws \LogicException
      */
     public function metrics(): array
     {
@@ -135,6 +141,8 @@ final class PooledHttp1Session
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function send(
         ClientRequest $request,
@@ -210,22 +218,25 @@ final class PooledHttp1Session
 
     /**
      * @return array{scheme: string, host: string, port: int}
+     * @throws \InvalidArgumentException
      */
     private static function parseOrigin(string $origin): array
     {
         $parts = parse_url($origin);
+        $originHost = is_array($parts) ? ($parts['host'] ?? null) : null;
+        $originScheme = is_array($parts) ? ($parts['scheme'] ?? null) : null;
 
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)
-            || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+        if (!is_array($parts) || !is_string($originHost) || !is_string($originScheme)
+            || !in_array(strtolower($originScheme), ['http', 'https'], true)
             || isset($parts['user']) || isset($parts['pass']) || isset($parts['query'])
             || isset($parts['fragment']) || !in_array($parts['path'] ?? '', ['', '/'], true)) {
             throw new InvalidArgumentException('H1 session requires an absolute credential-free HTTP origin.');
         }
-        $scheme = strtolower($parts['scheme']);
+        $scheme = strtolower($originScheme);
 
         return [
             'scheme' => $scheme,
-            'host' => strtolower($parts['host']),
+            'host' => strtolower($originHost),
             'port' => $parts['port'] ?? ($scheme === 'https' ? 443 : 80),
         ];
     }
@@ -314,6 +325,9 @@ final class PooledHttp1Session
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function verifyRequest(ClientRequest $request): void
     {
         $parts = parse_url($request->uri);

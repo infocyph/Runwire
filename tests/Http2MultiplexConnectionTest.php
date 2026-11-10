@@ -16,7 +16,9 @@ use Infocyph\Runwire\Network\Connection;
 
 it('routes two live H2 streams over one callback-owned established connection', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);
     $loop = new SelectLoop();
@@ -97,8 +99,11 @@ it('routes two live H2 streams over one callback-owned established connection', 
         $owner->start();
         $loop->run();
         expect($ready)->toBe(1)
-            ->and($finished)->toHaveCount(2)
-            ->and($finished['one'])->toBeNull()
+            ->and($finished)->toHaveCount(2);
+        if (!array_key_exists('one', $finished) || !array_key_exists('two', $finished)) {
+            throw new RuntimeException('Both multiplexed HTTP/2 requests must finish.');
+        }
+        expect($finished['one'])->toBeNull()
             ->and($finished['two'])->toBeNull()
             ->and($codes)->toBe(['two' => 200, 'one' => 200])
             ->and($bodies)->toBe(['two' => 'second', 'one' => 'first'])
@@ -117,7 +122,9 @@ it('routes two live H2 streams over one callback-owned established connection', 
 
 it('sends stream-local CANCEL without terminating the sibling live H2 exchange', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);
     $loop = new SelectLoop();
@@ -181,8 +188,11 @@ it('sends stream-local CANCEL without terminating the sibling live H2 exchange',
         $owner->start();
         $loop->run();
         expect($resetSeen)->toBeTrue()
-            ->and($errors)->toHaveCount(2)
-            ->and($errors['first'])->toBeInstanceOf(RuntimeException::class)
+            ->and($errors)->toHaveCount(2);
+        if (!array_key_exists('first', $errors) || !array_key_exists('second', $errors)) {
+            throw new RuntimeException('Both HTTP/2 cancel and sibling responses must finish.');
+        }
+        expect($errors['first'])->toBeInstanceOf(RuntimeException::class)
             ->and($errors['second'])->toBeNull()
             ->and($body)->toBe('alive')
             ->and($owner->activeCount())->toBe(0);

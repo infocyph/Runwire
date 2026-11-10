@@ -37,6 +37,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
      * @param callable(): HttpRequest|null $requestFactory
      * @param callable(string): ResponseWriterInterface|null $writerFactory
      * @param callable(callable): bool|null $workerRequestHandler
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private FrankenPhpOptions $options,
@@ -60,7 +61,10 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
 
     /**
      * Runs the application in resolved FrankenPHP classic or worker mode.
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
      */
+    #[\Override]
     public function run(RuntimeApplicationInterface $application): void
     {
         $failure = null;
@@ -82,6 +86,7 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
     /**
      * Requests driver shutdown; FrankenPHP owns its host lifecycle.
      */
+    #[\Override]
     public function stop(): void {}
 
     /** @return Closure(callable): bool|null */
@@ -116,6 +121,9 @@ final readonly class FrankenPhpDriver implements HostDriverInterface
             : FrankenPhpMode::CLASSIC;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private function runWorker(RuntimeApplicationInterface $application): void
     {
         if ($this->workerRequestHandler === null) {

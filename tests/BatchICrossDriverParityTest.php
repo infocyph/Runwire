@@ -32,11 +32,16 @@ use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchIRuntimeContext(
     RuntimeDriver $driver,
     bool $persistent,
     bool $concurrent = false,
 ): RuntimeContext {
+    $pid = getmypid();
+
     return RuntimeContext::fromCapabilities(
         new RuntimeCapabilities(
             driver: $driver,
@@ -54,11 +59,14 @@ function batchIRuntimeContext(
         mode: $persistent ? 'worker' : 'request',
         workerSlot: $persistent ? 0 : null,
         generation: $persistent ? 1 : null,
-        pid: getmypid() ?: 0,
+        pid: $pid === false ? 0 : $pid,
         concurrent: $concurrent,
     );
 }
 
+/**
+ * @throws \OverflowException
+ */
 function batchIRequest(string $target): HttpRequest
 {
     return new HttpRequest(
@@ -70,11 +78,14 @@ function batchIRequest(string $target): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchIWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
-        static function (int $status, Headers $headers): void {},
-        static function (string $chunk): void {},
+        static function (): void {},
+        static function (): void {},
         static function (): void {},
         1_024,
     );
@@ -83,7 +94,8 @@ function batchIWriter(): ResponseWriterInterface
 /** @return ArrayObject<string, mixed> */
 function batchIState(): ArrayObject
 {
-    return new ArrayObject([
+    /** @var ArrayObject<string, mixed> $state */
+    $state = new ArrayObject([
         'boot' => 0,
         'warmup' => 0,
         'handled' => 0,
@@ -96,13 +108,37 @@ function batchIState(): ArrayObject
         'drain_reason' => null,
         'shutdown_reason' => null,
     ]);
+
+    return $state;
 }
 
+/**
+ * @param ArrayObject<string, mixed> $state
+ * @throws \RuntimeException
+ */
+function batchIIncrement(ArrayObject $state, string $metric): void
+{
+    $current = $state[$metric] ?? null;
+    if (!is_int($current)) {
+        throw new RuntimeException('Invalid cross-driver metric fixture: ' . $metric);
+    }
+    $state[$metric] = $current + 1;
+}
+
+/**
+ * @param ArrayObject<string, mixed> $state
+ * @throws \InvalidArgumentException
+ */
 function batchIApplication(RuntimeContext $context, ArrayObject $state): RuntimeApplication
 {
     $resetter = new class($state) implements RequestResetterInterface {
+        /** @param ArrayObject<string, mixed> $state */
         public function __construct(private readonly ArrayObject $state) {}
 
+        /**
+         * @throws \RuntimeException
+         */
+        #[\Override]
         public function reset(RequestContext $context): void
         {
             $seen = $this->state['reset_contexts'];
@@ -111,13 +147,13 @@ function batchIApplication(RuntimeContext $context, ArrayObject $state): Runtime
             }
             $seen[] = [$context->hasAttribute('transient'), $context->completed()];
             $this->state['reset_contexts'] = $seen;
-            $this->state['reset'] = (int) $this->state['reset'] + 1;
+            batchIIncrement($this->state, 'reset');
         }
     };
 
     return new RuntimeApplication(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use ($state): void {
-            $state['handled'] = (int) $state['handled'] + 1;
+            batchIIncrement($state, 'handled');
             $request->context->setAttribute('transient', $request->target);
 
             $contexts = $state['request_contexts'];
@@ -138,20 +174,20 @@ function batchIApplication(RuntimeContext $context, ArrayObject $state): Runtime
                 if ($runtime->pid < 0) {
                     throw new RuntimeException('Invalid runtime PID.');
                 }
-                $state['boot'] = (int) $state['boot'] + 1;
+                batchIIncrement($state, 'boot');
             },
             warmup: static function (RuntimeContext $runtime) use ($state): void {
                 if ($runtime->mode === '') {
                     throw new RuntimeException('Invalid runtime mode.');
                 }
-                $state['warmup'] = (int) $state['warmup'] + 1;
+                batchIIncrement($state, 'warmup');
             },
             drain: static function (RuntimeContext $runtime, ShutdownReason $reason) use ($state): void {
-                $state['drain'] = (int) $state['drain'] + 1;
+                batchIIncrement($state, 'drain');
                 $state['drain_reason'] = $runtime->mode . ':' . $reason->value;
             },
             shutdown: static function (RuntimeContext $runtime, ShutdownReason $reason) use ($state): void {
-                $state['shutdown'] = (int) $state['shutdown'] + 1;
+                batchIIncrement($state, 'shutdown');
                 $state['shutdown_reason'] = $runtime->mode . ':' . $reason->value;
             },
             resetters: [$resetter],
@@ -159,12 +195,28 @@ function batchIApplication(RuntimeContext $context, ArrayObject $state): Runtime
     );
 }
 
-/** @return array<string, mixed> */
+/**
+ * @param ArrayObject<string, mixed> $state
+ * @return array<string, mixed>
+ * @throws \RuntimeException
+ */
 function batchISummary(RuntimeContext $context, RuntimeApplication $application, ArrayObject $state): array
 {
     $contexts = $state['request_contexts'];
     if (!is_array($contexts)) {
         throw new RuntimeException('Invalid request-context fixture state.');
+    }
+
+    $uniqueContexts = [];
+    $completedContexts = 0;
+    foreach ($contexts as $requestContext) {
+        if (!$requestContext instanceof RequestContext) {
+            throw new RuntimeException('Invalid request-context fixture entry.');
+        }
+        $uniqueContexts[spl_object_id($requestContext)] = true;
+        if ($requestContext->completed()) {
+            ++$completedContexts;
+        }
     }
 
     return [
@@ -177,14 +229,8 @@ function batchISummary(RuntimeContext $context, RuntimeApplication $application,
         'drain' => $state['drain'],
         'shutdown' => $state['shutdown'],
         'deadline_bound' => $state['deadline_bound'],
-        'contexts_unique' => count(array_unique(array_map(
-            static fn(RequestContext $requestContext): int => spl_object_id($requestContext),
-            $contexts,
-        ))),
-        'contexts_completed' => count(array_filter(
-            $contexts,
-            static fn(RequestContext $requestContext): bool => $requestContext->completed(),
-        )),
+        'contexts_unique' => count($uniqueContexts),
+        'contexts_completed' => $completedContexts,
         'reset_contexts' => $state['reset_contexts'],
         'requests_total' => $application->snapshot()->requestsTotal,
         'requests_active' => $application->snapshot()->requestsActive,
@@ -193,7 +239,13 @@ function batchISummary(RuntimeContext $context, RuntimeApplication $application,
     ];
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ * @throws \Throwable
+ */
 function batchIRunNative(int $requests): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::NATIVE, true);
@@ -208,7 +260,12 @@ function batchIRunNative(int $requests): array
     return batchISummary($context, $application, $state);
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+ * @throws \Throwable
+ */
 function batchIRunFpm(): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::FPM, false);
@@ -227,7 +284,12 @@ function batchIRunFpm(): array
     return batchISummary($context, $application, $state);
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+ * @throws \Throwable
+ */
 function batchIRunFrankenPhp(int $requests): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::FRANKENPHP, true);
@@ -256,7 +318,12 @@ function batchIRunFrankenPhp(int $requests): array
     return batchISummary($context, $application, $state);
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+ * @throws \Throwable
+ */
 function batchIRunRoadRunner(int $requests): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::ROADRUNNER, true);
@@ -269,13 +336,19 @@ function batchIRunRoadRunner(int $requests): array
 
         public function __construct(private readonly int $requests) {}
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void {}
 
+        #[\Override]
         public function stop(): void
         {
             $this->stopped = true;
         }
 
+        /**
+         * @throws \OverflowException
+         */
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             if ($maxRequestBodyBytes < 1 || $this->stopped || $this->index >= $this->requests) {
@@ -295,7 +368,11 @@ function batchIRunRoadRunner(int $requests): array
     return batchISummary($context, $application, $state);
 }
 
-/** @return array<string, mixed> */
+/**
+ * @return array<string, mixed>
+ * @throws \InvalidArgumentException
+ * @throws \Throwable
+ */
 function batchIRunSwoole(int $requests): array
 {
     $context = batchIRuntimeContext(RuntimeDriver::SWOOLE, true, true);
@@ -318,14 +395,25 @@ function batchIRunSwoole(int $requests): array
 
         public function on(string $event, callable $handler): bool
         {
-            $closure = Closure::fromCallable($handler);
-
-            return match (strtolower($event)) {
-                'request' => (bool) ($this->request = $closure),
-                'workerstart' => (bool) ($this->workerStart = $closure),
-                'workerstop' => (bool) ($this->workerStop = $closure),
-                default => false,
-            };
+            switch (strtolower($event)) {
+                case 'request':
+                    $this->request = static function (object $request, object $response) use ($handler): void {
+                        $handler($request, $response);
+                    };
+                    return true;
+                case 'workerstart':
+                    $this->workerStart = static function () use ($handler): void {
+                        $handler();
+                    };
+                    return true;
+                case 'workerstop':
+                    $this->workerStop = static function () use ($handler): void {
+                        $handler();
+                    };
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         /** @param array<string, bool|int> $settings */
@@ -344,12 +432,13 @@ function batchIRunSwoole(int $requests): array
         public function start(): bool
         {
             ($this->workerStart)?->__invoke();
-            if ($this->request === null) {
+            $onRequest = $this->request;
+            if ($onRequest === null) {
                 return false;
             }
 
             for ($index = 0; $index < $this->requests; ++$index) {
-                ($this->request)(
+                $onRequest(
                     new FakeSwooleRequest([
                         'request_method' => 'GET',
                         'request_uri' => '/swoole/' . $index,

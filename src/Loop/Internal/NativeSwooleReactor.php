@@ -40,7 +40,10 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     private int $writeFlagValue;
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     public function __construct()
     {
         [$eventClass, $timerClass, $coroutineClass, $namespace] = self::resolveClassFamily();
@@ -61,6 +64,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     /**
      * Register read and write callbacks for a stream.
      */
+    #[\Override]
     public function add(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
     {
         $result = ($this->eventAdd)($stream, $read, $write, $flags);
@@ -70,7 +74,9 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     /**
      * Schedule a one-shot reactor timer.
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function after(int $milliseconds, Closure $callback): int
     {
         $timerId = ($this->timerAfter)($milliseconds, $callback);
@@ -84,6 +90,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     /**
      * Cancel a reactor timer.
      */
+    #[\Override]
     public function clearTimer(int $timerId): bool
     {
         return ($this->timerClear)($timerId) === true;
@@ -92,6 +99,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     /**
      * Return the current host coroutine ID.
      */
+    #[\Override]
     public function coroutineId(): int
     {
         $coroutineId = ($this->coroutineGetCid)();
@@ -102,6 +110,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     /**
      * Defer a callback onto the reactor.
      */
+    #[\Override]
     public function defer(Closure $callback): void
     {
         ($this->eventDefer)($callback);
@@ -110,6 +119,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     /**
      * Remove a stream from the reactor.
      */
+    #[\Override]
     public function delete(mixed $stream): bool
     {
         return ($this->eventDelete)($stream) === true;
@@ -118,6 +128,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     /**
      * Return the native readable event flag.
      */
+    #[\Override]
     public function readFlag(): int
     {
         return $this->readFlagValue;
@@ -125,7 +136,9 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     /**
      * Schedule a repeating reactor timer.
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function repeat(int $milliseconds, Closure $callback): int
     {
         $timerId = ($this->timerRepeat)($milliseconds, $callback);
@@ -139,6 +152,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     /**
      * Resume a suspended host coroutine.
      */
+    #[\Override]
     public function resumeCoroutine(int $coroutineId): bool
     {
         return ($this->coroutineResume)($coroutineId) === true;
@@ -147,6 +161,7 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     /**
      * Update callbacks and flags for an existing stream registration.
      */
+    #[\Override]
     public function set(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
     {
         return ($this->eventSet)($stream, $read, $write, $flags) === true;
@@ -154,7 +169,9 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
 
     /**
      * Suspend the current host coroutine.
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function suspendCoroutine(): void
     {
         if (($this->coroutineYield)() !== true) {
@@ -165,11 +182,15 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
     /**
      * Return the native writable event flag.
      */
+    #[\Override]
     public function writeFlag(): int
     {
         return $this->writeFlagValue;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function eventFlag(string $namespace, string $direction): int
     {
         $candidates = array_values(array_unique([
@@ -192,7 +213,20 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         ));
     }
 
-    /** @param class-string $class */
+    /**
+     * Resolve a dynamically installed extension class to a checked class-string.
+     *
+     * @return class-string|null
+     */
+    private static function existingClass(string $class): ?string
+    {
+        return class_exists($class) ? $class : null;
+    }
+
+    /**
+     * @param class-string $class
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function method(string $class, string $method): Closure
     {
         try {
@@ -206,16 +240,17 @@ final readonly class NativeSwooleReactor implements SwooleReactorInterface
         }
     }
 
-    /** @return array{class-string, class-string, class-string, string} */
+    /**
+     * @return array{class-string, class-string, class-string, string}
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function resolveClassFamily(): array
     {
         foreach (['OpenSwoole', 'Swoole'] as $namespace) {
-            $eventClass = $namespace . '\\Event';
-            $timerClass = $namespace . '\\Timer';
-            $coroutineClass = $namespace . '\\Coroutine';
-            if (class_exists($eventClass)
-                && class_exists($timerClass)
-                && class_exists($coroutineClass)) {
+            $eventClass = self::existingClass($namespace . '\\Event');
+            $timerClass = self::existingClass($namespace . '\\Timer');
+            $coroutineClass = self::existingClass($namespace . '\\Coroutine');
+            if ($eventClass !== null && $timerClass !== null && $coroutineClass !== null) {
                 return [$eventClass, $timerClass, $coroutineClass, $namespace];
             }
         }

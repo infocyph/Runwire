@@ -2,17 +2,21 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\StreamRelay;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
+
 it('preserves a full duplex reply after one peer sends FIN and drains the opposite peer', function (): void {
     $leftPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $rightPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($leftPair)->toBeArray()->toHaveCount(2)
-        ->and($rightPair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($leftPair);
+    \PHPUnit\Framework\Assert::assertIsArray($rightPair);
+    expect($leftPair)->toHaveCount(2)->toHaveCount(2);
     [$leftSocket, $leftPeer] = $leftPair;
     [$rightSocket, $rightPeer] = $rightPair;
     stream_set_blocking($leftPeer, false);
@@ -82,8 +86,9 @@ it('preserves a full duplex reply after one peer sends FIN and drains the opposi
 it('interrupts a partially half-closed relay without orphaning watchers or cancellation owners', function (): void {
     $leftPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $rightPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($leftPair)->toBeArray()->toHaveCount(2)
-        ->and($rightPair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($leftPair);
+    \PHPUnit\Framework\Assert::assertIsArray($rightPair);
+    expect($leftPair)->toHaveCount(2)->toHaveCount(2);
     [$leftSocket, $leftPeer] = $leftPair;
     [$rightSocket, $rightPeer] = $rightPair;
     $loop = new SelectLoop();

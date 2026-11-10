@@ -14,6 +14,7 @@ final readonly class PosixIdentitySystem implements IdentitySystemInterface
     /**
      * Return the process effective group ID.
      */
+    #[\Override]
     public function effectiveGid(): int
     {
         return posix_getegid();
@@ -22,6 +23,7 @@ final readonly class PosixIdentitySystem implements IdentitySystemInterface
     /**
      * Return the process effective user ID.
      */
+    #[\Override]
     public function effectiveUid(): int
     {
         return posix_geteuid();
@@ -30,6 +32,7 @@ final readonly class PosixIdentitySystem implements IdentitySystemInterface
     /**
      * Initialize supplementary groups for the target identity.
      */
+    #[\Override]
     public function initGroups(string $username, int $gid): bool
     {
         return posix_initgroups($username, $gid);
@@ -38,6 +41,7 @@ final readonly class PosixIdentitySystem implements IdentitySystemInterface
     /**
      * Resolve one passwd entry by user ID.
      */
+    #[\Override]
     public function passwd(int $uid): array|false
     {
         return posix_getpwuid($uid);
@@ -46,6 +50,7 @@ final readonly class PosixIdentitySystem implements IdentitySystemInterface
     /**
      * Set the process primary group ID.
      */
+    #[\Override]
     public function setGid(int $gid): bool
     {
         return posix_setgid($gid);
@@ -54,6 +59,7 @@ final readonly class PosixIdentitySystem implements IdentitySystemInterface
     /**
      * Set the process user ID.
      */
+    #[\Override]
     public function setUid(int $uid): bool
     {
         return posix_setuid($uid);

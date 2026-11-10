@@ -39,7 +39,11 @@ final class CancellationState
     /** Creates cancellation state with the supplied deadline. */
     public function __construct(private RequestDeadline $deadline) {}
 
-    /** Binds the state to its effective deadline. */
+    /**
+     * Binds the state to its effective deadline.
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     */
     public function bindDeadline(RequestDeadline $deadline): void
     {
         if ($this->disposed) {
@@ -135,6 +139,7 @@ final class CancellationState
      *
      * @internal
      * @param Closure(CancellationReason): void $hook
+     * @throws \LogicException
      */
     public function setTerminalHook(Closure $hook): void
     {
@@ -149,6 +154,8 @@ final class CancellationState
      * Registers a cancellation observer and returns its subscription handle.
      *
      * @param Closure(CancellationToken): void $callback
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function subscribe(Closure $callback): int
     {

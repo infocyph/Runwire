@@ -14,13 +14,13 @@ it('propagates a scoped trace into wrapped child Fibers without cross-fiber leak
         $seen[] = $scope->current();
         $task = $scope->wrap(function (string $tag) use ($scope, &$seen): void {
             $seen[$tag] = $scope->current();
-            Fiber::suspend();
+            expect(Fiber::suspend())->toBe('resume-child');
             $seen[$tag . '-resumed'] = $scope->current();
         });
-        $fiber = new Fiber(static fn() => $task('child'));
+        $fiber = new Fiber(static fn() : mixed => $task('child'));
         $fiber->start();
         $seen[] = $scope->current();
-        $fiber->resume();
+        $fiber->resume('resume-child');
         $seen[] = $scope->current();
         expect($scope->current())->toBe($trace);
     });
@@ -36,7 +36,7 @@ it('restores tracing scopes after nested exceptions without contaminating later 
     $outer = new TraceContext(str_repeat('a', 32), str_repeat('b', 16));
     $inner = new TraceContext(str_repeat('c', 32), str_repeat('d', 16));
     $scope->run($outer, function () use ($scope, $inner, $outer): void {
-        expect(fn() => $scope->run($inner, static function (): never {
+        expect(fn() : mixed => $scope->run($inner, static function (): never {
             throw new RuntimeException('isolate failure');
         }))->toThrow(RuntimeException::class);
         expect($scope->current())->toBe($outer);

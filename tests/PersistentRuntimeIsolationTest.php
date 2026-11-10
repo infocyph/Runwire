@@ -21,6 +21,9 @@ use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
 
+/**
+ * @throws \OverflowException
+ */
 function persistentRuntimeRequest(string $target): HttpRequest
 {
     return new HttpRequest(
@@ -32,11 +35,18 @@ function persistentRuntimeRequest(string $target): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function persistentRuntimeWriter(): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
-        static function (int $status, Headers $headers): void {},
-        static function (string $chunk): void {},
+        static function (int $status, Headers $headers): void {
+            unset($status, $headers);
+        },
+        static function (string $chunk): void {
+            unset($chunk);
+        },
         static function (): void {},
         1_024,
     );
@@ -45,6 +55,7 @@ function persistentRuntimeWriter(): ResponseWriterInterface
 /**
  * @param list<?string> $seenBefore
  * @param list<string> $cleanedState
+ * @throws \InvalidArgumentException
  */
 function persistentRuntimeApplication(
     ?string &$state,
@@ -71,15 +82,15 @@ function persistentRuntimeApplication(
 }
 
 it('always runs request cleanup when an application handler fails', function (): void {
-    $state = null;
+    $state = new class { public ?string $value = null; };
     $cleanups = 0;
     $application = new RuntimeApplication(
-        static function () use (&$state): void {
-            $state = 'dirty';
+        static function () use ($state): void {
+            $state->value = 'dirty';
             throw new RuntimeException('handler failed');
         },
-        static function () use (&$state, &$cleanups): void {
-            $state = null;
+        static function () use ($state, &$cleanups): void {
+            $state->value = null;
             ++$cleanups;
         },
     );
@@ -88,7 +99,7 @@ it('always runs request cleanup when an application handler fails', function ():
         persistentRuntimeRequest('/failure'),
         persistentRuntimeWriter(),
     ))->toThrow(RuntimeException::class, 'handler failed')
-        ->and($state)->toBeNull()
+        ->and($state->value)->toBeNull()
         ->and($cleanups)->toBe(1);
 });
 
@@ -104,7 +115,10 @@ it('isolates consecutive FrankenPHP worker requests and recycles at the generic 
     $driver = new FrankenPhpDriver(
         new FrankenPhpOptions(mode: FrankenPhpMode::WORKER),
         static function () use (&$targets, &$requestIndex): HttpRequest {
-            return persistentRuntimeRequest($targets[$requestIndex++]);
+            $target = $targets[$requestIndex] ?? throw new RuntimeException('Unexpected FrankenPHP worker request count.');
+            ++$requestIndex;
+
+            return persistentRuntimeRequest($target);
         },
         static fn(string $method): ResponseWriterInterface => $method === 'GET'
             ? persistentRuntimeWriter()
@@ -136,6 +150,9 @@ it('isolates consecutive RoadRunner requests and stops at the generic recycle bu
 
         private bool $stopped = false;
 
+        /**
+         * @throws \OverflowException
+         */
         public function __construct()
         {
             $this->requests = [
@@ -145,14 +162,20 @@ it('isolates consecutive RoadRunner requests and stops at the generic recycle bu
             ];
         }
 
+        #[\Override]
         public function respond(int $status, string $body, array $headers, bool $endOfStream): void {}
 
+        #[\Override]
         public function stop(): void
         {
             ++$this->stops;
             $this->stopped = true;
         }
 
+        /**
+         * @throws \RuntimeException
+         */
+        #[\Override]
         public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
         {
             if ($maxRequestBodyBytes < 1) {
@@ -215,6 +238,7 @@ it('isolates consecutive Swoole requests while native host request recycling use
             private readonly array $responses,
         ) {}
 
+        /** @param callable(object,object):void $handler */
         public function on(string $event, callable $handler): bool
         {
             if (strtolower($event) !== 'request') {
@@ -241,12 +265,13 @@ it('isolates consecutive Swoole requests while native host request recycling use
 
         public function start(): bool
         {
-            if ($this->requestHandler === null) {
+            $requestHandler = $this->requestHandler;
+            if ($requestHandler === null) {
                 return false;
             }
 
             foreach ($this->requests as $index => $request) {
-                ($this->requestHandler)($request, $this->responses[$index]);
+                $requestHandler($request, $this->responses[$index]);
             }
 
             return true;

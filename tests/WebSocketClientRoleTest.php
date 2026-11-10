@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
@@ -10,9 +12,19 @@ use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
 
+
 it('reuses one session lifecycle with correct masking when a verified client role is adopted', function (): void {
+    runwireOwnedWebSocketClientRoleTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketClientRoleTestCase01(): void
+{
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);
 
@@ -26,8 +38,8 @@ it('reuses one session lifecycle with correct masking when a verified client rol
     );
     $received = [];
     $wire = '';
-    $session->onMessage(static function (WebSocketSession $session, $message) use (&$received): void {
-        expect($session)->toBeInstanceOf(WebSocketSession::class);
+    $session->onMessage(static function (WebSocketSession $owner, $message) use (&$received, $session): void {
+        \PHPUnit\Framework\Assert::assertSame($session, $owner);
         $received[] = $message->data;
     });
     $watcher = $loop->onReadable($peer, static function ($stream) use (&$wire): void {
@@ -57,4 +69,4 @@ it('reuses one session lifecycle with correct masking when a verified client rol
         $connection->abort();
         fclose($peer);
     }
-});
+}

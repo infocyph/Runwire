@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use ArrayObject;
+use Fiber;
 use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
@@ -25,6 +29,8 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\Runtime\RequestResetterInterface;
 use Infocyph\Runwire\RuntimeContext;
+use LogicException;
+use RuntimeException;
 
 it('schedules tasks FIFO and yields without recursive Fiber resume', function (): void {
     $runtime = new CoroutineRuntime();
@@ -163,7 +169,7 @@ it('waits for real stream readability and unregisters the watcher', function ():
 it('detects unresolved-future deadlock and cancels suspended tasks for cleanup', function (): void {
     $runtime = new CoroutineRuntime();
 
-    expect(fn() => $runtime->run(function (CoroutineScope $scope): mixed {
+    expect(fn() : mixed => $runtime->run(function (CoroutineScope $scope): mixed {
         return $scope->deferred()->future()->await();
     }))->toThrow(CoroutineDeadlockException::class);
 });
@@ -174,19 +180,21 @@ it('enforces the configured live task bound including the root task', function (
         maxReadyBacklog: 2,
     ));
 
-    expect(fn() => $runtime->run(function (CoroutineScope $scope): void {
-        $scope->spawn(function () use ($scope): void {
-            $scope->yieldNow();
+    expect(function () use ($runtime): void {
+        $runtime->run(function (CoroutineScope $scope): void {
+            $scope->spawn(function () use ($scope): void {
+                $scope->yieldNow();
+            });
+            $scope->spawn(static function (): void {});
         });
-        $scope->spawn(static function (): void {});
-    }))->toThrow(CoroutineOverflowException::class);
+    })->toThrow(CoroutineOverflowException::class);
 });
 
 it('does not start a nested event loop on the same coroutine runtime', function (): void {
     $runtime = new CoroutineRuntime();
 
     $result = $runtime->run(function (CoroutineScope $scope) use ($runtime): string {
-        expect(fn() => $runtime->run(static fn(): null => null))
+        expect(fn() : mixed => $runtime->run(static fn(): null => null))
             ->toThrow(LogicException::class);
         $task = $scope->spawn(static fn(): string => 'still-running');
 
@@ -204,9 +212,9 @@ it('exposes terminal task state without retaining it in the scheduler registry',
         $task = $scope->spawn(static fn(): int => 42);
         expect($task->await())->toBe(42);
     });
+    \PHPUnit\Framework\Assert::assertNotNull($task);
 
-    expect($task)->not->toBeNull()
-        ->and($task->state())->toBe(TaskState::COMPLETED)
+    expect($task->state())->toBe(TaskState::COMPLETED)
         ->and($task->result())->toBe(42);
 });
 
@@ -289,7 +297,7 @@ it('rejects standalone loop driving while attached request scopes are active', f
         },
     );
 
-    expect(fn () => $runtime->run(static fn(): null => null))
+    expect(fn () : mixed => $runtime->run(static fn(): null => null))
         ->toThrow(LogicException::class, 'cannot drive a loop with attached request scopes');
 
     $loop->run();
@@ -439,8 +447,10 @@ it('keeps request state and admission until attached coroutine root and children
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(resetters: [
             new class($state) implements RequestResetterInterface {
+                /** @param ArrayObject<string,int> $state */
                 public function __construct(private readonly ArrayObject $state) {}
 
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     expect($context->attribute('tenant'))->toBe('A');
@@ -523,8 +533,10 @@ it('records attached coroutine failure after response output before final cleanu
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(resetters: [
             new class($state) implements RequestResetterInterface {
+                /** @param ArrayObject<string,int> $state */
                 public function __construct(private readonly ArrayObject $state) {}
 
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     expect($context->attribute('tenant'))->toBe('A');
@@ -587,7 +599,7 @@ it('delivers terminal future notifications to every waiter despite a throwing ob
         $rejected->reject($original);
         expect($resolvedFuture->result())->toBe('settled');
         expect(fn() => $resolved->reject(new RuntimeException('late-error')))->toThrow(FutureCompletedException::class);
-        expect(fn() => $failedFuture->result())->toThrow(RuntimeException::class, 'expected-rejection');
+        expect(fn() : mixed => $failedFuture->result())->toThrow(RuntimeException::class, 'expected-rejection');
         expect(fn() => $rejected->resolve('late-success'))->toThrow(FutureCompletedException::class);
 
         return $order;
@@ -656,5 +668,30 @@ it('inherits the protocol request deadline in attached root and child fibers', f
             ->and($loop->diagnostics()->deferredBacklog)->toBe(0);
     } finally {
         $context->complete();
+    }
+});
+
+it('resumes cooperative wait and writable tasks without manufacturing a scheduler payload', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false) {
+        throw new RuntimeException('Local stream pair unavailable.');
+    }
+    [$left, $right] = $pair;
+    stream_set_blocking($left, false);
+    stream_set_blocking($right, false);
+    $runtime = new CoroutineRuntime();
+
+    try {
+        $done = $runtime->run(function (CoroutineScope $scope) use ($left): array {
+            $scope->sleep(0.001);
+            $scope->waitWritable($left);
+            $scope->yieldNow();
+
+            return ['completed', 'writable'];
+        });
+        expect($done)->toBe(['completed', 'writable']);
+    } finally {
+        fclose($left);
+        fclose($right);
     }
 });

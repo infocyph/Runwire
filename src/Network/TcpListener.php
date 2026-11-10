@@ -62,6 +62,7 @@ final class TcpListener
 
     /**
      * Binds a TCP listener to the supplied address.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public static function bind(
         string $address,
@@ -122,6 +123,8 @@ final class TcpListener
 
     /**
      * Immediately aborts every active connection.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function abortConnections(): void
     {
@@ -183,6 +186,7 @@ final class TcpListener
 
     /**
      * Closes the listener and cancels pending TLS handshakes.
+     * @throws \LogicException
      */
     public function close(): void
     {
@@ -197,16 +201,19 @@ final class TcpListener
             $handshake->cancel();
         }
         $this->handshakes = [];
-        if (is_resource($this->stream)) {
-            fclose($this->stream);
-        }
+        $stream = $this->stream;
         $this->stream = null;
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
         $this->connectionCallback = null;
         $this->loop = null;
     }
 
     /**
      * Begins graceful closure of all active connections.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function closeConnectionsGracefully(): void
     {
@@ -242,6 +249,7 @@ final class TcpListener
 
     /**
      * Temporarily pauses accepting new connections.
+     * @throws \LogicException
      */
     public function pauseAccepting(): void
     {
@@ -271,6 +279,7 @@ final class TcpListener
 
     /**
      * Resumes accepting connections after a pause.
+     * @throws \LogicException
      */
     public function resumeAccepting(): void
     {
@@ -284,6 +293,7 @@ final class TcpListener
 
     /**
      * Attach a shared worker buffer budget before the listener starts.
+     * @throws \LogicException
      */
     public function setBufferBudget(ByteBudget $budget): void
     {
@@ -294,7 +304,10 @@ final class TcpListener
         $this->bufferBudget = $budget;
     }
 
-    /** @param callable(Connection): void $onConnection */
+    /**
+     * @param callable(Connection): void $onConnection
+     * @throws \LogicException
+     */
     public function start(LoopInterface $loop, callable $onConnection): void
     {
         $this->assertActiveProcessOwner();
@@ -321,6 +334,15 @@ final class TcpListener
             && str_starts_with($message, 'stream_socket_accept(): Accept failed:');
     }
 
+    /** A TLS callback may deliver an already-closed native stream handle. */
+    private static function isLiveAcceptedStream(mixed $stream): bool
+    {
+        return is_resource($stream);
+    }
+
+    /**
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function normalizeAddress(string $address): string
     {
         if (str_contains($address, '://')) {
@@ -334,7 +356,9 @@ final class TcpListener
         return 'tcp://' . $address;
     }
 
-    /** @param resource $stream */
+    /**
+     * @throws \Throwable
+     */
     private function activateConnection(mixed $stream, ?string $peer, ?string $local, ?string $protocol): void
     {
         $this->assertActiveProcessOwner();
@@ -388,6 +412,9 @@ final class TcpListener
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertActiveProcessOwner(): void
     {
         if ($this->activeOwnerPid !== null && getmypid() !== $this->activeOwnerPid) {
@@ -395,6 +422,10 @@ final class TcpListener
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function handleAccept(): void
     {
         $this->assertActiveProcessOwner();
@@ -441,7 +472,12 @@ final class TcpListener
         return count($this->connections) + count($this->handshakes);
     }
 
-    /** @param resource $client */
+    /**
+     * An external TLS callback may observe a closed handle.
+     *
+     * @param resource $client
+     * @throws \Throwable
+     */
     private function startAcceptedConnection(LoopInterface $loop, mixed $client, mixed $peer): void
     {
         $local = stream_socket_get_name($client, false);
@@ -460,7 +496,7 @@ final class TcpListener
             $this->tls,
             function (mixed $stream, ?string $protocol) use ($id, $peerAddress, $localAddress): void {
                 unset($this->handshakes[$id]);
-                if (!is_resource($stream)) {
+                if (!self::isLiveAcceptedStream($stream)) {
                     ++$this->rejectedConnections;
                     $this->syncAcceptWatcher();
 

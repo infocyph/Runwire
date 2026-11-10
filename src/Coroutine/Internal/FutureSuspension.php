@@ -22,7 +22,11 @@ final readonly class FutureSuspension implements Suspension
 
     /**
      * Arm the future suspension for the supplied task.
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     * @throws \LogicException
      */
+    #[\Override]
     public function arm(FiberScheduler $scheduler, Task $task): void
     {
         if ($this->future->isComplete()) {
@@ -64,6 +68,10 @@ final readonly class FutureSuspension implements Suspension
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     */
     private function resumeFromFuture(FiberScheduler $scheduler, Task $task): void
     {
         $ignoreCancellation = !$this->cancellable || $this->ignoreCancellationOnCompletion;

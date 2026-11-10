@@ -14,6 +14,7 @@ final readonly class PersistentFixtureResetter implements RequestResetterInterfa
 {
     public function __construct(private PersistentFixtureState $state) {}
 
+    #[\Override]
     public function reset(RequestContext $context): void
     {
         expect($context->attribute('fixture'))->not->toBeNull();

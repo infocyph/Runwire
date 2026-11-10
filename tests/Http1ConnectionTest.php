@@ -13,14 +13,28 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
 
+/**
+ * @return array{resource, resource}
+ * @throws \Throwable
+ */
 function runwireHttpPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    if (!isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
 
-    return $pair;
+    return [$pair[0], $pair[1]];
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireHttpExchange(string $wire, callable $handler, ?Http1Limits $limits = null): string
 {
     [$server, $client] = runwireHttpPair();
@@ -28,11 +42,16 @@ function runwireHttpExchange(string $wire, callable $handler, ?Http1Limits $limi
     $connection = new Connection($loop, $server);
     new Http1Connection($loop, $connection, $limits ?? new Http1Limits(), $handler);
     fwrite($client, $wire);
-    $loop->delay(0.3, static fn () => $loop->stop());
+    $loop->delay(0.3, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
     fclose($client);
+    if (!is_string($response)) {
+        throw new \RuntimeException('Unable to read the HTTP/1 response fixture.');
+    }
 
     return $response;
 }
@@ -59,7 +78,9 @@ it('streams fixed and chunked request bodies without exposing framing to the han
         "POST /fixed HTTP/1.1\r\nHost: x\r\nContent-Length: 11\r\nConnection: close\r\n\r\nhello world",
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$fixed): void {
             $request->body->onData(static function ($body) use (&$fixed): void { $fixed .= $body->read(); });
-            $request->body->onEnd(static fn () => $writer->end('fixed-ok'));
+            $request->body->onEnd(static function () use ($writer): void {
+                $writer->end('fixed-ok');
+            });
         },
     );
 
@@ -158,11 +179,15 @@ it('handles fully fragmented chunked input', function (): void {
     $body = '';
     new Http1Connection($loop, $connection, new Http1Limits(), static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$body): void {
         $request->body->onData(static function ($stream) use (&$body): void { $body .= $stream->read(); });
-        $request->body->onEnd(static fn () => $writer->end('ok'));
+        $request->body->onEnd(static function () use ($writer): void {
+            $writer->end('ok');
+        });
     });
 
     fwrite($client, "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n3\r\nabc\r\n2\r\nde\r\n0\r\n\r\n");
-    $loop->delay(1.0, static fn () => $loop->stop());
+    $loop->delay(1.0, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
@@ -184,11 +209,15 @@ it('rejects malformed framing, fragments in request targets and premature EOF', 
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server);
     new Http1Connection($loop, $connection, new Http1Limits(), static function (HttpRequest $request): void {
-        $request->body->onData(static fn ($body) => $body->read());
+        $request->body->onData(static function ($body): void {
+            $body->read();
+        });
     });
     fwrite($client, "POST /short HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nab");
     stream_socket_shutdown($client, STREAM_SHUT_WR);
-    $loop->delay(0.3, static fn () => $loop->stop());
+    $loop->delay(0.3, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
@@ -241,8 +270,12 @@ it('emits 100 Continue before the final response', function (): void {
     $response = runwireHttpExchange(
         "POST /continue HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Length: 4\r\nConnection: close\r\n\r\ntest",
         static function (HttpRequest $request, ResponseWriterInterface $writer): void {
-            $request->body->onData(static fn ($body) => $body->read());
-            $request->body->onEnd(static fn () => $writer->end('ok'));
+            $request->body->onData(static function ($body): void {
+                $body->read();
+            });
+            $request->body->onEnd(static function () use ($writer): void {
+                $writer->end('ok');
+            });
         },
     );
 
@@ -275,7 +308,9 @@ it('expires a silent HTTP/1 connection from construction time', function (): voi
         },
     );
 
-    $loop->delay(0.08, static fn () => $loop->stop());
+    $loop->delay(0.08, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
@@ -299,7 +334,9 @@ it('re-arms the HTTP/1 header deadline while waiting for the next keep-alive req
     );
 
     fwrite($client, "GET /first HTTP/1.1\r\nHost: x\r\n\r\n");
-    $loop->delay(0.12, static fn () => $loop->stop());
+    $loop->delay(0.12, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);

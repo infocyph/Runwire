@@ -23,11 +23,11 @@ final class ReadinessChannel
 
         self::ready($loop, $record);
 
-        if (is_resource($record->readyStream)) {
-            fclose($record->readyStream);
-        }
-
+        $stream = $record->readyStream;
         $record->readyStream = null;
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
     }
 
     /**
@@ -38,8 +38,10 @@ final class ReadinessChannel
     public static function closeInherited(array $children): void
     {
         foreach ($children as $record) {
-            if (is_resource($record->readyStream)) {
-                fclose($record->readyStream);
+            $stream = $record->readyStream;
+            $record->readyStream = null;
+            if (is_resource($stream)) {
+                fclose($stream);
             }
         }
     }

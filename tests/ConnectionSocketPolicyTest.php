@@ -2,16 +2,23 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+
+require_once __DIR__ . '/Support/SocketFixture.php';
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Enum\DialAttemptPhase;
 use Infocyph\Runwire\Network\Internal\DialAttemptLifecycle;
+use RuntimeException;
+
 
 it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams', function (): void {
     foreach ([true, false] as $policy) {
         $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $message);
         if (!is_resource($listener)) {
-            throw new RuntimeException($message);
+            throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'TCP fixture could not connect.');
         }
         $address = stream_socket_get_name($listener, false);
         if (!is_string($address)) {
@@ -21,7 +28,7 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
         $outbound = stream_socket_client('tcp://' . $address, $errno, $message, 1.0);
         if (!is_resource($outbound)) {
             fclose($listener);
-            throw new RuntimeException($message);
+            throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'TCP fixture could not connect.');
         }
         $incoming = stream_socket_accept($listener, 1.0);
         if (!is_resource($incoming)) {
@@ -46,7 +53,7 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
                 tcpNoDelayOverride: $policy,
             ))->toThrow(RuntimeException::class);
             expect($attempt->phase())->toBe(DialAttemptPhase::FAILED);
-            expect(is_resource($outbound))->toBeFalse();
+            expect(get_resource_type($outbound))->toBe('Unknown');
             fclose($incoming);
         } else {
             $dialed = ConnectionFactory::dialed(
@@ -64,9 +71,12 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
             );
             $dialedSocket = socket_import_stream($outbound);
             $acceptedSocket = socket_import_stream($incoming);
-            expect($dialedSocket)->not->toBeFalse()
-                ->and($acceptedSocket)->not->toBeFalse()
-                ->and(socket_get_option($dialedSocket, SOL_TCP, TCP_NODELAY))->toBe((int) $policy)
+            if (!$dialedSocket instanceof \Socket || !$acceptedSocket instanceof \Socket) {
+                $dialed->abort();
+                $accepted->abort();
+                throw new RuntimeException('Unable to inspect adopted TCP sockets.');
+            }
+            expect(socket_get_option($dialedSocket, SOL_TCP, TCP_NODELAY))->toBe((int) $policy)
                 ->and(socket_get_option($acceptedSocket, SOL_TCP, TCP_NODELAY))->toBe((int) !$policy);
 
             $dialed->applyTcpNoDelayDefault(!$policy);
@@ -83,7 +93,9 @@ it('applies explicit TCP_NODELAY consistently for adopted and dialed TCP streams
 
 it('does not treat Unix-domain streams as TCP sockets for optional tuning', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    if (!is_array($pair) || !isset($pair[0], $pair[1])) {
+        throw new RuntimeException('Unable to establish Unix socket pair.');
+    }
     [$stream, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted(

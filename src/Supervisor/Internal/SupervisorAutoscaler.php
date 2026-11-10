@@ -73,7 +73,10 @@ final class SupervisorAutoscaler
         $this->now = Closure::fromCallable($now);
     }
 
-    /** @param callable():array{cpuRatio:float,queued:int,successfulRps:float,p99Milliseconds:float} $sample */
+    /**
+     * @param callable():array{cpuRatio:float,queued:int,successfulRps:float,p99Milliseconds:float} $sample
+     * @throws \InvalidArgumentException
+     */
     public function configure(string $name, AutoscalePolicy $policy, callable $sample): void
     {
         $this->configurations[$name] = [
@@ -138,6 +141,10 @@ final class SupervisorAutoscaler
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function resize(WorkerGroup $group, int $target): void
     {
         $old = $group->count;
@@ -159,6 +166,10 @@ final class SupervisorAutoscaler
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function sample(string $name): void
     {
         if (($this->isBlocked)()) {

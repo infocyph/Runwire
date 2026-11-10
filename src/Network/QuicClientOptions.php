@@ -18,6 +18,7 @@ final readonly class QuicClientOptions
 {
     /**
      * @param list<string> $alpnProtocols
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $peerName,
@@ -43,6 +44,7 @@ final readonly class QuicClientOptions
     /**
      * Reject application dispatch until the verified TLS 1.3 handshake has
      * completed; the native backend provides no replay-safe 0-RTT support.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function assertApplicationDispatchAllowed(bool $handshakeConfirmed): void
     {
@@ -54,6 +56,7 @@ final readonly class QuicClientOptions
     /**
      * The native backend cannot negotiate RFC 9221 datagrams.
      * Application writers must not treat reliable streams as datagrams.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function assertDatagramAvailable(): never
     {
@@ -64,6 +67,7 @@ final readonly class QuicClientOptions
      * Refuse a synchronous handshake on the owner event-loop thread.
      * A worker/process backend must own the native connection lifecycle
      * before this interface may be used to expose an async dialer.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function assertEventLoopSafeNativeClient(): never
     {
@@ -72,7 +76,10 @@ final readonly class QuicClientOptions
         );
     }
 
-    /** Refuse unsupported native QUIC features instead of silently ignoring them. */
+    /**
+     * Refuse unsupported native QUIC features instead of silently ignoring them.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     public function assertNativeCapabilities(): void
     {
         if ($this->allowEarlyData) {
@@ -90,6 +97,7 @@ final readonly class QuicClientOptions
      * The native QUIC backend has no post-handshake connection migration.
      * Reject address/port rebinding instead of pretending a QUIC connection
      * ID makes the new path routable.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function assertStablePath(string $establishedPath, string $candidatePath): void
     {
@@ -120,6 +128,7 @@ final readonly class QuicClientOptions
      * Return a verified TLS 1.3 client policy for the ext-quic backend.
      *
      * @return array<string, bool|int|string|list<string>>
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function nativeOptions(): array
     {
@@ -144,7 +153,10 @@ final readonly class QuicClientOptions
         return $options;
     }
 
-    /** Reserve one root request and six local/peer critical QUIC streams before siblings. */
+    /**
+     * Reserve one root request and six local/peer critical QUIC streams before siblings.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     public function nativeSiblingCapacity(): int
     {
         if ($this->maxOpenStreams <= 7) {
@@ -154,7 +166,10 @@ final readonly class QuicClientOptions
         return $this->maxOpenStreams - 7;
     }
 
-    /** @param list<string> $alpnProtocols */
+    /**
+     * @param list<string> $alpnProtocols
+     * @throws \InvalidArgumentException
+     */
     private static function validateAlpn(array $alpnProtocols): void
     {
         if ($alpnProtocols === [] || count($alpnProtocols) > 16) {
@@ -170,6 +185,9 @@ final readonly class QuicClientOptions
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateIdentity(string $peerName, ?string $caFile, ?string $caPath): void
     {
         if ($peerName === '' || strlen($peerName) > 253 || str_contains($peerName, "\0") || preg_match('/\s/', $peerName)) {

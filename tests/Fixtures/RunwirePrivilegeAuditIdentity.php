@@ -23,16 +23,19 @@ final class RunwirePrivilegeAuditIdentity implements IdentitySystemInterface
 
     public bool $retainOldUid = false;
 
+    #[\Override]
     public function effectiveGid(): int
     {
         return $this->gid;
     }
 
+    #[\Override]
     public function effectiveUid(): int
     {
         return $this->uid;
     }
 
+    #[\Override]
     public function initGroups(string $username, int $gid): bool
     {
         $this->calls[] = 'groups:' . $username . ':' . $gid;
@@ -40,6 +43,7 @@ final class RunwirePrivilegeAuditIdentity implements IdentitySystemInterface
         return $this->allowGroups;
     }
 
+    #[\Override]
     public function passwd(int $uid): array|false
     {
         $this->calls[] = 'passwd:' . $uid;
@@ -47,6 +51,7 @@ final class RunwirePrivilegeAuditIdentity implements IdentitySystemInterface
         return $uid === 1500 ? ['name' => 'runwire', 'gid' => 1600] : false;
     }
 
+    #[\Override]
     public function setGid(int $gid): bool
     {
         $this->calls[] = 'gid:' . $gid;
@@ -59,6 +64,7 @@ final class RunwirePrivilegeAuditIdentity implements IdentitySystemInterface
         return true;
     }
 
+    #[\Override]
     public function setUid(int $uid): bool
     {
         $this->calls[] = 'uid:' . $uid;

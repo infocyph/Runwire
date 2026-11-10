@@ -50,6 +50,7 @@ final class PeerSettings
 
     /**
      * Apply a SETTINGS payload and return the initial-window delta.
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      */
     public function apply(string $payload): int
     {
@@ -85,6 +86,9 @@ final class PeerSettings
         };
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function frameSizeValue(int $value): int
     {
         if ($value < 16_384 || $value > 0xFF_FFFF) {
@@ -94,6 +98,9 @@ final class PeerSettings
         return $value;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function pushValue(int $value): bool
     {
         if ($value > 1) {
@@ -103,6 +110,9 @@ final class PeerSettings
         return $value === 1;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function windowValue(int $value): int
     {
         if ($value > 0x7FFF_FFFF) {

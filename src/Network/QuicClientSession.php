@@ -35,7 +35,11 @@ final class QuicClientSession
 
     private string $state = 'new';
 
-    /** Construct one dedicated QUIC process to preserve native session ownership. */
+    /**
+     * Construct one dedicated QUIC process to preserve native session ownership.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     public function __construct(LoopInterface $loop, int $maxQueuedOperations = 64)
     {
         $this->executor = new ProcessExecutor($loop, 1, $maxQueuedOperations);
@@ -46,7 +50,11 @@ final class QuicClientSession
         $this->ownerPid = $pid;
     }
 
-    /** Whether this session still has a valid dedicated native worker. */
+    /**
+     * Whether this session still has a valid dedicated native worker.
+     * @phpstan-impure
+     * @throws \LogicException
+     */
     public function active(): bool
     {
         $this->assertProcessOwner();
@@ -58,6 +66,8 @@ final class QuicClientSession
      * Enqueue one bounded worker-local stream command.
      *
      * @param callable(mixed, ?Throwable): void $completion
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function command(
         string $operation,
@@ -104,6 +114,8 @@ final class QuicClientSession
      * Open a verified TLS 1.3 QUIC session off-loop and retain its native owner.
      *
      * @param callable(mixed, ?Throwable): void $completion
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function connect(
         string $host,
@@ -165,7 +177,11 @@ final class QuicClientSession
         }
     }
 
-    /** Abort pending operations and destroy worker-local QUIC resources. */
+    /**
+     * Abort pending operations and destroy worker-local QUIC resources.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function dispose(): void
     {
         $this->assertProcessOwner();
@@ -176,6 +192,9 @@ final class QuicClientSession
         $this->executor->close();
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {

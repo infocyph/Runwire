@@ -23,7 +23,7 @@ it('maps malformed HTTP/3 pseudo-header combinations to H3_MESSAGE_ERROR', funct
 
     try {
         $stream->push((new Frame(FrameType::HEADERS->value, $block))->encode());
-        test()->fail('Malformed HTTP/3 request pseudo-headers should fail.');
+        \PHPUnit\Framework\Assert::fail('Malformed HTTP/3 request pseudo-headers should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::MESSAGE_ERROR);
     }

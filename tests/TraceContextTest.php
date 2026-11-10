@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Tracing\TraceContext;
+use InvalidArgumentException;
+use LogicException;
+
 
 it('roundtrips W3C traceparent and bounded tracestate without global state', function (): void {
     $trace = new TraceContext(str_repeat('a', 32), str_repeat('b', 16), 1, 'vendor=one');
@@ -22,8 +27,12 @@ it('roundtrips W3C traceparent and bounded tracestate without global state', fun
 it('rejects spoofed, duplicated and oversized W3C forwarding context', function (): void {
     $trace = new TraceContext(str_repeat('1', 32), str_repeat('2', 16));
     $header = $trace->inject(new Headers());
+    $traceParent = $header->first('traceparent');
+    if ($traceParent === null) {
+        throw new \RuntimeException('Trace context did not generate the mandatory traceparent header.');
+    }
     foreach ([
-        Headers::fromArray(['traceparent' => [$header->first('traceparent'), $header->first('traceparent')]]),
+        Headers::fromArray(['traceparent' => [$traceParent, $traceParent]]),
         Headers::fromArray(['traceparent' => '00-' . str_repeat('0', 32) . '-' . str_repeat('2', 16) . '-01']),
         Headers::fromArray(['traceparent' => '00-' . str_repeat('1', 32) . '-' . str_repeat('0', 16) . '-01']),
         Headers::fromArray(['traceparent' => 'ff-' . str_repeat('1', 32) . '-' . str_repeat('2', 16) . '-01']),
@@ -54,4 +63,19 @@ it('replaces untrusted inbound identity when injecting the trusted trace', funct
     expect($result->all('traceparent'))->toHaveCount(1)
         ->and($result->all('tracestate'))->toBe([])
         ->and($result->first('x-request-id'))->toBe('safe');
+});
+
+it('rejects duplicate W3C tracestate values even with a valid traceparent', function (): void {
+    $trace = new TraceContext(str_repeat('1', 32), str_repeat('2', 16));
+    $parent = $trace->inject(new Headers())->first('traceparent');
+    if ($parent === null) {
+        throw new \RuntimeException('Trace context did not generate the mandatory parent header.');
+    }
+    $headers = Headers::fromArray([
+        'traceparent' => $parent,
+        'tracestate' => ['vendor=one', 'vendor=two'],
+    ]);
+
+    expect(fn () => TraceContext::fromHeaders($headers))
+        ->toThrow(InvalidArgumentException::class);
 });

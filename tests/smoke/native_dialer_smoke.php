@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/Support/ProcessFixture.php';
+
 spl_autoload_register(static function (string $class): void {
     $prefix = 'Infocyph\\Runwire\\';
     if (!str_starts_with($class, $prefix)) {
@@ -24,7 +26,7 @@ $loop = new SelectLoop();
 $executor = new ProcessExecutor($loop, 1, 2);
 $dialer = new Dialer($loop);
 $happy = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
-[$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+[$reader, $writer] = runwirenative_dialer_smokeSocketPair();
 $pid = pcntl_fork();
 if ($pid < 0) {
     throw new RuntimeException('Unable to fork outbound resource ownership smoke.');
@@ -33,10 +35,10 @@ if ($pid === 0) {
     fclose($reader);
     $rejected = 0;
     foreach ([
-        static fn() => $dialer->cancel(42),
-        static fn() => $dialer->close(),
-        static fn() => $happy->pendingCount(),
-        static fn() => $happy->close(),
+        static fn() : bool => $dialer->cancel(42),
+        static fn() : null => $dialer->close(),
+        static fn() : int => $happy->pendingCount(),
+        static fn() : null => $happy->close(),
     ] as $operation) {
         try {
             $operation();
@@ -52,7 +54,11 @@ if ($pid === 0) {
 fclose($writer);
 $childResult = stream_get_contents($reader);
 fclose($reader);
-pcntl_waitpid($pid, $status);
+$waited = pcntl_waitpid($pid, $status);
+$status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
+if ($waited !== $pid) {
+    throw new RuntimeException('Unable to reap the expected smoke child.');
+}
 if (!pcntl_wifexited($status) || pcntl_wexitstatus($status) !== 0 || $childResult !== '4') {
     throw new RuntimeException('Inherited dial ownership was not rejected by forked child.');
 }
@@ -62,6 +68,9 @@ if (!is_resource($server)) {
     throw new RuntimeException('Unable to bind outgoing native pending-dial fixture.');
 }
 $address = stream_socket_get_name($server, false);
+if ($address === false) {
+    throw new RuntimeException('Unable to determine the bound outbound smoke endpoint.');
+}
 $context = new WorkerContext('dialer-native', 0, 1, posix_getpid(), posix_getpid());
 $settled = [];
 try {
@@ -85,4 +94,18 @@ try {
     $happy->close();
     $dialer->close();
     $executor->close();
+}
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwirenative_dialer_smokeSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
 }

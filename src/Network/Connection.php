@@ -87,7 +87,11 @@ final class Connection
 
     private ?int $writeWatcher = null;
 
-    /** @param resource $stream */
+    /**
+     * @param resource|closed-resource $stream
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         mixed $stream,
@@ -126,6 +130,7 @@ final class Connection
 
     /**
      * Abort the connection immediately with a close reason.
+     * @throws \Throwable
      */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
@@ -201,6 +206,8 @@ final class Connection
      * @param callable(self): void $onData
      * @param callable(self): void $onDrain
      * @param callable(self): void $onEof
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function claimCallbacks(
         object $owner,
@@ -228,6 +235,7 @@ final class Connection
 
     /**
      * Begin a graceful local close after queued writes drain.
+     * @throws \Throwable
      */
     public function closeGracefully(): void
     {
@@ -252,6 +260,8 @@ final class Connection
      * @param callable(self): void $onData
      * @param callable(self): void $onDrain
      * @param callable(self): void $onEof
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function handoffCallbacks(
         object $owner,
@@ -353,7 +363,11 @@ final class Connection
         return $this->negotiatedProtocol;
     }
 
-    /** @param callable(self): void $callback */
+    /**
+     * @param callable(self): void $callback
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function onData(callable $callback): self
     {
         $this->assertCallbackSlotsUnclaimed();
@@ -365,7 +379,10 @@ final class Connection
         return $this;
     }
 
-    /** @param callable(self): void $callback */
+    /**
+     * @param callable(self): void $callback
+     * @throws \LogicException
+     */
     public function onDrain(callable $callback): self
     {
         $this->assertCallbackSlotsUnclaimed();
@@ -374,7 +391,11 @@ final class Connection
         return $this;
     }
 
-    /** @param callable(self): void $callback */
+    /**
+     * @param callable(self): void $callback
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function onEof(callable $callback): self
     {
         $this->assertCallbackSlotsUnclaimed();
@@ -425,6 +446,7 @@ final class Connection
 
     /**
      * Consume up to the requested number of buffered inbound bytes.
+     * @throws \InvalidArgumentException
      */
     public function read(int $maxBytes = PHP_INT_MAX): string
     {
@@ -458,7 +480,10 @@ final class Connection
         return $this->rejectedWrites;
     }
 
-    /** @internal Releases callback slots previously claimed or handed off to an exclusive owner. */
+    /**
+     * @internal Releases callback slots previously claimed or handed off to an exclusive owner.
+     * @throws \LogicException
+     */
     public function releaseCallbacks(object $owner): void
     {
         $this->callbackOwnership->release($owner);
@@ -497,6 +522,8 @@ final class Connection
      * Upgrade a quiescent cleartext tunnel to original-target verified TLS.
      *
      * @param callable(?self, ?Throwable):void $completion
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function upgradeToVerifiedTls(TlsClientOptions $policy, callable $completion): void
     {
@@ -524,6 +551,9 @@ final class Connection
         return is_int($now) ? $now : (int) $now;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertCallbackSlotsUnclaimed(): void
     {
         $this->callbackOwnership->assertUnclaimed();
@@ -536,6 +566,9 @@ final class Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finalize(CloseReason $reason): void
     {
         if ($this->state === ConnectionState::CLOSED) {
@@ -553,10 +586,11 @@ final class Connection
         $this->readWatcher = $this->writeWatcher = null;
         $this->timeouts->cancel();
 
-        if (is_resource($this->stream)) {
-            fclose($this->stream);
-        }
+        $stream = $this->stream;
         $this->stream = null;
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
         $this->receiveBuffer->clear();
         $this->sendBuffer->clear();
         $this->writeShutdownCallback = null;
@@ -567,6 +601,11 @@ final class Connection
         ConnectionCallbackDispatcher::dispatch(array_values($callbacks), $this, $reason);
     }
 
+    /**
+     * Reader callbacks can synchronously close the transport.
+     *
+     * @throws \Throwable
+     */
     private function handleReadable(): void
     {
         if (($this->state !== ConnectionState::OPEN && $this->state !== ConnectionState::HALF_CLOSED)
@@ -585,10 +624,10 @@ final class Connection
         $sawEof = false;
         $this->readAvailable($stream, $received, $sawEof);
 
-        if ($received && $this->state !== ConnectionState::CLOSED) {
+        if ($received && !$this->isClosedState()) {
             $this->invoke($this->dataCallback);
         }
-        if ($sawEof && $this->state !== ConnectionState::CLOSED) {
+        if ($sawEof && !$this->isClosedState()) {
             if ($this->encrypted && $this->strictTlsPeerEof) {
                 // The PHP stream API cannot authenticate close_notify on bare EOF.
                 $this->finalize(CloseReason::TLS_UNVERIFIED_EOF);
@@ -598,6 +637,10 @@ final class Connection
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function handleWritable(): void
     {
         if ($this->state === ConnectionState::CLOSED) {
@@ -642,6 +685,9 @@ final class Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function invoke(?Closure $callback): void
     {
         ConnectionCallbackDispatcher::invoke(
@@ -649,6 +695,12 @@ final class Connection
             $this,
             fn() => $this->abort(),
         );
+    }
+
+    /** Re-read connection ownership after user-defined data callbacks. */
+    private function isClosedState(): bool
+    {
+        return $this->state === ConnectionState::CLOSED;
     }
 
     private function pauseForPressure(): void
@@ -679,7 +731,10 @@ final class Connection
             && $this->callbackOwnership->unclaimed();
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \Throwable
+     */
     private function readAvailable(mixed $stream, bool &$received, bool &$sawEof): void
     {
         $readThisTick = 0;
@@ -772,6 +827,9 @@ final class Connection
         $this->writeWatcher = null;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function updateWritePressure(): void
     {
         $bytes = $this->sendBuffer->bytes();
@@ -787,6 +845,9 @@ final class Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function writeImmediately(string &$data, int $length): ?WriteResult
     {
         $stream = $this->stream;

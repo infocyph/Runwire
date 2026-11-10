@@ -13,6 +13,7 @@ final readonly class PhpQuicEventMasks
 {
     /**
      * Create and validate a set of QUIC event masks.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $read,
@@ -42,6 +43,9 @@ final readonly class PhpQuicEventMasks
 
     /**
      * Load event masks from the available native QUIC extension.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     public static function native(): self
     {

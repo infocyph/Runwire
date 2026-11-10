@@ -13,7 +13,7 @@ final class FakeSwooleRequest
     public function __construct(
         public array $server,
         public array $header,
-        private readonly string $body,
+        public readonly string $body,
     ) {}
 
     public function rawContent(): string

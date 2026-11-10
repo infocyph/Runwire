@@ -2,33 +2,90 @@
 
 declare(strict_types=1);
 
+require_once __DIR__.'/Support/ProcessFixture.php';
+
+use Infocyph\Runwire\Exception\ApplicationShutdownException;
+use Infocyph\Runwire\Exception\RequestLifecycleException;
+use Infocyph\Runwire\Exception\RuntimeUnavailableException;
+use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
-use Infocyph\Runwire\Exception\RequestLifecycleException;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
+use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Driver\SwooleDriver;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
 use Infocyph\Runwire\Runtime\RuntimeSelector;
-use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\RuntimeContext;
+use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleServer;
+use PHPUnit\Framework\Assert;
+
+function fakeSwooleServer(FakeSwooleRequest $request, FakeSwooleResponse $response): FakeSwooleServer
+{
+    return new class($request, $response) extends FakeSwooleServer
+    {
+        /** @var array<string, Closure> */
+        private array $events = [];
+
+        public function on(string $event, callable $handler): bool
+        {
+            $this->events[strtolower($event)] = Closure::fromCallable($handler);
+
+            return true;
+        }
+
+        /** @param array<string, bool|int> $settings */
+        public function set(array $settings): bool
+        {
+            $this->settings = $settings;
+
+            return true;
+        }
+
+        public function shutdown(): bool
+        {
+            $this->shutdownCalled = true;
+
+            return true;
+        }
+
+        public function start(): bool
+        {
+            if (! isset($this->events['request'])) {
+                return false;
+            }
+
+            foreach ($this->workerIds as $workerId) {
+                try {
+                    ($this->events['workerstart'] ?? null)?->__invoke($this, $workerId);
+                    ($this->events['request'])($this->request, $this->response);
+                    ($this->startHook)?->__invoke();
+                } finally {
+                    ($this->events['workerstop'] ?? null)?->__invoke();
+                }
+            }
+
+            return true;
+        }
+    };
+}
 
 it('creates a Swoole application only inside worker startup with a fresh worker context', function (): void {
-    $server = new FakeSwooleServer(new FakeSwooleRequest([
+    $server = fakeSwooleServer(new FakeSwooleRequest([
         'request_method' => 'GET', 'request_uri' => '/worker', 'server_protocol' => 'HTTP/1.1',
-    ], [], ''), new FakeSwooleResponse());
-    $driver = new SwooleDriver(new SwooleOptions(workerCount: 2), static fn(): object => $server);
+    ], [], ''), new FakeSwooleResponse);
+    $driver = new SwooleDriver(new SwooleOptions(workerCount: 2), static fn (): object => $server);
     $selection = new RuntimeSelector()->select(new RuntimeOptions(driver: RuntimeDriver::SWOOLE), new RuntimeEnvironment(
         sapi: 'cli', availableDrivers: [RuntimeDriver::SWOOLE],
     ));
-    $parent = RuntimeContext::fromCapabilities($selection->capabilities, 'host', pid: getmypid() + 100_000);
+    $parent = RuntimeContext::fromCapabilities($selection->capabilities, 'host', pid: \Infocyph\Runwire\Tests\Support\processId() + 100_000);
     $seen = [];
     $driver->runFactory(static function (RuntimeContext $worker) use (&$seen, $parent): RuntimeApplication {
         expect($worker)->not->toBe($parent)
@@ -43,11 +100,17 @@ it('creates a Swoole application only inside worker startup with a fresh worker 
                 $seen[] = 'request';
                 $writer->end('worker-ok');
             },
-            shutdown: static function () use (&$seen): void { $seen[] = 'shutdown'; },
+            shutdown: static function () use (&$seen): void {
+                $seen[] = 'shutdown';
+            },
             runtimeContext: $worker,
-            lifecycle: new \Infocyph\Runwire\Runtime\ApplicationLifecycleHooks(
-                boot: static function () use (&$seen): void { $seen[] = 'boot'; },
-                drain: static function () use (&$seen): void { $seen[] = 'drain'; },
+            lifecycle: new ApplicationLifecycleHooks(
+                boot: static function () use (&$seen): void {
+                    $seen[] = 'boot';
+                },
+                drain: static function () use (&$seen): void {
+                    $seen[] = 'drain';
+                },
             ),
         );
     }, $parent);
@@ -57,21 +120,28 @@ it('creates a Swoole application only inside worker startup with a fresh worker 
 });
 
 it('rejects a foreign runtime context before constructing a Swoole host', function (): void {
-    $driver = new SwooleDriver(new SwooleOptions(), static function (): never {
+    $driver = new SwooleDriver(new SwooleOptions, static function (): never {
         throw new LogicException('Invalid context started the host.');
     });
-    expect(fn() => $driver->runFactory(static function (): never {
+    expect(fn () => $driver->runFactory(static function (): never {
         throw new LogicException('Invalid context constructed the application.');
     }, RuntimeContext::standalone()))->toThrow(InvalidArgumentException::class, 'require a Swoole runtime context');
 });
 
 it('does not construct an application when Swoole configuration fails', function (): void {
-    $server = new class {
-        public function set(array $settings): bool { unset($settings); return false; }
+    $server = new class
+    {
+        /** @param array<string,bool|int> $settings */
+        public function set(array $settings): bool
+        {
+            unset($settings);
+
+            return false;
+        }
     };
     $created = 0;
-    $driver = new SwooleDriver(new SwooleOptions(), static fn(): object => $server);
-    expect(fn() => $driver->runFactory(static function () use (&$created): never {
+    $driver = new SwooleDriver(new SwooleOptions, static fn (): object => $server);
+    expect(fn () => $driver->runFactory(static function () use (&$created): never {
         $created++;
         throw new LogicException('Factory must not run in the supervisor.');
     }, swooleWorkerTemplate()))->toThrow(RuntimeException::class, 'rejected the configured server settings')
@@ -79,8 +149,8 @@ it('does not construct an application when Swoole configuration fails', function
 });
 
 it('preserves startup and shutdown failures and releases a failed worker exactly once', function (): void {
-    $server = new FakeSwooleServer(new FakeSwooleRequest([], [], ''), new FakeSwooleResponse());
-    $driver = new SwooleDriver(new SwooleOptions(), static fn(): object => $server);
+    $server = fakeSwooleServer(new FakeSwooleRequest([], [], ''), new FakeSwooleResponse);
+    $driver = new SwooleDriver(new SwooleOptions, static fn (): object => $server);
     $bootFailure = new RuntimeException('worker boot failed');
     $shutdownFailure = new RuntimeException('worker shutdown failed');
     $shutdowns = 0;
@@ -88,28 +158,36 @@ it('preserves startup and shutdown failures and releases a failed worker exactly
     try {
         $driver->runFactory(static function (RuntimeContext $context) use ($bootFailure, $shutdownFailure, &$shutdowns): RuntimeApplication {
             return new RuntimeApplication(
-                static function (): void { throw new LogicException('An unbooted worker handled a request.'); },
+                static function (): void {
+                    throw new LogicException('An unbooted worker handled a request.');
+                },
                 runtimeContext: $context,
-                lifecycle: new \Infocyph\Runwire\Runtime\ApplicationLifecycleHooks(
-                    boot: static function () use ($bootFailure): never { throw $bootFailure; },
-                    shutdown: static function () use (&$shutdowns, $shutdownFailure): never { $shutdowns++; throw $shutdownFailure; },
+                lifecycle: new ApplicationLifecycleHooks(
+                    boot: static function () use ($bootFailure): never {
+                        throw $bootFailure;
+                    },
+                    shutdown: static function () use (&$shutdowns, $shutdownFailure): never {
+                        $shutdowns++;
+                        throw $shutdownFailure;
+                    },
                 ),
             );
         }, swooleWorkerTemplate());
-    } catch (\Infocyph\Runwire\Exception\ApplicationShutdownException $error) {
+    } catch (ApplicationShutdownException $error) {
         $caught = $error;
     }
-    expect($caught)->toBeInstanceOf(\Infocyph\Runwire\Exception\ApplicationShutdownException::class)
-        ->and($caught?->primaryFailure?->getPrevious())->toBe($bootFailure)
-        ->and($caught?->shutdownFailures)->toBe([$shutdownFailure])
+    Assert::assertInstanceOf(ApplicationShutdownException::class, $caught);
+    Assert::assertNotNull($caught->primaryFailure);
+    expect($caught->primaryFailure->getPrevious())->toBe($bootFailure)
+        ->and($caught->shutdownFailures)->toBe([$shutdownFailure])
         ->and($shutdowns)->toBe(1)
         ->and($server->response->ends)->toBe(0);
 });
 
 it('creates independent contexts and metrics when Swoole starts or replaces a worker', function (): void {
-    $server = new FakeSwooleServer(new FakeSwooleRequest([], [], ''), new FakeSwooleResponse());
+    $server = fakeSwooleServer(new FakeSwooleRequest([], [], ''), new FakeSwooleResponse);
     $server->workerIds = [0, 1, 0];
-    $driver = new SwooleDriver(new SwooleOptions(), static fn(): object => $server);
+    $driver = new SwooleDriver(new SwooleOptions, static fn (): object => $server);
     $contexts = [];
     $shutdowns = [];
     $driver->runFactory(static function (RuntimeContext $context) use (&$contexts, &$shutdowns): RuntimeApplication {
@@ -120,7 +198,9 @@ it('creates independent contexts and metrics when Swoole starts or replaces a wo
                 expect($request->context->runtime())->toBe($context);
                 $writer->end('worker');
             },
-            shutdown: static function () use (&$shutdowns, $context): void { $shutdowns[] = $context; },
+            shutdown: static function () use (&$shutdowns, $context): void {
+                $shutdowns[] = $context;
+            },
             runtimeContext: $context,
         );
     }, swooleWorkerTemplate());
@@ -136,6 +216,11 @@ it('creates independent contexts and metrics when Swoole starts or replaces a wo
     }
 });
 
+/**
+ * @throws InvalidArgumentException
+ * @throws RuntimeUnavailableException
+ * @throws SupervisorException
+ */
 function swooleWorkerTemplate(): RuntimeContext
 {
     $selection = new RuntimeSelector()->select(new RuntimeOptions(driver: RuntimeDriver::SWOOLE), new RuntimeEnvironment(
@@ -184,8 +269,8 @@ it('runs Swoole through the common request and response contract', function (): 
         ],
         '{"ok":true}',
     );
-    $response = new FakeSwooleResponse();
-    $server = new FakeSwooleServer($request, $response);
+    $response = new FakeSwooleResponse;
+    $server = fakeSwooleServer($request, $response);
     $factoryHost = null;
     $factoryPort = null;
     $cleaned = 0;
@@ -210,10 +295,10 @@ it('runs Swoole through the common request and response contract', function (): 
             $writer->end('accepted');
         },
         static function () use (&$cleaned): void {
-            ++$cleaned;
+            $cleaned++;
         },
         static function () use (&$shutdown): void {
-            ++$shutdown;
+            $shutdown++;
         },
     );
     $driver = new SwooleDriver(
@@ -264,8 +349,9 @@ it('uses the safe current-worker stop path for generic memory or lifetime recycl
         'request_uri' => '/recycle',
         'server_protocol' => 'HTTP/1.1',
     ], [], '');
-    $response = new FakeSwooleResponse();
-    $server = new class($request, $response) {
+    $response = new FakeSwooleResponse;
+    $server = new class($request, $response)
+    {
         /** @var array<string, bool|int> */
         public array $settings = [];
 
@@ -285,12 +371,16 @@ it('uses the safe current-worker stop path for generic memory or lifetime recycl
         public function on(string $event, callable $handler): bool
         {
             if (strtolower($event) === 'workerstart') {
-                $this->workerStart = Closure::fromCallable($handler);
+                $this->workerStart = static function () use ($handler): void {
+                    $handler();
+                };
 
                 return true;
             }
             if (strtolower($event) === 'request') {
-                $this->requestHandler = Closure::fromCallable($handler);
+                $this->requestHandler = static function (object $request, object $response) use ($handler): void {
+                    $handler($request, $response);
+                };
 
                 return true;
             }
@@ -324,17 +414,17 @@ it('uses the safe current-worker stop path for generic memory or lifetime recycl
 
         public function stop(int $workerId = -1, bool $waitEvent = false): bool
         {
-            if ($workerId !== -1 || !$waitEvent) {
+            if ($workerId !== -1 || ! $waitEvent) {
                 return false;
             }
-            ++$this->workerStops;
+            $this->workerStops++;
 
             return true;
         }
     };
     $driver = new SwooleDriver(
-        new SwooleOptions(),
-        static fn(string $host, int $port): object => $host !== '' && $port > 0
+        new SwooleOptions,
+        static fn (string $host, int $port): object => $host !== '' && $port > 0
             ? $server
             : throw new RuntimeException('Invalid Swoole test endpoint.'),
         new WorkerRecyclePolicy(maxMemoryBytes: 1),
@@ -348,17 +438,17 @@ it('uses the safe current-worker stop path for generic memory or lifetime recycl
 });
 
 it('delegates Swoole stop to the active host server', function (): void {
-    $server = new FakeSwooleServer(
+    $server = fakeSwooleServer(
         new FakeSwooleRequest([
             'request_method' => 'GET',
             'request_uri' => '/',
             'server_protocol' => 'HTTP/1.1',
         ], [], ''),
-        new FakeSwooleResponse(),
+        new FakeSwooleResponse,
     );
     $driver = new SwooleDriver(
-        new SwooleOptions(),
-        static fn(string $host, int $port): object => $host !== '' && $port > 0
+        new SwooleOptions,
+        static fn (string $host, int $port): object => $host !== '' && $port > 0
             ? $server
             : throw new RuntimeException('Invalid Swoole test endpoint.'),
     );
@@ -402,15 +492,15 @@ it('reports host-owned Swoole persistence with the Runwire reactor bridge availa
         ->and($selection->capabilities->ownsHttp2Wire)->toBeFalse();
 });
 
-
 it('auto-completes Swoole responses and retires an unhealthy worker after reset failure', function (): void {
     $request = new FakeSwooleRequest([
         'request_method' => 'GET',
         'request_uri' => '/unhealthy',
         'server_protocol' => 'HTTP/1.1',
     ], [], '');
-    $response = new FakeSwooleResponse();
-    $server = new class($request, $response) {
+    $response = new FakeSwooleResponse;
+    $server = new class($request, $response)
+    {
         /** @var array<string, bool|int> */
         public array $settings = [];
 
@@ -430,12 +520,16 @@ it('auto-completes Swoole responses and retires an unhealthy worker after reset 
         public function on(string $event, callable $handler): bool
         {
             if (strtolower($event) === 'workerstart') {
-                $this->workerStart = Closure::fromCallable($handler);
+                $this->workerStart = static function () use ($handler): void {
+                    $handler();
+                };
 
                 return true;
             }
             if (strtolower($event) === 'request') {
-                $this->requestHandler = Closure::fromCallable($handler);
+                $this->requestHandler = static function (object $request, object $response) use ($handler): void {
+                    $handler($request, $response);
+                };
 
                 return true;
             }
@@ -470,11 +564,11 @@ it('auto-completes Swoole responses and retires an unhealthy worker after reset 
 
         public function stop(int $workerId = -1, bool $waitEvent = false): bool
         {
-            if ($workerId !== -1 || !$waitEvent) {
+            if ($workerId !== -1 || ! $waitEvent) {
                 return false;
             }
 
-            ++$this->workerStops;
+            $this->workerStops++;
 
             return true;
         }
@@ -488,13 +582,13 @@ it('auto-completes Swoole responses and retires an unhealthy worker after reset 
         },
     );
     $driver = new SwooleDriver(
-        new SwooleOptions(),
-        static fn(string $host, int $port): object => $host !== '' && $port > 0
+        new SwooleOptions,
+        static fn (string $host, int $port): object => $host !== '' && $port > 0
             ? $server
             : throw new RuntimeException('Invalid Swoole test endpoint.'),
     );
 
-    expect(fn() => $driver->run($application))
+    expect(fn () => $driver->run($application))
         ->toThrow(RequestLifecycleException::class)
         ->and($response->ends)->toBe(1)
         ->and($application->healthy())->toBeFalse()

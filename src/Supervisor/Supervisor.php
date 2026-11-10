@@ -85,6 +85,9 @@ final class Supervisor
 
     private bool $running = false;
 
+    /** Reap fallback is active only while workers are being shut down. */
+    private ?int $shutdownReapTimerId = null;
+
     private bool $started = false;
 
     private ?int $startedAtNs = null;
@@ -172,6 +175,8 @@ final class Supervisor
      * fork ownership and drain are all executed by the owning supervisor.
      *
      * @param callable():array{cpuRatio:float,queued:int,successfulRps:float,p99Milliseconds:float} $sample
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function autoscale(string $group, AutoscalePolicy $policy, callable $sample): self
     {
@@ -192,6 +197,7 @@ final class Supervisor
 
     /**
      * Configure the supervisor control endpoint before startup.
+     * @throws \LogicException
      */
     public function control(ControlOptions $options): self
     {
@@ -206,6 +212,7 @@ final class Supervisor
 
     /**
      * Register a worker group before supervisor startup.
+     * @throws \LogicException
      */
     public function group(WorkerGroup $group): self
     {
@@ -236,6 +243,8 @@ final class Supervisor
 
     /**
      * Start replacement of one currently serving worker slot.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function recycle(string $group, int $slot): bool
     {
@@ -293,6 +302,9 @@ final class Supervisor
 
     /**
      * Start the supervisor, spawn workers, and run until shutdown completes.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public function run(): void
     {
@@ -323,6 +335,10 @@ final class Supervisor
             $this->failure ??= $exception;
         } finally {
             $this->running = false;
+            if ($this->shutdownReapTimerId !== null) {
+                $this->loop->cancel($this->shutdownReapTimerId);
+                $this->shutdownReapTimerId = null;
+            }
             $this->autoscaler->stop();
             $this->developmentWatcher?->stop();
             $this->developmentWatcherFailures = $this->developmentWatcher?->failureCount()
@@ -399,11 +415,20 @@ final class Supervisor
         }
         if ($this->children === []) {
             $this->loop->stop();
+
+            return;
         }
+
+        // POSIX may coalesce or lose a child notification during shutdown.
+        // Poll only while stopping, and retain the existing SIGCHLD fast path.
+        $this->shutdownReapTimerId = $this->loop->repeat(0.1, function (): void {
+            $this->reapChildren();
+        });
     }
 
     /**
      * Configure development file watching before supervisor startup.
+     * @throws \LogicException
      */
     public function watch(DevelopmentWatchPolicy $policy): self
     {
@@ -476,6 +501,9 @@ final class Supervisor
         $this->stop(reason: ShutdownReason::FATAL_RUNTIME_ERROR);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function forceCleanupChildren(): void
     {
         $this->restartCoordinator->cancelAll();
@@ -497,6 +525,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function handleChildExit(int $pid, int $status): void
     {
         $record = $this->children[$pid] ?? null;
@@ -598,6 +629,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function normalizeChildProcess(): void
     {
         $this->controlServer?->closeInheritedInChild();
@@ -636,7 +670,10 @@ final class Supervisor
         };
     }
 
-    /** @param list<int> $signals */
+    /**
+     * @param list<int> $signals
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function processSignals(array $signals): void
     {
         if (in_array(SIGCHLD, $signals, true)) {
@@ -652,6 +689,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function reapChildren(): void
     {
         ChildReaper::reap(
@@ -697,13 +737,19 @@ final class Supervisor
         return $this->restartCoordinator->count($group, $slot);
     }
 
-    /** @param resource $childReady */
+    /**
+     * @param resource $childReady
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function runChild(WorkerGroup $group, int $slot, int $generation, mixed $childReady): never
     {
         $this->normalizeChildProcess();
         WorkerChildRuntime::run($group, $slot, $generation, $childReady);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function spawnInitialWorkers(): void
     {
         foreach (ChildSet::slots($this->groups) as [$group, $slot]) {
@@ -711,6 +757,9 @@ final class Supervisor
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function spawnWorker(
         WorkerGroup $group,
         int $slot,
@@ -801,10 +850,11 @@ final class Supervisor
     private function startDevelopmentWatcher(): void
     {
         $policy = $this->developmentWatchPolicy;
-        if ($policy === null || !$policy->enabled) {
+        if ($policy?->enabled !== true) {
             return;
         }
 
+        /** @var DevelopmentWatchPolicy $policy */
         $this->developmentWatcher = new DevelopmentWatcher(
             $this->loop,
             $policy,

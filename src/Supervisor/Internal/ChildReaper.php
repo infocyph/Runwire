@@ -23,7 +23,7 @@ final class ChildReaper
 
         $exitCode = pcntl_wexitstatus($status);
 
-        return is_int($exitCode) ? $exitCode : null;
+        return self::supportedStatus($exitCode);
     }
 
     /**
@@ -31,6 +31,7 @@ final class ChildReaper
      *
      * @param array<int, ChildRecord> $children
      * @return list<int>
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public static function forceKillAndWait(array $children, int $deadlineNanoseconds): array
     {
@@ -52,6 +53,7 @@ final class ChildReaper
      *
      * @param callable(int, int): void $onExit
      * @param callable(): void $onNoChildren
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public static function reap(callable $onExit, callable $onNoChildren): void
     {
@@ -60,10 +62,11 @@ final class ChildReaper
             $pid = pcntl_waitpid(-1, $status, WNOHANG);
 
             if ($pid > 0) {
-                if (!is_int($status)) {
+                $exitStatus = self::supportedStatus($status);
+                if ($exitStatus === null) {
                     throw new SupervisorException('waitpid returned a non-integer child status.');
                 }
-                $onExit($pid, $status);
+                $onExit($pid, $exitStatus);
 
                 continue;
             }
@@ -98,11 +101,12 @@ final class ChildReaper
 
         $signal = pcntl_wtermsig($status);
 
-        return is_int($signal) ? $signal : null;
+        return self::supportedStatus($signal);
     }
 
     /**
      * Poll for one child until it is reaped or the monotonic deadline expires.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public static function waitForUntil(int $pid, int $deadlineNanoseconds): bool
     {
@@ -129,6 +133,9 @@ final class ChildReaper
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private static function retryWait(): bool
     {
         $error = pcntl_get_last_error();
@@ -140,5 +147,13 @@ final class ChildReaper
         }
 
         throw new SupervisorException(sprintf('waitpid failed with PCNTL error %d.', $error));
+    }
+
+    /**
+     * Keep the PCNTL false-on-unsupported-OS contract visible across analyzers.
+     */
+    private static function supportedStatus(mixed $status): ?int
+    {
+        return is_int($status) ? $status : null;
     }
 }

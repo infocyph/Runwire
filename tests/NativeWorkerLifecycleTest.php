@@ -25,19 +25,46 @@ use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * @throws \RuntimeException
+ */
+function nativeCompletionPid(): int
+{
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new RuntimeException('Unable to obtain the native worker fixture process ID.');
+    }
+
+    return $pid;
+}
+
+/**
+ * @throws \OverflowException
+ */
 function nativeCompletionRequest(): HttpRequest
 {
     return new HttpRequest('GET', '/', ProtocolVersion::HTTP_1_1, new Headers(), new BufferedRequestBody(''));
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function nativeCompletionWriter(): CallbackResponseWriter
 {
     return new CallbackResponseWriter(static function (): void {}, static function (): void {}, static function (): void {}, 1024);
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ */
 function nativeCompletionDispatch(string $owner, RuntimeApplication $application, WorkerContext $worker, RuntimeContext $runtime, SelectLoop $loop): Closure
 {
     $sampler = new WorkerDiagnosticsSampler($worker, $runtime->metrics, new DiagnosticsPolicy(), $loop);
+    if (!in_array($owner, [NativeHttpWorker::class, NativeHttp3Worker::class], true)) {
+        throw new InvalidArgumentException('Unknown native worker request-handler owner.');
+    }
     $dispatch = (new ReflectionMethod($owner, 'requestHandler'))->invoke(null, $application, $worker, $sampler);
     if (!$dispatch instanceof Closure) {
         throw new RuntimeException('Native worker dispatch factory did not return a closure.');
@@ -49,10 +76,10 @@ function nativeCompletionDispatch(string $owner, RuntimeApplication $application
 it('counts native completion and recycles only after the coroutine and its children settle', function (string $owner): void {
     $loop = new SelectLoop();
     $runtime = RuntimeContext::standalone();
-    $worker = new WorkerContext('test', 0, 1, getmypid(), 0, recyclePolicy: new WorkerRecyclePolicy(maxRequests: 1));
+    $worker = new WorkerContext('test', 0, 1, nativeCompletionPid(), 0, recyclePolicy: new WorkerRecyclePolicy(maxRequests: 1));
     $events = [];
     $handler = new CoroutineRequestHandler(new CoroutineRuntime(), static function ($request, $writer, CoroutineScope $scope) use ($worker, &$events): void {
-        unset($request);
+        expect($request->target)->toBe('/');
         $scope->spawn(static function () use ($scope, $worker, &$events): void {
             $scope->sleep(0.005);
             $events[] = [$worker->requestsTotal(), $worker->stopping()];
@@ -67,7 +94,9 @@ it('counts native completion and recycles only after the coroutine and its child
 
     try {
         nativeCompletionDispatch($owner, $application, $worker, $runtime, $loop)($request, $writer);
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         $request->context->complete();
         $writer->end();
@@ -84,7 +113,7 @@ it('counts native completion and recycles only after the coroutine and its child
 it('retires native workers when deferred coroutine cleanup fails after response end', function (string $owner): void {
     $loop = new SelectLoop();
     $runtime = RuntimeContext::standalone();
-    $worker = new WorkerContext('test', 0, 1, getmypid(), 0);
+    $worker = new WorkerContext('test', 0, 1, nativeCompletionPid(), 0);
     $handler = new CoroutineRequestHandler(new CoroutineRuntime(), static function ($request, $writer, CoroutineScope $scope): void {
         unset($request);
         $writer->end('ok');
@@ -93,6 +122,10 @@ it('retires native workers when deferred coroutine cleanup fails after response 
     $handler->attachLoop($loop);
     $application = new RuntimeApplication($handler, runtimeContext: $runtime, lifecycle: new ApplicationLifecycleHooks(resetters: [
         new class implements RequestResetterInterface {
+            /**
+             * @throws \RuntimeException
+             */
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
@@ -104,7 +137,9 @@ it('retires native workers when deferred coroutine cleanup fails after response 
 
     try {
         nativeCompletionDispatch($owner, $application, $worker, $runtime, $loop)($request, nativeCompletionWriter());
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
 
         expect($application->healthy())->toBeFalse()
@@ -119,10 +154,10 @@ it('retires native workers when deferred coroutine cleanup fails after response 
 it('keeps native work active through coroutine cancellation cleanup', function (string $owner): void {
     $loop = new SelectLoop();
     $runtime = RuntimeContext::standalone();
-    $worker = new WorkerContext('test', 0, 1, getmypid(), 0, recyclePolicy: new WorkerRecyclePolicy(maxRequests: 1));
+    $worker = new WorkerContext('test', 0, 1, nativeCompletionPid(), 0, recyclePolicy: new WorkerRecyclePolicy(maxRequests: 1));
     $events = [];
     $handler = new CoroutineRequestHandler(new CoroutineRuntime(), static function ($request, $writer, CoroutineScope $scope) use ($worker, &$events): void {
-        unset($writer);
+        expect($writer->isEnded())->toBeFalse();
         try {
             $scope->sleep(1.0);
         } finally {
@@ -135,8 +170,10 @@ it('keeps native work active through coroutine cancellation cleanup', function (
 
     try {
         nativeCompletionDispatch($owner, $application, $worker, $runtime, $loop)($request, nativeCompletionWriter());
-        $loop->delay(0.005, static fn() => $request->context->cancel(CancellationReason::TRANSPORT_CANCELLED));
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.005, static function () use ($request): void { $request->context->cancel(CancellationReason::TRANSPORT_CANCELLED); });
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
 
         expect($events)->toBe([[false, 0, false]])
@@ -151,7 +188,7 @@ it('keeps native work active through coroutine cancellation cleanup', function (
 it('accounts rejected and synchronous failed native requests exactly once', function (string $owner): void {
     $loop = new SelectLoop();
     $runtime = RuntimeContext::standalone();
-    $worker = new WorkerContext('test', 0, 1, getmypid(), 0);
+    $worker = new WorkerContext('test', 0, 1, nativeCompletionPid(), 0);
     $failure = new RuntimeException('synchronous failure');
     $application = new RuntimeApplication(static function () use ($failure): void {
         throw $failure;
@@ -159,7 +196,7 @@ it('accounts rejected and synchronous failed native requests exactly once', func
 
     try {
         $dispatch = nativeCompletionDispatch($owner, $application, $worker, $runtime, $loop);
-        expect(fn() => $dispatch(nativeCompletionRequest(), nativeCompletionWriter()))->toThrow($failure)
+        expect(fn() : mixed => $dispatch(nativeCompletionRequest(), nativeCompletionWriter()))->toThrow($failure)
             ->and($worker->requestsTotal())->toBe(1);
 
         $application = new RuntimeApplication(static function (): void {}, runtimeContext: $runtime,
@@ -188,7 +225,7 @@ it('accounts rejected and synchronous failed native requests exactly once', func
 
 it('drains an attached native TCP worker after a late coroutine reset failure', function (): void {
     $loop = new SelectLoop();
-    $worker = new WorkerContext('test', 0, 1, getmypid(), 0);
+    $worker = new WorkerContext('test', 0, 1, nativeCompletionPid(), 0);
     $handler = new CoroutineRequestHandler(new CoroutineRuntime(), static function ($request, $writer, CoroutineScope $scope): void {
         unset($request);
         $writer->end('native-response');
@@ -200,6 +237,10 @@ it('drains an attached native TCP worker after a late coroutine reset failure', 
         $loop, $worker, new \Infocyph\Runwire\Runtime\Internal\BoundServer($server, $listener),
         RuntimeContext::standalone(), new \Infocyph\Runwire\Runtime\RequestExecutionPolicy(),
         new ApplicationLifecycleHooks(resetters: [new class implements RequestResetterInterface {
+            /**
+             * @throws \RuntimeException
+             */
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
@@ -214,7 +255,9 @@ it('drains an attached native TCP worker after a late coroutine reset failure', 
 
     try {
         fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         stream_set_blocking($client, false);
 
@@ -232,7 +275,7 @@ it('drains an attached native TCP worker after a late coroutine reset failure', 
 
 it('finishes the first accepted HTTP request when recycling precedes header completion', function (string $prefix): void {
     $loop = new SelectLoop();
-    $worker = new WorkerContext('test', 0, 1, getmypid(), 0, recyclePolicy: new WorkerRecyclePolicy(gracefulTimeoutSeconds: 0.08));
+    $worker = new WorkerContext('test', 0, 1, nativeCompletionPid(), 0, recyclePolicy: new WorkerRecyclePolicy(gracefulTimeoutSeconds: 0.08));
     $events = [];
     $server = \Infocyph\Runwire\Server::http('127.0.0.1:0', static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$events): void {
         $events[] = $request->target;
@@ -253,15 +296,22 @@ it('finishes the first accepted HTTP request when recycling precedes header comp
         if ($prefix !== '') {
             fwrite($client, $prefix);
         }
-        $loop->delay(0.01, static fn() => $worker->requestRecycle());
+        $loop->delay(0.01, static function () use ($worker): void {
+    $worker->requestRecycle();
+});
         $loop->delay(0.02, static function () use ($client, $prefix): void {
             $request = "GET /first HTTP/1.1\r\nHost: localhost\r\n\r\n";
             fwrite($client, substr($request, strlen($prefix)) . "GET /second HTTP/1.1\r\nHost: localhost\r\n\r\n");
         });
-        $loop->delay(0.12, static fn() => $loop->stop());
+        $loop->delay(0.12, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         stream_set_blocking($client, false);
         $response = stream_get_contents($client);
+        if (!is_string($response)) {
+            throw new RuntimeException('Unable to read the recycled native HTTP response.');
+        }
 
         expect($response)->toContain('accepted-first')
             ->and(substr_count($response, 'HTTP/1.1 200'))->toBe(1)
@@ -277,7 +327,7 @@ it('finishes the first accepted HTTP request when recycling precedes header comp
 
 it('bounds accepted idle connections by the recycling grace period', function (): void {
     $loop = new SelectLoop();
-    $worker = new WorkerContext('test', 0, 1, getmypid(), 0, recyclePolicy: new WorkerRecyclePolicy(gracefulTimeoutSeconds: 0.02));
+    $worker = new WorkerContext('test', 0, 1, nativeCompletionPid(), 0, recyclePolicy: new WorkerRecyclePolicy(gracefulTimeoutSeconds: 0.02));
     $drains = 0;
     $server = \Infocyph\Runwire\Server::http('127.0.0.1:0', static function (): void {
         throw new RuntimeException('An idle connection must not dispatch a request.');
@@ -294,11 +344,15 @@ it('bounds accepted idle connections by the recycling grace period', function ()
     }
 
     try {
-        $loop->delay(0.01, static fn() => $worker->requestRecycle());
+        $loop->delay(0.01, static function () use ($worker): void {
+    $worker->requestRecycle();
+});
         $loop->delay(0.06, static function () use ($handle, &$drains): void {
             expect($handle->drained())->toBeTrue()->and($drains)->toBe(1);
         });
-        $loop->delay(0.08, static fn() => $loop->stop());
+        $loop->delay(0.08, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         expect($worker->requestsTotal())->toBe(0);
     } finally {

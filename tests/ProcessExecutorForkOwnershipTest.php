@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 
@@ -10,7 +12,7 @@ it('rejects inherited executor use and close in a fork without disrupting parent
 
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 2);
-    [$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$reader, $writer] = runwireProcessExecutorForkOwnershipTestSocketPair();
     $pid = pcntl_fork();
     expect($pid)->not->toBe(-1);
 
@@ -47,6 +49,7 @@ it('rejects inherited executor use and close in a fork without disrupting parent
     try {
         $childOutput = stream_get_contents($reader);
         $waited = pcntl_waitpid($pid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         expect($waited)->toBe($pid)
             ->and(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
@@ -54,7 +57,7 @@ it('rejects inherited executor use and close in a fork without disrupting parent
 
         $observed = [];
         $executor->submit('sleep', ['milliseconds' => 1], static function (mixed $value, ?Throwable $error) use (&$observed): void {
-            unset($value);
+            expect($value)->toBe(1);
             $observed[] = $error;
         });
         $executor->onDrained(static function () use ($executor): void {
@@ -71,3 +74,17 @@ it('rejects inherited executor use and close in a fork without disrupting parent
         $executor->close();
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireProcessExecutorForkOwnershipTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

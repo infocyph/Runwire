@@ -50,8 +50,12 @@ final class CoroutineRuntime
     /**
      * Attach one request scope to the existing scheduler without driving its loop.
      *
-     * @param callable(CoroutineScope): mixed $callback
-     * @param callable(Task): void|null $completed
+     * @template TResult
+     * @return Task<TResult>
+     * @param callable(CoroutineScope): TResult $callback
+     * @param callable(Task<TResult>): void|null $completed
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function attachRequest(RequestContext $context, callable $callback, ?callable $completed = null): Task
     {
@@ -72,7 +76,7 @@ final class CoroutineRuntime
 
         try {
             return $this->scheduler->spawn(
-                static fn(): mixed => $scope->execute($closure),
+                static fn() => $scope->execute($closure),
                 $source,
                 function (Task $task) use ($scope, $completion, &$closed): void {
                     if ($closed || !$task->isComplete()) {
@@ -87,7 +91,6 @@ final class CoroutineRuntime
             );
         } catch (\Throwable $error) {
             if (!$closed) {
-                $closed = true;
                 $scope->close();
                 --$this->attachedRequestScopes;
             }
@@ -107,13 +110,34 @@ final class CoroutineRuntime
         );
     }
 
-    /** @param callable(CoroutineScope): mixed $callback */
+    /**
+     * @template TResult
+     * @return TResult
+     * @param callable(CoroutineScope): TResult $callback
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     * @throws \Throwable
+     * @param-immediately-invoked-callable $callback
+     */
     public function run(callable $callback): mixed
     {
         return $this->execute(new CancellationSource(), $callback);
     }
 
-    /** @param callable(CoroutineScope): mixed $callback */
+    /**
+     * @template TResult
+     * @return TResult
+     * @param callable(CoroutineScope): TResult $callback
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \Throwable
+     * @param-immediately-invoked-callable $callback
+     */
     public function runRequest(RequestContext $context, callable $callback): mixed
     {
         if ($context->completed()) {
@@ -141,7 +165,17 @@ final class CoroutineRuntime
         return new self($loop, $this->policy);
     }
 
-    /** @param callable(CoroutineScope): mixed $callback */
+    /**
+     * @template TResult
+     * @return TResult
+     * @param callable(CoroutineScope): TResult $callback
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     * @throws \Throwable
+     * @param-immediately-invoked-callable $callback
+     */
     private function execute(CancellationSource $source, callable $callback): mixed
     {
         if ($this->running || $this->attachedRequestScopes > 0) {
@@ -160,7 +194,7 @@ final class CoroutineRuntime
 
         try {
             $root = $this->scheduler->spawn(
-                static fn(): mixed => $scope->execute($closure),
+                static fn() => $scope->execute($closure),
                 $source,
             );
             $this->scheduler->drive();

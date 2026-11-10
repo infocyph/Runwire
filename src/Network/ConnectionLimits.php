@@ -13,6 +13,7 @@ final readonly class ConnectionLimits
 {
     /**
      * Create and validate connection resource limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $readChunkBytes = 65_536,
@@ -49,6 +50,9 @@ final readonly class ConnectionLimits
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateWatermarks(string $name, int $low, int $high, int $max): void
     {
         if ($low < 0 || $high <= 0 || $low >= $high || $high > $max) {

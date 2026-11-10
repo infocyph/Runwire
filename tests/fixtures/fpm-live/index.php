@@ -46,7 +46,7 @@ Runtime::create(new RuntimeOptions(driver: RuntimeDriver::FPM))->serve(
             }
             if (is_array($socketPair)) {
                 foreach ($socketPair as $socket) {
-                    if (is_resource($socket)) {
+                    if (get_resource_type($socket) !== 'Unknown') {
                         fclose($socket);
                     }
                 }
@@ -56,10 +56,9 @@ Runtime::create(new RuntimeOptions(driver: RuntimeDriver::FPM))->serve(
             }
         }
         clearstatcache(true, $temp);
-        $fileClosed = !is_resource($file) && !is_file($temp);
-        $socketClosed = is_array($socketPair)
-            && !is_resource($socketPair[0])
-            && !is_resource($socketPair[1]);
+        $fileClosed = get_resource_type($file) === 'Unknown' && !is_file($temp);
+        $socketClosed = get_resource_type($socketPair[0]) === 'Unknown'
+            && get_resource_type($socketPair[1]) === 'Unknown';
 
         $payload = json_encode([
             'method' => $request->method,

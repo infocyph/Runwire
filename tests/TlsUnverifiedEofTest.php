@@ -9,7 +9,8 @@ use Infocyph\Runwire\Network\Enum\ConnectionState;
 
 it('never treats an unverified outbound TLS EOF as a clean application EOF', function (): void {
     $streams = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($streams)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($streams);
+    expect($streams)->toHaveCount(2);
     $loop = new SelectLoop();
     $connection = new Connection($loop, $streams[0], encrypted: true, strictTlsPeerEof: true);
     $received = '';
@@ -44,7 +45,8 @@ it('never treats an unverified outbound TLS EOF as a clean application EOF', fun
 
 it('retains plain TCP EOF and prohibits raw TLS write half-close', function (): void {
     $streams = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($streams)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($streams);
+    expect($streams)->toHaveCount(2);
     $loop = new SelectLoop();
     $tls = new Connection($loop, $streams[0], encrypted: true, strictTlsPeerEof: true);
     expect(fn() => $tls->shutdownWrite())->toThrow(LogicException::class)
@@ -52,7 +54,8 @@ it('retains plain TCP EOF and prohibits raw TLS write half-close', function (): 
     $tls->abort();
     fclose($streams[1]);
     $plain = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($plain)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($plain);
+    expect($plain)->toHaveCount(2);
     $connection = new Connection($loop, $plain[0]);
     $reasons = [];
     $connection->onClose(function (Connection $conn, CloseReason $reason) use (&$reasons, $loop): void {

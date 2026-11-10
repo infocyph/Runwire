@@ -49,7 +49,11 @@ final class WebSocketClientUpgrade
         $this->completion = Closure::fromCallable($completion);
     }
 
-    /** Begin the bounded outbound upgrade and transfer callbacks on success. */
+    /**
+     * Begin the bounded outbound upgrade and transfer callbacks on success.
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     public function start(): void
     {
         $deadline = $this->dialOptions->deadline?->remainingSeconds();
@@ -67,13 +71,13 @@ final class WebSocketClientUpgrade
         $this->closeObserver = $this->connection->registerCloseObserver(function (): void {
             $this->fail(new RuntimeException('WebSocket peer closed before completing HTTP upgrade.'));
         });
-        if ($this->settled) {
+        if ($this->isSettled()) {
             return;
         }
         $this->subscription = $this->dialOptions->cancellation?->onCancel(function (CancellationToken $token): void {
             $this->fail(new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
         });
-        if ($this->settled) {
+        if ($this->settledAfterCancellationRegistration()) {
             return;
         }
 
@@ -81,7 +85,7 @@ final class WebSocketClientUpgrade
             $this->connection->onEof(function (): void {
                 $this->fail(new RuntimeException('WebSocket peer ended its upgrade response.'));
             });
-            if ($this->settled) {
+            if ($this->isSettled()) {
                 return;
             }
             if (!$this->connection->write($this->request['wire'])->accepted()) {
@@ -97,6 +101,10 @@ final class WebSocketClientUpgrade
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     private function consume(): void
     {
         if ($this->settled) {
@@ -143,11 +151,17 @@ final class WebSocketClientUpgrade
         $this->finish($session, null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function fail(Throwable $error): void
     {
         $this->finish(null, $error);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finish(?WebSocketSession $session, ?Throwable $error): void
     {
         if ($this->settled) {
@@ -169,5 +183,19 @@ final class WebSocketClientUpgrade
             $this->connection->abort();
         }
         ($this->completion)($session, $error);
+    }
+
+    private function isSettled(): bool
+    {
+        return $this->settled;
+    }
+
+    /**
+     * onCancel may synchronously settle the upgrade while registering the
+     * callback, even though the earlier settled check succeeded.
+     */
+    private function settledAfterCancellationRegistration(): bool
+    {
+        return $this->isSettled();
     }
 }

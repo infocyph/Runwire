@@ -21,6 +21,9 @@ final class Http3ClientPeerAuxiliary
      * Validate peer encoder/decoder stream bytes and flag control-loop liveness.
      *
      * @return array{watch:bool,completed:bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function accept(
         int $type,
@@ -49,7 +52,12 @@ final class Http3ClientPeerAuxiliary
         return ['watch' => $watch, 'completed' => $completed];
     }
 
-    /** @param null|callable(ReadyFieldSection):bool $releaseSibling */
+    /**
+     * @param null|callable(ReadyFieldSection):bool $releaseSibling
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function acceptEncoder(
         string $bytes,
         ?Http3ClientResponseStream $response,

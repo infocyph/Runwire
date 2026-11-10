@@ -20,6 +20,7 @@ final class AdaptiveConnectionSampler
 
     /**
      * Create a bounded worker-local connection sampler.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly int $activeCapacity,
@@ -55,6 +56,7 @@ final class AdaptiveConnectionSampler
 
     /**
      * Build one bounded worker load sample.
+     * @throws \InvalidArgumentException
      */
     public function sample(int $activeConnections): AdaptiveLoadSample
     {

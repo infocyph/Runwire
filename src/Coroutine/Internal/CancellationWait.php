@@ -56,6 +56,8 @@ final class CancellationWait
 
     /**
      * Begin observing cancellation and deadline expiry.
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function start(): void
     {
@@ -73,11 +75,16 @@ final class CancellationWait
             $this->close();
             ($this->onCancelled)($error);
         });
-        if ($this->closed || $this->token->isCancelled()) {
+        if ($this->isClosed() || $this->token->isCancelled()) {
             return;
         }
 
         $this->scheduleDeadline();
+    }
+
+    private function isClosed(): bool
+    {
+        return $this->closed;
     }
 
     private function scheduleDeadline(): void
@@ -88,6 +95,9 @@ final class CancellationWait
         }
 
         $remaining = $deadline->remainingSeconds();
+        if ($remaining === null) {
+            return;
+        }
         if ($remaining <= 0.0) {
             $this->token->isCancelled();
 

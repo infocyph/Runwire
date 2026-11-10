@@ -30,7 +30,11 @@ final class HappyEyeballsDialer
     /** @var array<int, HappyEyeballsAttempt> */
     private array $pending = [];
 
-    /** Create a bounded race coordinator over the shared outgoing connector. */
+    /**
+     * Create a bounded race coordinator over the shared outgoing connector.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Dialer $dialer,
@@ -49,7 +53,10 @@ final class HappyEyeballsDialer
         $this->ownerPid = $pid;
     }
 
-    /** Cancel a pending address race and close all unhanded-off candidates. */
+    /**
+     * Cancel a pending address race and close all unhanded-off candidates.
+     * @throws \LogicException
+     */
     public function cancel(int $id): bool
     {
         $this->assertProcessOwner();
@@ -62,7 +69,10 @@ final class HappyEyeballsDialer
         return true;
     }
 
-    /** Abort pending races without closing the shared socket connector or resolver. */
+    /**
+     * Abort pending races without closing the shared socket connector or resolver.
+     * @throws \Throwable
+     */
     public function close(): void
     {
         $this->assertProcessOwner();
@@ -87,6 +97,9 @@ final class HappyEyeballsDialer
      * Resolve a hostname asynchronously and race its A/AAAA addresses.
      *
      * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function connect(
         DialEndpoint|string $endpoint,
@@ -112,6 +125,9 @@ final class HappyEyeballsDialer
      *
      * @param list<string> $addresses
      * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function connectResolved(
         array $addresses,
@@ -134,7 +150,10 @@ final class HappyEyeballsDialer
         return $id;
     }
 
-    /** Return pending host races, excluding underlying candidate socket counts. */
+    /**
+     * Return pending host races, excluding underlying candidate socket counts.
+     * @throws \LogicException
+     */
     public function pendingCount(): int
     {
         $this->assertProcessOwner();
@@ -142,6 +161,9 @@ final class HappyEyeballsDialer
         return count($this->pending);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
@@ -149,7 +171,11 @@ final class HappyEyeballsDialer
         }
     }
 
-    /** @param callable(?Connection, ?Throwable):void $completion */
+    /**
+     * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function register(callable $completion, DialOptions $options): int
     {
         if ($this->closed) {

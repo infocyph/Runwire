@@ -49,6 +49,8 @@ final class ResponseScheduler
 
     /**
      * Create a response scheduler for the supplied connection state and transport.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function __construct(
         private readonly ConnectionState $state,
@@ -96,6 +98,8 @@ final class ResponseScheduler
 
     /**
      * Flush queued QPACK and response bytes within the configured write budget.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function flush(): void
     {
@@ -145,7 +149,10 @@ final class ResponseScheduler
         return $stream !== null && (!$stream->outbound->isEmpty() || $stream->endPending);
     }
 
-    /** @param callable(): void $onEnd */
+    /**
+     * @param callable(): void $onEnd
+     * @throws \LogicException
+     */
     public function writer(int $streamId, string $method, callable $onEnd): Http3ResponseWriter
     {
         if (isset($this->streams[$streamId])) {
@@ -165,6 +172,9 @@ final class ResponseScheduler
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function adaptiveWriteLimit(): int
     {
         $queueCapacity = max(1, min(
@@ -186,6 +196,10 @@ final class ResponseScheduler
         return $this->adaptiveResponse->writeLimit($sample, $this->limits->maxWritesPerFlush);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function appendDataFrames(ResponseStream $stream, string $data): void
     {
         $offset = 0;
@@ -199,7 +213,12 @@ final class ResponseScheduler
         }
     }
 
-    /** @param list<array{0: string, 1: string}> $headers */
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function appendHeader(
         ResponseStream $stream,
         Encoder $encoder,
@@ -296,6 +315,10 @@ final class ResponseScheduler
         return $bytes;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function flushNextResponse(bool $qpackProgress, int &$writes, int &$stalled): bool
     {
         $stream = $this->nextStream();
@@ -315,6 +338,10 @@ final class ResponseScheduler
         return ++$stalled < count($this->flushQueue) + 1;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function flushQpack(): bool
     {
         if ($this->qpackEncoderQueue->isEmpty()) {
@@ -341,6 +368,10 @@ final class ResponseScheduler
         return true;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function flushRequest(ResponseStream $stream): bool
     {
         if ($stream->outbound->isEmpty()) {
@@ -379,6 +410,10 @@ final class ResponseScheduler
         return true;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function flushResponseStream(ResponseStream $stream): bool
     {
         $progress = $this->flushRequest($stream);
@@ -408,6 +443,11 @@ final class ResponseScheduler
         return $this->streams[$streamId] ?? null;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function queueData(ResponseStream $stream, string $data, bool $end): WriteResult
     {
         if ($stream->ended) {
@@ -431,7 +471,12 @@ final class ResponseScheduler
         return $this->responseResult($stream);
     }
 
-    /** @param list<array{0: string, 1: string}> $headers */
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function queueHeaders(ResponseStream $stream, int $status, array $headers): WriteResult
     {
         if ($stream->ended) {
@@ -494,6 +539,9 @@ final class ResponseScheduler
         );
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function validateWritten(int $written, int $offered): void
     {
         if ($written < 0 || $written > $offered) {

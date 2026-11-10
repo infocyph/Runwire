@@ -2,15 +2,22 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\ConnectionFactory;
+use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
+use LogicException;
+use stdClass;
+
 
 it('supports a real local half-close while still accepting inbound data', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
     [$client, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $client);
@@ -20,8 +27,8 @@ it('supports a real local half-close while still accepting inbound data', functi
         $data[] = $stream->read();
         $stream->closeGracefully();
     });
-    $connection->onClose(function ($stream, CloseReason $reason) use (&$closes): void {
-        unset($stream);
+    $connection->onClose(function (Connection $connection, CloseReason $reason) use (&$closes): void {
+        expect($connection->state())->toBe(ConnectionState::CLOSED);
         $closes[] = $reason;
     });
     $connection->shutdownWrite();
@@ -50,7 +57,8 @@ it('supports a real local half-close while still accepting inbound data', functi
 
 it('rejects local half-close after draining or closing without double-close events', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
     [$client, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $client);
@@ -69,7 +77,8 @@ it('rejects local half-close after draining or closing without double-close even
 
 it('delivers unread bounded bytes to a new protocol callback owner once', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
     [$client, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $client);

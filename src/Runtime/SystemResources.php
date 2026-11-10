@@ -13,6 +13,7 @@ final readonly class SystemResources
 {
     /**
      * Creates an effective system resource snapshot.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $effectiveCpuCount = 1,
@@ -28,6 +29,7 @@ final readonly class SystemResources
 
     /**
      * Resolves a configured or automatic worker count under the supplied maximum.
+     * @throws \InvalidArgumentException
      */
     public function resolveWorkerCount(int $configured, int $maximum = 1_024): int
     {

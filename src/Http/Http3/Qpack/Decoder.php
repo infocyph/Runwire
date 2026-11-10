@@ -18,8 +18,6 @@ final class Decoder
 
     private readonly FieldSectionDecoder $fieldDecoder;
 
-    private readonly DynamicTable $table;
-
     /** @var array<int, list<string>> */
     private array $blocked = [];
 
@@ -29,6 +27,7 @@ final class Decoder
 
     /**
      * Create a bounded QPACK decoder.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         int $maxTableCapacity,
@@ -41,14 +40,16 @@ final class Decoder
             throw new \InvalidArgumentException('QPACK decoder blocked-stream limits cannot be negative.');
         }
 
-        $this->table = new DynamicTable($maxTableCapacity);
-        $this->encoderStream = new EncoderStreamDecoder($this->table, $maxFieldSectionBytes);
+        $table = new DynamicTable($maxTableCapacity);
+        $this->encoderStream = new EncoderStreamDecoder($table, $maxFieldSectionBytes);
         $this->decoderStream = new DecoderStreamEncoder();
-        $this->fieldDecoder = new FieldSectionDecoder($this->table, $maxFieldSectionBytes, $maxHeaderFields);
+        $this->fieldDecoder = new FieldSectionDecoder($table, $maxFieldSectionBytes, $maxHeaderFields);
     }
 
     /**
      * Cancel blocked QPACK work for a request stream and queue cancellation feedback.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function cancelStream(int $streamId): void
     {
@@ -62,6 +63,9 @@ final class Decoder
 
     /**
      * Decode a field section or retain it when required dynamic entries are unavailable.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function decode(string $block, int $streamId): ?DecodedFieldSection
     {
@@ -78,7 +82,12 @@ final class Decoder
         return $section;
     }
 
-    /** @return list<ReadyFieldSection> */
+    /**
+     * @return list<ReadyFieldSection>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function pushEncoderInstructions(string $bytes): array
     {
         $insertions = $this->encoderStream->push($bytes);
@@ -100,6 +109,10 @@ final class Decoder
         return $instructions;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function acknowledge(DecodedFieldSection $section, int $streamId): void
     {
         if ($section->requiredInsertCount > 0) {
@@ -107,6 +120,9 @@ final class Decoder
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function block(string $block, int $streamId): void
     {
         $newStream = !isset($this->blocked[$streamId]);
@@ -127,7 +143,12 @@ final class Decoder
         $this->blockedBytes += strlen($block);
     }
 
-    /** @return list<ReadyFieldSection> */
+    /**
+     * @return list<ReadyFieldSection>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function retryBlocked(): array
     {
         $ready = [];

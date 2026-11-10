@@ -10,7 +10,10 @@ use Throwable;
 /** @internal Nonblocking subprocess pipe and worker lifecycle mechanics. */
 trait ExecutorIpcTrait
 {
-    /** @return array{mixed, ?Throwable} */
+    /**
+     * @return array{mixed, ?Throwable}
+     * @throws \RuntimeException
+     */
     private function decodeResponse(int $jobId, string $payload): array
     {
         $response = json_decode($payload, true, 16, JSON_THROW_ON_ERROR);
@@ -24,7 +27,7 @@ trait ExecutorIpcTrait
         }
 
         $value = $response['value'] ?? null;
-        if (str_contains($this->jobs[$jobId]['packet'], '"op":"read"')) {
+        if ($this->jobs[$jobId]['operation'] === 'read') {
             $value = is_string($value) ? base64_decode($value, true) : false;
             if ($value === false) {
                 throw new RuntimeException('Executor returned invalid file data.');
@@ -115,17 +118,24 @@ trait ExecutorIpcTrait
         $this->schedulePump();
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function startWorker(): int
     {
         $script = dirname(__DIR__, 3) . '/tools/executor-worker.php';
         $pipes = [];
         $nullDevice = '/dev/null';
+        // A fresh key authenticates each request at the worker-owned IPC boundary.
+        $environment = getenv();
+        $environment['RUNWIRE_EXECUTOR_IPC_KEY'] = $this->ipcKey;
         $process = proc_open(
             [$this->phpBinary, '-d', 'display_errors=stderr', $script],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['file', $nullDevice, 'a']],
             $pipes,
             null,
-            null,
+            $environment,
             ['bypass_shell' => true],
         );
         if (!is_resource($process)) {
@@ -179,19 +189,18 @@ trait ExecutorIpcTrait
         if (!isset($this->workers[$id])) {
             return;
         }
-        $worker = &$this->workers[$id];
+        $worker = $this->workers[$id];
         $sent = $this->writePipe($worker['input'], substr($worker['inputBuffer'], 0, self::IO_CHUNK_BYTES));
         if ($sent === false || ($sent === 0 && feof($worker['input']))) {
-            unset($worker);
             $this->retire($id, new RuntimeException('Executor subprocess input closed.'));
 
             return;
         }
-        $worker['inputBuffer'] = substr($worker['inputBuffer'], $sent);
-        if ($worker['inputBuffer'] === '' && $worker['writeWatcher'] !== null) {
-            $this->loop->cancel($worker['writeWatcher']);
-            $worker['writeWatcher'] = null;
+        $this->workers[$id]['inputBuffer'] = substr($worker['inputBuffer'], $sent);
+        if ($this->workers[$id]['inputBuffer'] === '' && $this->workers[$id]['writeWatcher'] !== null) {
+            $watcher = $this->workers[$id]['writeWatcher'];
+            $this->workers[$id]['writeWatcher'] = null;
+            $this->loop->cancel($watcher);
         }
-        unset($worker);
     }
 }

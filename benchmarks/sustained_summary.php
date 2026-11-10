@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 require __DIR__ . '/comparative_evidence.php';
 
-/** @param list<float> $values */
+/**
+ * @param list<float> $values
+ * @throws \RuntimeException
+ */
 function sustainedMedian(array $values): float
 {
     sort($values, SORT_NUMERIC);
@@ -16,7 +19,7 @@ function sustainedMedian(array $values): float
 
     return $count % 2 === 1
         ? $values[$middle]
-        : ($values[$middle - 1] + $values[$middle]) / 2;
+        : ($values[$middle - 1] + $values[$middle]) / 2.0;
 }
 
 /** @param list<float> $values */
@@ -27,25 +30,27 @@ function sustainedCoefficientOfVariation(array $values): float
         return 0.0;
     }
 
-    $mean = array_sum($values) / $count;
+    $mean = array_sum($values) / (float) $count;
     if ($mean <= 0.0) {
         return 0.0;
     }
 
     $sumSquares = 0.0;
     foreach ($values as $value) {
-        $sumSquares += ($value - $mean) ** 2;
+        $sumSquares += ($value - $mean) ** 2.0;
     }
 
-    return sqrt($sumSquares / ($count - 1)) / $mean * 100.0;
+    return sqrt($sumSquares / (float) ($count - 1)) / $mean * 100.0;
 }
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 $paths = array_slice($argv, 1);
 if (count($paths) < 5) {
     throw new RuntimeException('Sustained evidence requires at least five repeated trials.');
 }
 
-/** @var list<array<string, mixed>> $records */
 $records = array_map(loadEvidence(...), $paths);
 assertComparable($records);
 

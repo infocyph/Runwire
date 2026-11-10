@@ -2,14 +2,22 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Benchmarks;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\BoundedConnectionPool;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\DialEndpoint;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\PoolIsolationKey;
+use InvalidArgumentException;
+use LogicException;
+use RuntimeException;
+use stdClass;
+use Throwable;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
+require_once __DIR__ . '/process_usage.php';
 
 /** Independent real TCP requests through new sockets versus actual retained pooled sockets. */
 final class U10PoolNetworkTrial
@@ -37,14 +45,19 @@ final class U10PoolNetworkTrial
 
     private int $maxRss = 0;
 
-    /** @var array<int, array{started:int, lease:?int, connection:?Connection, owner:?object, received:string}> */
+    /** @var array<int, array{started:int|float, lease:?int, connection:?Connection, owner:?object, received:string}> */
     private array $requests = [];
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly int $port,
         private readonly int $count,
         private readonly int $concurrency,
-        private readonly bool $pooled,
+        bool $pooled,
     ) {
         $this->loop = new SelectLoop();
         $this->dialer = new Dialer($this->loop);
@@ -61,7 +74,10 @@ final class U10PoolNetworkTrial
         ) : null;
     }
 
-    /** @return array<string,int|float|bool> */
+    /**
+     * @return array{successful_requests:int,real_network_io:bool,concurrency:int,rps:float,p99_ms:float,cpu_parent_ms:float,rss_bytes:int,peak_open_fds:int,reuse_hits:int,fresh_dials:int,reuse_hit_rate:float}
+     * @throws \Throwable
+     */
     public function run(): array
     {
         $startCpu = self::cpuMs();
@@ -79,10 +95,10 @@ final class U10PoolNetworkTrial
             if ($this->completed !== $this->count || $this->requests !== []) {
                 throw new RuntimeException('U10 real socket workload did not finish all requests.');
             }
-            $elapsed = max(0.000001, (hrtime(true) - $started) / 1e9);
+            $elapsed = max(0.000001, (float) (hrtime(true) - $started) / 1_000_000_000.0);
             $this->sampleResources();
             sort($this->latencies);
-            $latencyIndex = max(0, (int) ceil(count($this->latencies) * 0.99) - 1);
+            $latencyIndex = max(0, (int) ceil((float) count($this->latencies) * 0.99) - 1);
             $metrics = $this->pool?->metrics();
             $reuse = is_array($metrics) ? (int) $metrics['reuse_hits'] : 0;
             $fresh = is_array($metrics) ? (int) $metrics['fresh_dial_slots'] : $this->count;
@@ -91,7 +107,7 @@ final class U10PoolNetworkTrial
                 'successful_requests' => $this->completed,
                 'real_network_io' => true,
                 'concurrency' => $this->concurrency,
-                'rps' => round($this->completed / $elapsed, 3),
+                'rps' => round((float) $this->completed / $elapsed, 3),
                 'p99_ms' => round($this->latencies[$latencyIndex], 3),
                 'cpu_parent_ms' => round(max(0, self::cpuMs() - $startCpu), 3),
                 'rss_bytes' => $this->maxRss,
@@ -115,17 +131,18 @@ final class U10PoolNetworkTrial
         }
     }
 
+    /**
+ * @throws \RuntimeException
+   * @throws \ValueError
+ */
     private static function cpuMs(): float
     {
-        $usage = getrusage();
+        $usage = runwireBenchmarkUsage();
 
-        return 1000.0 * (
-            ($usage['ru_utime.tv_sec'] ?? 0) + ($usage['ru_stime.tv_sec'] ?? 0)
-        ) + (
-            ($usage['ru_utime.tv_usec'] ?? 0) + ($usage['ru_stime.tv_usec'] ?? 0)
-        ) / 1000.0;
+        return (float) runwireBenchmarkCpuMicroseconds($usage) / 1_000.0;
     }
 
+    /** @throws \Throwable */
     private function connected(int $id, ?Connection $connection, ?Throwable $error): void
     {
         if ($error !== null || $connection === null) {
@@ -172,6 +189,9 @@ final class U10PoolNetworkTrial
         $this->loop->stop();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function fill(): void
     {
         if ($this->failure !== null) {
@@ -185,21 +205,11 @@ final class U10PoolNetworkTrial
                 'owner' => null, 'received' => '',
             ];
             if ($this->pool !== null) {
+                $key = $this->key ?? throw new LogicException('Pooled trial requires a matching isolation key.');
                 $this->pool->acquire(
-                    $this->key,
+                    $key,
                     function (int $lease, ?Connection $connection, ?Throwable $error) use ($id): void {
-                        $this->requests[$id]['lease'] = $lease;
-                        if ($error !== null) {
-                            $this->fail($error);
-
-                            return;
-                        }
-                        if ($connection !== null) {
-                            $this->connected($id, $connection, null);
-
-                            return;
-                        }
-                        $this->open($id);
+                        $this->leased($id, $lease, $connection, $error);
                     },
                 );
             } else {
@@ -208,6 +218,24 @@ final class U10PoolNetworkTrial
         }
     }
 
+    /** @throws Throwable */
+    private function leased(int $id, int $lease, ?Connection $connection, ?Throwable $error): void
+    {
+        $this->requests[$id]['lease'] = $lease;
+        if ($error !== null) {
+            $this->fail($error);
+
+            return;
+        }
+        if ($connection !== null) {
+            $this->connected($id, $connection, null);
+
+            return;
+        }
+        $this->open($id);
+    }
+
+    /** @throws \Throwable */
     private function open(int $id): void
     {
         $this->dialer->connect(
@@ -218,6 +246,7 @@ final class U10PoolNetworkTrial
         );
     }
 
+    /** @throws \Throwable */
     private function received(int $id, Connection $connection): void
     {
         $request = $this->requests[$id] ?? null;
@@ -225,7 +254,7 @@ final class U10PoolNetworkTrial
             return;
         }
         $bytes = $request['received'] . $connection->read();
-        if (!str_starts_with("pong\n", $bytes)) {
+        if (strncmp($bytes, "pong\n", strlen($bytes)) !== 0) {
             $this->fail(new RuntimeException('Independent origin reply did not match expected bytes.'));
 
             return;
@@ -246,7 +275,7 @@ final class U10PoolNetworkTrial
         } else {
             $connection->abort();
         }
-        $this->latencies[] = max(0.0, (hrtime(true) - $request['started']) / 1e6);
+        $this->latencies[] = max(0.0, ((float) hrtime(true) - (float) $request['started']) / 1_000_000.0);
         unset($this->requests[$id]);
         ++$this->completed;
         --$this->active;
@@ -279,10 +308,13 @@ function u10Median(array $values): float
     $count = count($values);
 
     return $count % 2 === 0
-        ? ($values[intdiv($count, 2) - 1] + $values[intdiv($count, 2)]) / 2
+        ? ($values[intdiv($count, 2) - 1] + $values[intdiv($count, 2)]) / 2.0
         : $values[intdiv($count, 2)];
 }
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 3 || filter_var($argv[1], FILTER_VALIDATE_INT) === false
     || filter_var($argv[2], FILTER_VALIDATE_INT) === false) {
     throw new InvalidArgumentException('Usage: php u10_pool_live_profile.php <requests 32..1024> <concurrency 4..32>');
@@ -309,14 +341,20 @@ try {
     $ready = '';
     $started = microtime(true);
     while (!str_contains($ready, "\n") && microtime(true) - $started < 4) {
-        $ready .= stream_get_contents($pipes[1]);
+        $chunk = stream_get_contents($pipes[1]);
+        if ($chunk === false) {
+            throw new RuntimeException('Unable to read independent pool origin readiness.');
+        }
+        $ready .= $chunk;
         if (str_contains($ready, "\n") || !proc_get_status($process)['running']) {
             break;
         }
         usleep(10_000);
     }
     if (preg_match('/^READY ([0-9]+)\n/', $ready, $matches) !== 1) {
-        throw new RuntimeException('Independent pool origin failed to bind: ' . stream_get_contents($pipes[2]));
+        $errorOutput = stream_get_contents($pipes[2]);
+
+        throw new RuntimeException('Independent pool origin failed to bind: ' . ($errorOutput === false ? '' : $errorOutput));
     }
     $port = (int) $matches[1];
     $trials = ['direct', 'pool', 'pool', 'direct'];
@@ -326,17 +364,19 @@ try {
     }
     $summary = [];
     foreach ($results as $mode => $rows) {
+        $rssValues = array_column($rows, 'rss_bytes');
+        $fdValues = array_column($rows, 'peak_open_fds');
         $summary[$mode] = [
             'successful_requests' => array_sum(array_column($rows, 'successful_requests')),
             'rps' => round(u10Median(array_column($rows, 'rps')), 3),
             'p99_ms' => round(u10Median(array_column($rows, 'p99_ms')), 3),
             'cpu_parent_ms' => round(u10Median(array_column($rows, 'cpu_parent_ms')), 3),
-            'rss_bytes' => max(array_column($rows, 'rss_bytes')),
-            'peak_open_fds' => max(array_column($rows, 'peak_open_fds')),
+            'rss_bytes' => max($rssValues),
+            'peak_open_fds' => max($fdValues),
             'reuse_hits' => array_sum(array_column($rows, 'reuse_hits')),
             'fresh_dials' => array_sum(array_column($rows, 'fresh_dials')),
             'reuse_hit_rate' => round(
-                array_sum(array_column($rows, 'reuse_hits')) / (2 * $count),
+                (float) array_sum(array_column($rows, 'reuse_hits')) / (float) (2 * $count),
                 4,
             ),
             'trials' => $rows,

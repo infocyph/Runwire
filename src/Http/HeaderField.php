@@ -9,6 +9,7 @@ use InvalidArgumentException;
 /**
  * Represents one validated HTTP header field.
  */
+/** @psalm-taint-specialize */
 final readonly class HeaderField
 {
     public string $name;
@@ -17,6 +18,7 @@ final readonly class HeaderField
 
     /**
      * Create a normalized HTTP header field.
+     * @throws \InvalidArgumentException
      */
     public function __construct(string $name, string $value)
     {

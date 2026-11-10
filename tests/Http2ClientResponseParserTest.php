@@ -2,14 +2,26 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientResponseParser;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
+use InvalidArgumentException;
+use RuntimeException;
 
 it('delivers bounded H2 headers only after CONTINUATION then streams DATA until END_STREAM', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase01(): void
+{
     $parser = new Http2ClientResponseParser();
     $block = (new Encoder())->encode([[':status', '200'], ['content-type', 'text/plain']]);
     $seen = [];
@@ -31,9 +43,17 @@ it('delivers bounded H2 headers only after CONTINUATION then streams DATA until 
         ->and($parser->done())->toBeTrue();
     expect(fn() => $parser->push(new Frame(FrameType::DATA->value, 0x1, 1), $header, $chunk))
         ->toThrow(RuntimeException::class, 'terminal');
-});
+}
 
 it('accepts an empty initial HEADERS fragment but never allows an interleaved stream frame', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase02(): void
+{
     $parser = new Http2ClientResponseParser();
     $header = static function (): void {};
     $body = static function (): void {};
@@ -48,9 +68,17 @@ it('accepts an empty initial HEADERS fragment but never allows an interleaved st
     expect($parser->done())->toBeFalse();
     $parser->push(new Frame(FrameType::DATA->value, 0x1, 1), $header, $body);
     expect($parser->done())->toBeTrue();
-});
+}
 
 it('rejects malformed statuses, pseudo ordering, framing and stream-local body overflow without leaking callbacks', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase03(): void
+{
     $failures = [
         [['content-type', 'text/plain'], [':status', '200']],
         [[':status', '200'], [':status', '204']],
@@ -82,9 +110,17 @@ it('rejects malformed statuses, pseudo ordering, framing and stream-local body o
     expect(fn() => $parser->push(new Frame(FrameType::DATA->value, 0x1, 1, 'e'), $headers, $onBody))
         ->toThrow(RuntimeException::class, 'memory limit');
     expect($body)->toBe('abcd');
-});
+}
 
 it('rejects oversized header fragments before allocation and keeps a separate H2 response intact', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase04(): void
+{
     $hostile = new Http2ClientResponseParser(maxHeaderBlockBytes: 80);
     expect(fn() => $hostile->push(
         new Frame(FrameType::HEADERS->value, 0x4, 1, str_repeat('a', 81)),
@@ -101,9 +137,17 @@ it('rejects oversized header fragments before allocation and keeps a separate H2
     );
     expect($status)->toBe(204)
         ->and($healthy->done())->toBeTrue();
-});
+}
 
 it('isolates two independently numbered client-initiated H2 response decoders', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase05(): void
+{
     $first = new Http2ClientResponseParser(streamId: 1);
     $second = new Http2ClientResponseParser(streamId: 3);
     $states = [1 => [], 3 => []];
@@ -143,18 +187,34 @@ it('isolates two independently numbered client-initiated H2 response decoders', 
         static function (string $bytes) use (&$data): void { $data[1] .= $bytes; },
     );
     expect($first->done())->toBeTrue()->and($data[1])->toBe('first');
-});
+}
 
 it('rejects zero, even, and overflowed HTTP/2 client stream identities', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase06(): void
+{
     expect(fn() => new Http2ClientResponseParser(streamId: 0))
         ->toThrow(InvalidArgumentException::class)
         ->and(fn() => new Http2ClientResponseParser(streamId: 2))
         ->toThrow(InvalidArgumentException::class)
         ->and(fn() => new Http2ClientResponseParser(streamId: 0x8000_0001))
         ->toThrow(InvalidArgumentException::class);
-});
+}
 
 it('reuses one connection HPACK decoding table across separately bounded H2 responses', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase07(): void
+{
     $decoder = new Decoder();
     $first = new Http2ClientResponseParser(streamId: 1, sharedDecoder: $decoder);
     $second = new Http2ClientResponseParser(streamId: 3, sharedDecoder: $decoder);
@@ -181,9 +241,17 @@ it('reuses one connection HPACK decoding table across separately bounded H2 resp
     expect($fields)->toBe([1 => [200, 'same-value'], 3 => [200, 'same-value']])
         ->and($first->done())->toBeTrue()
         ->and($second->done())->toBeTrue();
-});
+}
 
 it('isolates valid H2 RST_STREAM and rejects malformed peer stream-control frames', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase08();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase08(): void
+{
     $headers = static function (): void {};
     $body = static function (): void {};
     $first = new Http2ClientResponseParser(streamId: 1);
@@ -208,20 +276,40 @@ it('isolates valid H2 RST_STREAM and rejects malformed peer stream-control frame
         $parser = new Http2ClientResponseParser(streamId: 5);
         expect(fn() => $parser->push($hostile, $headers, $body))->toThrow(RuntimeException::class);
     }
-});
+}
 
 it('forbids unknown extension frame interleaving while awaiting H2 CONTINUATION', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase09();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase09(): void
+{
     $parser = new Http2ClientResponseParser();
     $onHeaders = static function (): void {};
     $onBody = static function (): void {};
     $parser->push(new Frame(FrameType::HEADERS->value, 0, 1), $onHeaders, $onBody);
     expect(fn() => $parser->push(new Frame(0xFB, 0, 1, 'unrecognized'), $onHeaders, $onBody))
         ->toThrow(RuntimeException::class, 'interleaved');
-});
+}
 
 it('rejects invalid ambiguous or overflowing H2 response lengths before callbacks', function (array $lengths): void {
+    runwireOwnedHttp2ResponseParserCase01($lengths);
+})->with([
+    [['no-number']], [['-1']], [['1, 1']], [['1', '1']], [['1', '2']],
+    [[(string) PHP_INT_MAX . '0']], [['1048577']],
+]);
+
+/**
+ * @param array<array-key,mixed> $lengths
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ResponseParserCase01(array $lengths): void{
     $fields = [[':status', '200']];
     foreach ($lengths as $value) {
+        \PHPUnit\Framework\Assert::assertIsString($value);
         $fields[] = ['content-length', $value];
     }
     $parser = new Http2ClientResponseParser();
@@ -233,12 +321,15 @@ it('rejects invalid ambiguous or overflowing H2 response lengths before callback
         static function (): void {},
     ))->toThrow(RuntimeException::class, 'Content-Length');
     expect($published)->toBeFalse()->and($parser->done())->toBeFalse();
-})->with([
-    [['no-number']], [['-1']], [['1, 1']], [['1', '1']], [['1', '2']],
-    [[(string) PHP_INT_MAX . '0']], [['1048577']],
-]);
+}
+
 
 it('rejects short excess and header-only H2 bodies without reporting success', function (int $declared, string $data, bool $headEnd): void {
+    runwireOwnedHttp2ResponseParserCase02($declared, $data, $headEnd);
+})->with([[5, 'abc', false], [1, 'abc', false], [3, '', true]]);
+
+/** @throws \Throwable */
+function runwireOwnedHttp2ResponseParserCase02(int $declared, string $data, bool $headEnd): void{
     $parser = new Http2ClientResponseParser();
     $body = '';
     $onBody = static function (string $bytes) use (&$body): void { $body .= $bytes; };
@@ -251,27 +342,35 @@ it('rejects short excess and header-only H2 bodies without reporting success', f
     };
     expect($consume)->toThrow(RuntimeException::class)
         ->and($body)->toBe('')->and($parser->done())->toBeFalse();
-})->with([[5, 'abc', false], [1, 'abc', false], [3, '', true]]);
+}
+
 
 it('keeps H2 bodyless metadata separate from actual content limits', function (bool $head, int $status): void {
+    runwireOwnedHttp2ResponseParserCase03($head, $status);
+})->with([[true, 200], [false, 304]]);
+
+/** @throws \Throwable */
+function runwireOwnedHttp2ResponseParserCase03(bool $head, int $status): void{
     $parser = new Http2ClientResponseParser(maxBodyBytes: 1, headRequest: $head);
     $block = (new Encoder())->encode([[':status', (string) $status], ['content-length', '99999999']]);
     $parser->push(new Frame(FrameType::HEADERS->value, 0x5, 1, $block), static function (): void {}, static function (): void {});
     expect($parser->done())->toBeTrue();
-})->with([[true, 200], [false, 304]]);
+}
+
 
 it('rejects H2 content forbidden by request or status before publishing DATA', function (bool $head, int $status): void {
-    $parser = new Http2ClientResponseParser(headRequest: $head);
-    $block = (new Encoder())->encode([[':status', (string) $status]]);
-    $body = '';
-    $receive = static function (string $bytes) use (&$body): void { $body .= $bytes; };
-    $parser->push(new Frame(FrameType::HEADERS->value, 0x4, 1, $block), static function (): void {}, $receive);
-    expect(fn() => $parser->push(new Frame(FrameType::DATA->value, 0x1, 1, 'bad'), static function (): void {}, $receive))
-        ->toThrow(RuntimeException::class);
-    expect($body)->toBe('')->and($parser->done())->toBeFalse();
+    runwireOwnedHttp2ResponseParserCase04($head, $status);
 })->with([[true, 200], [false, 204], [false, 205], [false, 304]]);
 
 it('validates progressive H2 content at END_STREAM and keeps an independent sibling intact', function (): void {
+    runwireOwnedHttp2ClientResponseParserTestCase10();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientResponseParserTestCase10(): void
+{
     $body = '';
     $parser = new Http2ClientResponseParser();
     $headers = static function (): void {};
@@ -290,4 +389,17 @@ it('validates progressive H2 content at END_STREAM and keeps an independent sibl
     ])), $headers, $receive);
     $sibling->push(new Frame(FrameType::DATA->value, 0x1, 3, 'ok'), $headers, $receive);
     expect($sibling->done())->toBeTrue()->and($body)->toBe('abok');
-});
+}
+
+/** @throws \Throwable */
+function runwireOwnedHttp2ResponseParserCase04(bool $head, int $status): void
+{
+    $parser = new Http2ClientResponseParser(headRequest: $head);
+    $block = (new Encoder())->encode([[':status', (string) $status]]);
+    $body = '';
+    $receive = static function (string $bytes) use (&$body): void { $body .= $bytes; };
+    $parser->push(new Frame(FrameType::HEADERS->value, 0x4, 1, $block), static function (): void {}, $receive);
+    expect(fn() => $parser->push(new Frame(FrameType::DATA->value, 0x1, 1, 'bad'), static function (): void {}, $receive))
+        ->toThrow(RuntimeException::class);
+    expect($body)->toBe('')->and($parser->done())->toBeFalse();
+}

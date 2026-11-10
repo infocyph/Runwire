@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
-use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Coroutine\TaskLocal;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -14,8 +15,16 @@ use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\WorkerContext;
+use RuntimeException;
+use stdClass;
+use WeakReference;
 
-/** @return array{WorkerContext, resource} */
+
+/**
+ * @return array{WorkerContext, resource}
+ * @throws \RuntimeException
+ * @throws \Throwable
+ */
 function batchPWorkerContext(int $generation): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -82,7 +91,9 @@ it('keeps scheduler state and loop resources bounded across mixed coroutine chur
             $channelSum = 0;
             while (true) {
                 try {
-                    $channelSum += $channel->receive();
+                    $value = $channel->receive();
+                    \PHPUnit\Framework\Assert::assertIsInt($value);
+                    $channelSum += $value;
                 } catch (\Infocyph\Runwire\Coroutine\Exception\ChannelClosedException) {
                     return $channelSum;
                 }
@@ -98,7 +109,7 @@ it('keeps scheduler state and loop resources bounded across mixed coroutine chur
                     $tasks[] = $group->spawn(static fn(): int => 1);
                 }
 
-                return array_sum(array_map(static fn(Task $task): int => $task->await(), $tasks));
+                return array_sum(array_map(static fn($task): int => $task->await(), $tasks));
             });
         }
 
@@ -176,10 +187,15 @@ it('isolates repeated request roots and releases request task-local payloads', f
             static function (CoroutineScope $scope) use ($payload): int {
                 $local = new TaskLocal();
                 $scope->setLocal($local, $payload);
-                $child = $scope->spawn(static function () use ($scope, $local): int {
+                $child = $scope->spawn(static function () use ($scope, $local, $payload): int {
                     $scope->yieldNow();
 
-                    return $scope->local($local)->iteration;
+                    $value = $scope->local($local);
+                    \PHPUnit\Framework\Assert::assertSame($payload, $value);
+
+                    \PHPUnit\Framework\Assert::assertIsInt($value->iteration);
+
+                    return $value->iteration;
                 });
 
                 return $child->await();

@@ -2,9 +2,22 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientAdmissionGate;
+use InvalidArgumentException;
+use OverflowException;
+use RuntimeException;
 
 it('bounds active multiplexed request streams and grants waiting siblings in FIFO order', function (): void {
+    runwireOwnedHttp3ClientAdmissionGateTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientAdmissionGateTestCase01(): void
+{
     $gate = new Http3ClientAdmissionGate(2, 3);
     expect($gate->enqueue(1))->toBe([])
         ->and($gate->enqueue(2))->toBe([])
@@ -23,9 +36,17 @@ it('bounds active multiplexed request streams and grants waiting siblings in FIF
     expect($gate->release(4))->toBe([])
         ->and($gate->release(5))->toBe([])
         ->and($gate->activeCount())->toBe(0);
-});
+}
 
 it('does not create a native stream for canceled pending admission', function (): void {
+    runwireOwnedHttp3ClientAdmissionGateTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientAdmissionGateTestCase02(): void
+{
     $gate = new Http3ClientAdmissionGate(1, 2);
     expect($gate->enqueue(4))->toBe([])
         ->and($gate->enqueue(8))->toBe([])
@@ -34,9 +55,17 @@ it('does not create a native stream for canceled pending admission', function ()
         ->and($gate->enqueue(12))->toBe([])
         ->and($gate->release(4))->toBe([12])
         ->and($gate->release(12))->toBe([]);
-});
+}
 
 it('retires only queued siblings during GOAWAY and rejects later admissions', function (): void {
+    runwireOwnedHttp3ClientAdmissionGateTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientAdmissionGateTestCase03(): void
+{
     $gate = new Http3ClientAdmissionGate(2, 3);
     $gate->enqueue(1);
     $gate->enqueue(2);
@@ -50,13 +79,21 @@ it('retires only queued siblings during GOAWAY and rejects later admissions', fu
     expect($gate->release(1))->toBe([])
         ->and($gate->release(2))->toBe([])
         ->and($gate->activeCount())->toBe(0);
-});
+}
 
 it('rejects malformed duplicate IDs and invalid stream budgets before admission', function (): void {
+    runwireOwnedHttp3ClientAdmissionGateTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp3ClientAdmissionGateTestCase04(): void
+{
     expect(fn() => new Http3ClientAdmissionGate(0))->toThrow(InvalidArgumentException::class)
         ->and(fn() => new Http3ClientAdmissionGate(2, 0))->toThrow(InvalidArgumentException::class);
     $gate = new Http3ClientAdmissionGate(2, 2);
     $gate->enqueue(1);
     expect(fn() => $gate->enqueue(1))->toThrow(InvalidArgumentException::class)
         ->and(fn() => $gate->enqueue(0))->toThrow(InvalidArgumentException::class);
-});
+}

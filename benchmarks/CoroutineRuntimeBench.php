@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Benchmarks;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
-use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\RequestContext;
 use PhpBench\Attributes\BeforeMethods;
 use PhpBench\Attributes\Iterations;
@@ -19,11 +20,22 @@ final class CoroutineRuntimeBench
 {
     private CoroutineRuntime $runtime;
 
+    /**
+     * Initialize fixtures before PHPBench's per-iteration setup refresh.
+     */
+    public function __construct()
+    {
+        $this->setUp();
+    }
+
     public function setUp(): void
     {
         $this->runtime = new CoroutineRuntime();
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchBufferedChannelThroughput(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -36,7 +48,7 @@ final class CoroutineRuntimeBench
             $consumer = $scope->spawn(static function () use ($channel): int {
                 $sum = 0;
                 for ($index = 0; $index < 8; ++$index) {
-                    $sum += (int) $channel->receive();
+                    $sum += self::integerResult($channel->receive());
                 }
 
                 return $sum;
@@ -44,10 +56,13 @@ final class CoroutineRuntimeBench
 
             $producer->await();
 
-            return (int) $consumer->await();
+            return $consumer->await();
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchFutureAwaitResolve(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -57,10 +72,14 @@ final class CoroutineRuntimeBench
                 $deferred->resolve(1);
             });
 
-            return (int) $waiter->await();
+            return self::integerResult($waiter->await());
         });
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function benchRequestContextWithoutCoroutine(): int
     {
         $context = RequestContext::standalone();
@@ -70,12 +89,15 @@ final class CoroutineRuntimeBench
         return $length;
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchRequestRootCoroutine(): int
     {
         $context = RequestContext::standalone();
 
         try {
-            return (int) $this->runtime->runRequest(
+            return $this->runtime->runRequest(
                 $context,
                 static function (CoroutineScope $scope): int {
                     unset($scope);
@@ -88,6 +110,9 @@ final class CoroutineRuntimeBench
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchSchedulerYieldResume(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -99,6 +124,9 @@ final class CoroutineRuntimeBench
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchSemaphoreAcquireRelease(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -112,30 +140,39 @@ final class CoroutineRuntimeBench
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchTaskCreateStartComplete(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
-            return (int) $scope->spawn(static fn(): int => 1)->await();
+            return $scope->spawn(static fn(): int => 1)->await();
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchTaskGroupSpawnJoin(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
-            return (int) $scope->group(static function (CoroutineScope $group): int {
+            return $scope->group(static function (CoroutineScope $group): int {
                 $tasks = [];
                 for ($index = 0; $index < 4; ++$index) {
                     $tasks[] = $group->spawn(static fn(): int => 1);
                 }
 
                 return array_sum(array_map(
-                    static fn(Task $task): int => (int) $task->await(),
+                    static fn($task): int => $task->await(),
                     $tasks,
                 ));
             });
         });
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchUnbufferedChannelHandoff(): int
     {
         return $this->runtime->run(static function (CoroutineScope $scope): int {
@@ -148,7 +185,7 @@ final class CoroutineRuntimeBench
             $consumer = $scope->spawn(static function () use ($channel): int {
                 $sum = 0;
                 for ($index = 0; $index < 8; ++$index) {
-                    $sum += (int) $channel->receive();
+                    $sum += self::integerResult($channel->receive());
                 }
 
                 return $sum;
@@ -156,7 +193,17 @@ final class CoroutineRuntimeBench
 
             $producer->await();
 
-            return (int) $consumer->await();
+            return $consumer->await();
         });
+    }
+
+    /** @throws \LogicException */
+    private static function integerResult(mixed $value): int
+    {
+        if (!is_int($value)) {
+            throw new \LogicException('Coroutine benchmark expected an integer result.');
+        }
+
+        return $value;
     }
 }

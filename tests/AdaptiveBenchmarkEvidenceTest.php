@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../benchmarks/adaptive_matrix_compare.php';
 
-/** @return list<array<string, mixed>> */
+/** @return list<array{protocol:string,mode:string,workload:string,payload_bytes:int,runtime_build:string,environment:string,warmup_seconds:float,phases:array<string,array<string,int|float|bool>>,correctness_passed:bool,case?:array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int},trial?:int|string,run_id?:string}> */
 function adaptiveEvidenceRecords(string $mode = 'auto'): array
 {
     $phase = [
@@ -140,6 +140,6 @@ it('requires distinct promotion trials and measures the medium phase and generat
     expect(adaptiveMatrixCompare($summaries['auto'], $summaries['fixed'])['passed'])->toBeTrue();
     $summaries['auto']['phases']['medium']['client_cpu_percent_max'] = 90.0;
     expect(adaptiveMatrixCompare($summaries['auto'], $summaries['fixed'])['measurement_qualified'])->toBeFalse();
-    $records[1]['trial'] = $records[0]['trial'];
+    $records[1]['trial'] = $records[0]['trial'] ?? throw new RuntimeException('Synthetic promotion evidence is missing its trial.');
     expect(fn() => adaptiveMatrixSummarize($records))->toThrow(RuntimeException::class);
 });

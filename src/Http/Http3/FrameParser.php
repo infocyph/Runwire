@@ -16,6 +16,7 @@ final class FrameParser
 
     /**
      * Create a parser with the maximum accepted frame payload size.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly int $maxFramePayloadBytes = 1_048_576,
@@ -37,6 +38,7 @@ final class FrameParser
 
     /**
      * Append transport bytes without forcing all complete frames to materialize.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function append(string $bytes): void
     {
@@ -57,7 +59,11 @@ final class FrameParser
         return strlen($this->buffer);
     }
 
-    /** @return list<Frame> */
+    /**
+     * @return list<Frame>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     public function push(string $bytes): array
     {
         $this->append($bytes);
@@ -71,6 +77,8 @@ final class FrameParser
 
     /**
      * Remove and return one complete frame when available.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function shift(): ?Frame
     {
@@ -90,7 +98,11 @@ final class FrameParser
         return $frame;
     }
 
-    /** @return array{0: Frame, 1: int}|null */
+    /**
+     * @return array{0: Frame, 1: int}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function nextFrame(int $offset): ?array
     {
         $type = VarIntCodec::tryDecode($this->buffer, $offset);

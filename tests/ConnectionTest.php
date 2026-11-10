@@ -9,11 +9,19 @@ use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\Enum\WriteState;
 
+/**
+ * @return array{resource, resource}
+ * @throws \Throwable
+ */
 function runwireConnectionPair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    return $pair;
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    if (!isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
 }
 
 it('bounds receive buffering and resumes below the low watermark', function (): void {
@@ -31,9 +39,12 @@ it('bounds receive buffering and resumes below the low watermark', function (): 
         maxWriteBytesPerTick: 4_096,
     );
     $connection = new Connection($loop, $server, $limits);
+    expect($connection->id())->toBe(get_resource_id($server));
 
     fwrite($peer, str_repeat('r', 8_192));
-    $loop->delay(0.02, static fn () => $loop->stop());
+    $loop->delay(0.02, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
 
     expect($connection->receivedBytes())->toBe(4_096)
@@ -88,7 +99,9 @@ it('bounds the send queue and signals drain after pressure clears', function ():
             $chunk = fread($stream, 65_536);
         } while ($chunk !== '' && $chunk !== false);
     });
-    $loop->delay(1.0, static fn () => $loop->stop());
+    $loop->delay(1.0, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
 
     expect($drained)->toBeTrue()->and($connection->isWritePressured())->toBeFalse();
@@ -107,7 +120,9 @@ it('delivers final bytes before peer EOF closes the connection', function (): vo
 
     fwrite($peer, 'final-bytes');
     stream_socket_shutdown($peer, STREAM_SHUT_WR);
-    $loop->delay(0.2, static fn () => $loop->stop());
+    $loop->delay(0.2, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
 
     expect($payload)->toBe('final-bytes')
@@ -123,7 +138,9 @@ it('flushes a synchronous EOF response before closing', function (): void {
     $connection->onEof(static function (Connection $connection): void { $connection->write('bye'); });
 
     stream_socket_shutdown($peer, STREAM_SHUT_WR);
-    $loop->delay(1.0, static fn () => $loop->stop());
+    $loop->delay(1.0, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
 
     expect(stream_get_contents($peer))->toBe('bye')->and($connection->closeReason())->toBe(CloseReason::PEER_CLOSED);
@@ -134,7 +151,9 @@ it('uses activity-aware idle deadlines without rescheduling on every I/O', funct
     [$server, $peer] = runwireConnectionPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server, new ConnectionLimits(idleTimeoutSeconds: 0.06));
-    $connection->onData(static fn (Connection $connection): string => $connection->read());
+    $connection->onData(static function (Connection $connection): void {
+        $connection->read();
+    });
 
     $loop->delay(0.04, static function () use ($peer): void { fwrite($peer, 'keepalive'); });
     $loop->delay(0.075, static function () use ($connection, $loop): void {
@@ -164,7 +183,9 @@ it('contains immediate peer-close write warnings and restores the caller error h
     try {
         $result = $connection->write('x');
         if ($connection->state() !== ConnectionState::CLOSED) {
-            $loop->delay(0.05, static fn () => $loop->stop());
+            $loop->delay(0.05, static function () use ($loop): void {
+    $loop->stop();
+});
             $loop->run();
         }
         trigger_error('runwire-error-handler-restored', E_USER_WARNING);
@@ -203,7 +224,9 @@ it('contains buffered peer-close write warnings', function (): void {
     });
 
     try {
-        $loop->delay(0.1, static fn () => $loop->stop());
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
     } finally {
         restore_error_handler();

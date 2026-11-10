@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
@@ -12,6 +14,8 @@ use Infocyph\Runwire\Coroutine\Exception\SynchronizationException;
 use Infocyph\Runwire\Coroutine\Task;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use RuntimeException;
+
 
 it('performs FIFO rendezvous handoff without reserving payload sentinels', function (): void {
     $runtime = new CoroutineRuntime();
@@ -55,7 +59,7 @@ it('drains buffered channel values after close and then exposes closed state', f
             ->and($channel->close())->toBeFalse()
             ->and($channel->receive())->toBe(0)
             ->and($channel->receive())->toBe('')
-            ->and(fn() => $channel->receive())->toThrow(ChannelClosedException::class)
+            ->and(fn() : mixed => $channel->receive())->toThrow(ChannelClosedException::class)
             ->and(fn() => $channel->send('late'))->toThrow(ChannelClosedException::class);
     });
 });
@@ -81,6 +85,8 @@ it('removes cancelled channel waiters before the next committed handoff', functi
         $result = $channel->receive();
         $sender->await();
 
+        \PHPUnit\Framework\Assert::assertIsString($result);
+
         return $result;
     });
 
@@ -99,7 +105,7 @@ it('enforces the configured waiter bound across primitive suspension', function 
         $first = $scope->spawn(fn(): mixed => $channel->receive());
         $scope->yieldNow();
 
-        expect(fn() => $channel->receive())->toThrow(CoroutineOverflowException::class);
+        expect(fn() : mixed => $channel->receive())->toThrow(CoroutineOverflowException::class);
         $first->cancel();
 
         try {
@@ -228,7 +234,12 @@ it('skips cancelled mutex waiters and transfers ownership to the next live task'
             $mutex->lock();
             $mutex->unlock();
         });
-        $winner = $scope->spawn(fn(): string => $mutex->synchronized(static fn(): string => 'locked'));
+        $winner = $scope->spawn(function () use ($mutex): string {
+            $value = $mutex->synchronized(static fn(): string => 'locked');
+            \PHPUnit\Framework\Assert::assertIsString($value);
+
+            return $value;
+        });
         $scope->yieldNow();
         $cancelled->cancel();
         $mutex->unlock();
@@ -276,7 +287,7 @@ it('breaks a barrier generation when one waiting party is cancelled and remains 
             $cancelled->await();
         } catch (CancelledException) {
         }
-        expect(fn() => $peer->await())->toThrow(BarrierBrokenException::class);
+        expect(fn() : mixed => $peer->await())->toThrow(BarrierBrokenException::class);
 
         $tasks = [];
         for ($index = 0; $index < 3; ++$index) {

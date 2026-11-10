@@ -14,6 +14,7 @@ final class FrameWriter
 {
     /**
      * Encode a frame to its wire representation.
+     * @throws \InvalidArgumentException
      */
     public static function encode(Frame $frame): string
     {
@@ -30,6 +31,7 @@ final class FrameWriter
 
     /**
      * Build a GOAWAY frame.
+     * @throws \InvalidArgumentException
      */
     public static function goAway(int $lastStreamId, ErrorCode $error, string $debug = ''): Frame
     {
@@ -43,6 +45,7 @@ final class FrameWriter
 
     /**
      * Build an RST_STREAM frame.
+     * @throws \InvalidArgumentException
      */
     public static function rstStream(int $streamId, ErrorCode $error): Frame
     {
@@ -53,7 +56,10 @@ final class FrameWriter
         return new Frame(FrameType::RST_STREAM->value, 0, $streamId, pack('N', $error->value));
     }
 
-    /** @param array<int, int> $settings */
+    /**
+     * @param array<int, int> $settings
+     * @throws \InvalidArgumentException
+     */
     public static function settings(array $settings = [], bool $ack = false): Frame
     {
         if ($ack) {
@@ -69,6 +75,7 @@ final class FrameWriter
 
     /**
      * Build a WINDOW_UPDATE frame.
+     * @throws \InvalidArgumentException
      */
     public static function windowUpdate(int $streamId, int $increment): Frame
     {
@@ -79,6 +86,9 @@ final class FrameWriter
         return new Frame(FrameType::WINDOW_UPDATE->value, 0, $streamId, pack('N', $increment));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function byte(int $value): string
     {
         if ($value < 0 || $value > 0xFF) {

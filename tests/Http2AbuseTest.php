@@ -9,30 +9,47 @@ use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\Internal\HeaderValidationException;
+use Infocyph\Runwire\Http\Internal\StreamingRequestBody;
 use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 
 require_once __DIR__ . '/Support/Http2TestSupport.php';
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireH2GoAwayError(string $wire, ?Http2Limits $limits = null, ?callable $handler = null): ?int
 {
     [$response] = runwireH2Exchange($wire, $handler ?? static function (): void {}, $limits);
     foreach (array_reverse(runwireH2Frames($response)) as $frame) {
         if ($frame->knownType() === FrameType::GOAWAY && strlen($frame->payload) >= 8) {
-            return unpack('N', substr($frame->payload, 4, 4))[1];
+            $code = unpack('N', substr($frame->payload, 4, 4));
+            return is_array($code) && is_int($code[1] ?? null) ? $code[1] : null;
         }
     }
 
     return null;
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireH2ResetError(string $wire, int $streamId, callable $handler, ?Http2Limits $limits = null): ?int
 {
     [$response] = runwireH2Exchange($wire, $handler, $limits);
     foreach (runwireH2Frames($response) as $frame) {
         if ($frame->knownType() === FrameType::RST_STREAM && $frame->streamId === $streamId) {
-            return unpack('N', $frame->payload)[1];
+            $code = unpack('N', $frame->payload);
+            return is_array($code) && is_int($code[1] ?? null) ? $code[1] : null;
         }
     }
 
@@ -140,6 +157,9 @@ it('cancels request bodies on reset and discards post-response inbound data', fu
         . FrameWriter::encode(FrameWriter::rstStream(1, ErrorCode::CANCEL));
 
     runwireH2Exchange($resetWire, static function (HttpRequest $request) use (&$cancelled, &$ended): void {
+        if (!$request->body instanceof StreamingRequestBody) {
+            throw new LogicException('HTTP/2 reset test requires a streaming request body.');
+        }
         $request->body->onCancel(static function () use (&$cancelled): void { ++$cancelled; });
         $request->body->onEnd(static function () use (&$ended): void { ++$ended; });
     });
@@ -151,6 +171,9 @@ it('cancels request bodies on reset and discards post-response inbound data', fu
         . runwireH2Headers(1, '/early', false)
         . FrameWriter::encode(new Frame(FrameType::DATA->value, 0x1, 1, 'later'));
     $rst = runwireH2ResetError($earlyWire, 1, static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$cancelled): void {
+        if (!$request->body instanceof StreamingRequestBody) {
+            throw new LogicException('HTTP/2 reset test requires a streaming request body.');
+        }
         $request->body->onCancel(static function () use (&$cancelled): void { ++$cancelled; });
         $writer->end('early');
     });

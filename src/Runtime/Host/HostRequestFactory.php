@@ -17,6 +17,8 @@ final class HostRequestFactory
 {
     /**
      * Builds an HTTP request from PHP superglobals and php://input.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public function fromGlobals(int $maxBodyBytes): HttpRequest
     {
@@ -26,7 +28,11 @@ final class HostRequestFactory
         return $this->fromServer($server, $this->readInput($maxBodyBytes), $maxBodyBytes);
     }
 
-    /** @param array<string, mixed> $server */
+    /**
+     * @param array<string, mixed> $server
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     public function fromServer(array $server, string $body, int $maxBodyBytes): HttpRequest
     {
         if (strlen($body) > $maxBodyBytes) {
@@ -103,6 +109,10 @@ final class HostRequestFactory
         return $headers;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private function readInput(int $maxBodyBytes): string
     {
         if ($maxBodyBytes < 1) {

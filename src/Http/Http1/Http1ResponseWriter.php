@@ -55,7 +55,6 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         ?callable $upgradeWebSocket = null,
     ) {
         $this->closeAfter = !$keepAlive;
-        /** @var Closure(bool): void $onEndClosure */
         $onEndClosure = Closure::fromCallable($onEnd);
         $this->onEnd = $onEndClosure;
         $this->terminal = new ResponseTerminalState();
@@ -70,7 +69,11 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * End the response, optionally writing one final body chunk.
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
+    #[\Override]
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -113,6 +116,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Determine whether the response has ended.
      */
+    #[\Override]
     public function isEnded(): bool
     {
         return $this->ended;
@@ -121,6 +125,7 @@ final class Http1ResponseWriter implements ResponseWriterInterface
     /**
      * Determine whether response headers have been started.
      */
+    #[\Override]
     public function isStarted(): bool
     {
         return $this->started;
@@ -128,7 +133,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * Register a callback invoked when connection write pressure drains.
+     * @throws \LogicException
      */
+    #[\Override]
     public function onDrain(callable $callback): self
     {
         $consumer = Closure::fromCallable($callback);
@@ -143,7 +150,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * Register a callback invoked when response ownership becomes terminal.
+     * @throws \OverflowException
      */
+    #[\Override]
     public function onTerminal(callable $callback): self
     {
         $this->terminal->observe($this, $callback);
@@ -153,7 +162,11 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * Start the response with status and headers.
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
+    #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -206,6 +219,8 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * @internal Terminalize the HTTP handshake and transfer the connection to a WebSocket session.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function upgradeWebSocket(
         string $accept,
@@ -229,7 +244,11 @@ final class Http1ResponseWriter implements ResponseWriterInterface
 
     /**
      * Write a response body chunk.
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
+    #[\Override]
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {
@@ -290,6 +309,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         };
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertWithinContentLength(string $chunk): void
     {
         if ($this->contentLength !== null && $this->bodyBytes + strlen($chunk) > $this->contentLength) {
@@ -302,6 +324,10 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::CLOSED, $this->connection->pendingWriteBytes());
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function endChunked(string $finalChunk): WriteResult
     {
         $wire = $finalChunk === ''
@@ -315,6 +341,10 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $this->finish($result);
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function endFixedLength(string $finalChunk): WriteResult
     {
         $next = $this->bodyBytes + strlen($finalChunk);
@@ -336,6 +366,11 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $this->finish($result);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function endOneShot(string $finalChunk): ?WriteResult
     {
         $contentLength = strlen($finalChunk);
@@ -368,6 +403,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $this->finish($result);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finish(WriteResult $result): WriteResult
     {
         if (!$result->accepted()) {
@@ -390,7 +428,10 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::REJECTED_LIMIT, $this->connection->pendingWriteBytes());
     }
 
-    /** @return array{0: list<HeaderField>, 1: ?int, 2: bool} */
+    /**
+     * @return array{0: list<HeaderField>, 1: ?int, 2: bool}
+     * @throws \InvalidArgumentException
+     */
     private function normalizeHeaders(Headers $headers): array
     {
         $fields = [];
@@ -419,6 +460,9 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return [$fields, $contentLengths[0] ?? null, $close];
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function parseContentLength(string $value): int
     {
         if ($value === '' || preg_match('/^[0-9]+$/D', $value) !== 1) {
@@ -436,7 +480,10 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return (int) $normalized;
     }
 
-    /** @param list<HeaderField> $fields */
+    /**
+     * @param list<HeaderField> $fields
+     * @throws \InvalidArgumentException
+     */
     private function serializeHead(int $status, array $fields): string
     {
         $statusLine = 'HTTP/1.1 ' . $status . ' ' . self::reasonPhrase($status) . "\r\n";
@@ -461,6 +508,11 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return implode('', $parts);
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function startForEndIfNeeded(string $finalChunk): ?WriteResult
     {
         if ($this->started) {
@@ -477,6 +529,10 @@ final class Http1ResponseWriter implements ResponseWriterInterface
         return $this->started ? null : $this->start();
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function writeBodyChunk(string $chunk): WriteResult
     {
         $wire = $this->chunked

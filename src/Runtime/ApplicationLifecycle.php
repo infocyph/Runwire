@@ -62,6 +62,7 @@ final class ApplicationLifecycle
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @param callable(): void|null $legacyCleanup
      * @param callable(): void|null $legacyShutdown
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         callable $handler,
@@ -110,6 +111,9 @@ final class ApplicationLifecycle
 
     /**
      * Executes one admitted request through the application handler and lifecycle cleanup.
+     * @throws \LogicException
+     * @throws \Throwable
+     * @throws \OverflowException
      */
     public function handle(
         HttpRequest $request,
@@ -156,6 +160,7 @@ final class ApplicationLifecycle
 
     /**
      * Shuts down the application after draining and cancelling active requests.
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
      */
     public function shutdown(?ShutdownReason $reason = null): void
     {
@@ -192,6 +197,8 @@ final class ApplicationLifecycle
 
     /**
      * Runs application boot and warmup hooks once.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\ApplicationStartupException
      */
     public function start(): void
     {
@@ -211,6 +218,10 @@ final class ApplicationLifecycle
         $this->started = true;
     }
 
+    /**
+     * @throws \Throwable
+     * @throws \OverflowException
+     */
     private function handleAdmitted(
         HttpRequest $request,
         ResponseWriterInterface $writer,
@@ -272,7 +283,10 @@ final class ApplicationLifecycle
         }
     }
 
-    /** @param Closure(RuntimeContext): void|null $hook */
+    /**
+     * @param Closure(RuntimeContext): void|null $hook
+     * @throws \Infocyph\Runwire\Exception\ApplicationStartupException
+     */
     private function invokeStartupHook(ApplicationStartupPhase $phase, ?Closure $hook): void
     {
         if ($hook === null) {

@@ -14,6 +14,7 @@ final readonly class RequestDeadline
 {
     /**
      * Creates a request deadline from an absolute monotonic timestamp.
+     * @throws \InvalidArgumentException
      */
     public function __construct(public ?int $monotonicNanoseconds)
     {
@@ -24,6 +25,8 @@ final readonly class RequestDeadline
 
     /**
      * Creates a deadline a fixed duration after a monotonic start time.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public static function afterSeconds(float $seconds, int $startNanoseconds): self
     {
@@ -39,6 +42,7 @@ final readonly class RequestDeadline
 
     /**
      * Creates a deadline that never expires.
+     * @throws \InvalidArgumentException
      */
     public static function unlimited(): self
     {

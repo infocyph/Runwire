@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/SocketFixture.php';
+
 use Infocyph\Runwire\Exception\ApplicationStartupException;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Http\HttpRequest;
@@ -28,6 +30,9 @@ use Infocyph\Runwire\Supervisor\SupervisorEvent;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchHRuntimeContext(bool $concurrent = false): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(
@@ -82,6 +87,10 @@ it('creates a native application from the resolved runtime context factory', fun
     $factory = new class implements RuntimeApplicationFactoryInterface {
         public ?RuntimeContext $createdWith = null;
 
+        /**
+         * @throws \InvalidArgumentException
+         */
+        #[\Override]
         public function create(RuntimeContext $context): RuntimeApplicationInterface
         {
             $this->createdWith = $context;
@@ -104,19 +113,17 @@ it('creates a native application from the resolved runtime context factory', fun
             new RequestExecutionPolicy(),
             new ApplicationLifecycleHooks(),
         );
+        \PHPUnit\Framework\Assert::assertTrue($application->healthy());
 
         expect($factory->createdWith)->toBe($runtime)
             ->and($factory->createdWith?->persistent)->toBeTrue()
-            ->and($factory->createdWith?->concurrent)->toBeFalse()
-            ->and($application)->toBeInstanceOf(RuntimeApplicationInterface::class);
+            ->and($factory->createdWith?->concurrent)->toBeFalse();
 
         $application->start();
         $application->shutdown();
     } finally {
         $worker->close();
-        if (is_resource($peerStream)) {
-            fclose($peerStream);
-        }
+        \Infocyph\Runwire\Tests\Support\closeSocket($peerStream);
     }
 });
 
@@ -143,9 +150,9 @@ it('classifies managed warmup failures before request readiness', function (): v
     } catch (ApplicationStartupException $error) {
         $failure = $error;
     }
+    \PHPUnit\Framework\Assert::assertInstanceOf(ApplicationStartupException::class, $failure);
 
-    expect($failure)->toBeInstanceOf(ApplicationStartupException::class)
-        ->and($failure?->phase)->toBe(ApplicationStartupPhase::WARMUP)
+    expect($failure->phase)->toBe(ApplicationStartupPhase::WARMUP)
         ->and($runtime->snapshot()->errors[ApplicationErrorClass::WARMUP_FAILURE->value] ?? 0)->toBe(1);
 });
 
@@ -177,10 +184,15 @@ it('keeps healthy old generation capacity when replacement warmup exhausts resta
             drainTimeoutSeconds: 0.1,
         ),
     );
-    $reloadRequested = false;
-    $reloadFailed = false;
-    $oldGenerationServing = false;
-    $warmupFailures = 0;
+    $reloadState = new class {
+        public bool $oldGenerationServing = false;
+
+        public bool $reloadFailed = false;
+
+        public bool $reloadRequested = false;
+
+        public int $warmupFailures = 0;
+    };
 
     $supervisor->group(WorkerGroup::callbacks(
         name: 'warmup-reload',
@@ -211,17 +223,14 @@ it('keeps healthy old generation capacity when replacement warmup exhausts resta
     $supervisor->onEvent(
         static function (SupervisorEvent $event) use (
             $supervisor,
-            &$reloadRequested,
-            &$reloadFailed,
-            &$oldGenerationServing,
-            &$warmupFailures,
+            $reloadState,
         ): void {
             if (
-                !$reloadRequested
+                !$reloadState->reloadRequested
                 && $event->type === SupervisorEventType::GENERATION_READY
                 && $event->generation === 1
             ) {
-                $reloadRequested = true;
+                $reloadState->reloadRequested = true;
                 $supervisor->reload();
 
                 return;
@@ -230,12 +239,12 @@ it('keeps healthy old generation capacity when replacement warmup exhausts resta
                 return;
             }
 
-            $reloadFailed = true;
+            $reloadState->reloadFailed = true;
             $status = $supervisor->status();
-            $warmupFailures = $status->exitReasonCounts[WorkerExitReason::WARMUP_FAILURE->value] ?? 0;
+            $reloadState->warmupFailures = $status->exitReasonCounts[WorkerExitReason::WARMUP_FAILURE->value] ?? 0;
             foreach ($status->workers as $worker) {
                 if ($worker->generation === 1 && $worker->current && $worker->state->serving()) {
-                    $oldGenerationServing = true;
+                    $reloadState->oldGenerationServing = true;
                 }
             }
             $supervisor->stop();
@@ -247,8 +256,8 @@ it('keeps healthy old generation capacity when replacement warmup exhausts resta
 
     $supervisor->run();
 
-    expect($reloadRequested)->toBeTrue()
-        ->and($reloadFailed)->toBeTrue()
-        ->and($oldGenerationServing)->toBeTrue()
-        ->and($warmupFailures)->toBeGreaterThanOrEqual(1);
+    expect($reloadState->reloadRequested)->toBeTrue()
+        ->and($reloadState->reloadFailed)->toBeTrue()
+        ->and($reloadState->oldGenerationServing)->toBeTrue()
+        ->and($reloadState->warmupFailures)->toBeGreaterThanOrEqual(1);
 });

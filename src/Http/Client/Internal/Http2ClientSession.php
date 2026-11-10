@@ -35,6 +35,7 @@ final class Http2ClientSession
     /**
      * @param callable(int,Headers):void $onHeaders
      * @param callable(string):void $onBody
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly ClientRequest $request,
@@ -61,7 +62,11 @@ final class Http2ClientSession
         return $this->response->done();
     }
 
-    /** Deliver a fully parsed H2 frame and return bounded control/flow-credit bytes. */
+    /**
+     * Deliver a fully parsed H2 frame and return bounded control/flow-credit bytes.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     public function receive(Frame $frame): string
     {
         if (!$this->started || $this->response->done()) {
@@ -84,7 +89,11 @@ final class Http2ClientSession
             : '';
     }
 
-    /** Emit the one-shot H2 client connection preface and SETTINGS. */
+    /**
+     * Emit the one-shot H2 client connection preface and SETTINGS.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     public function start(): string
     {
         if ($this->started) {
@@ -95,6 +104,10 @@ final class Http2ClientSession
         return $this->handshake->start();
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     private function control(Frame $frame): string
     {
         $wire = $this->handshake->receive($frame);

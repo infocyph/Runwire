@@ -22,7 +22,9 @@ it('builds local HTTP/3 control and QPACK stream preambles', function (): void {
 
     expect(VarIntCodec::decode($control, $offset))->toBe(StreamType::CONTROL->value)
         ->and(VarIntCodec::decode($state->localQpackEncoderPreamble()))->toBe(StreamType::QPACK_ENCODER->value)
-        ->and(VarIntCodec::decode($state->localQpackDecoderPreamble()))->toBe(StreamType::QPACK_DECODER->value);
+        ->and(VarIntCodec::decode($state->localQpackDecoderPreamble()))->toBe(StreamType::QPACK_DECODER->value)
+        ->and($state->localQpackDecoderPreamble())->toBe(VarIntCodec::encode(StreamType::QPACK_DECODER->value))
+        ->and($state->localQpackEncoderPreamble())->toBe(VarIntCodec::encode(StreamType::QPACK_ENCODER->value));
 });
 
 it('configures the response QPACK encoder from bounded peer settings', function (): void {
@@ -50,7 +52,7 @@ it('rejects duplicate critical streams and client push streams', function (): vo
 
     try {
         $state->pushPeerUnidirectional(6, $control);
-        test()->fail('Duplicate HTTP/3 control stream should fail.');
+        \PHPUnit\Framework\Assert::fail('Duplicate HTTP/3 control stream should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::STREAM_CREATION_ERROR);
     }
@@ -59,7 +61,7 @@ it('rejects duplicate critical streams and client push streams', function (): vo
 
     try {
         $state->pushPeerUnidirectional(2, VarIntCodec::encode(StreamType::PUSH->value));
-        test()->fail('Client-created HTTP/3 push stream should fail.');
+        \PHPUnit\Framework\Assert::fail('Client-created HTTP/3 push stream should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::STREAM_CREATION_ERROR);
     }
@@ -92,7 +94,7 @@ it('treats closure of HTTP/3 control and QPACK streams as critical', function ()
 
         try {
             $state->finishPeerUnidirectional(2);
-            test()->fail('Closing an HTTP/3 critical stream should fail.');
+            \PHPUnit\Framework\Assert::fail('Closing an HTTP/3 critical stream should fail.');
         } catch (Http3Exception $exception) {
             expect($exception->errorCode)->toBe(ErrorCode::CLOSED_CRITICAL_STREAM);
         }
@@ -141,7 +143,7 @@ it('bounds concurrent request streams', function (): void {
 
     try {
         $state->pushRequestStream(4, (new Frame(FrameType::HEADERS->value, $headers))->encode());
-        test()->fail('Concurrent HTTP/3 request stream limit should fail.');
+        \PHPUnit\Framework\Assert::fail('Concurrent HTTP/3 request stream limit should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::REQUEST_REJECTED);
     }
@@ -164,7 +166,7 @@ it('bounds request and peer-unidirectional stream churn', function (): void {
 
     try {
         $state->pushRequestStream(4, (new Frame(FrameType::HEADERS->value, $headers))->encode());
-        test()->fail('HTTP/3 request stream churn limit should fail.');
+        \PHPUnit\Framework\Assert::fail('HTTP/3 request stream churn limit should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::EXCESSIVE_LOAD);
     }
@@ -175,7 +177,7 @@ it('bounds request and peer-unidirectional stream churn', function (): void {
 
     try {
         $state->pushPeerUnidirectional(6, VarIntCodec::encode(0x40));
-        test()->fail('HTTP/3 peer unidirectional stream churn limit should fail.');
+        \PHPUnit\Framework\Assert::fail('HTTP/3 peer unidirectional stream churn limit should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::EXCESSIVE_LOAD);
     }

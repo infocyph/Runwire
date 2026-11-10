@@ -14,6 +14,7 @@ final readonly class FrankenPhpOptions
 {
     /**
      * Create validated FrankenPHP runtime options.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public FrankenPhpMode $mode = FrankenPhpMode::AUTO,
@@ -24,6 +25,9 @@ final readonly class FrankenPhpOptions
         self::validateLimit($maxResponseBytes, 'FrankenPHP response');
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateLimit(int $bytes, string $name): void
     {
         if ($bytes < 1 || $bytes > 1_073_741_824) {

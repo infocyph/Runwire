@@ -14,7 +14,7 @@ it('requires bounded HTTP/3 poll and handshake timeouts', function (): void {
 });
 
 it('keeps HTTP/3 0-RTT disabled for the 1.0 application contract', function (): void {
-    expect(Http3Options::ZERO_RTT_ENABLED)->toBeFalse();
+    expect((new \ReflectionClassConstant(Http3Options::class, 'ZERO_RTT_ENABLED'))->getValue())->toBeFalse();
 });
 
 it('derives a narrow QUIC listener configuration from TLS material with reuse port default-off', function (): void {

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Benchmarks;
+
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\RequestContext;
@@ -34,9 +36,22 @@ final class LifecycleRuntimeBench
 
     private RuntimeContext $runtime;
 
+    /**
+     * Initialize fixtures before PHPBench's per-iteration setup refresh.
+     * @throws \InvalidArgumentException
+     */
+    public function __construct()
+    {
+        $this->setUp();
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function setUp(): void
     {
         $this->metrics = new RuntimeMetrics();
+        $pid = getmypid();
         $this->runtime = RuntimeContext::fromCapabilities(
             new RuntimeCapabilities(
                 driver: RuntimeDriver::NATIVE,
@@ -54,13 +69,17 @@ final class LifecycleRuntimeBench
             mode: 'benchmark',
             workerSlot: 0,
             generation: 1,
-            pid: getmypid() ?: 0,
+            pid: $pid === false ? 0 : $pid,
             concurrent: false,
             metrics: $this->metrics,
         );
         $this->requestPolicy = new RequestExecutionPolicy(maxExecutionSeconds: 1.0);
         $this->resetters = new RequestResetterRegistry([
             new class implements RequestResetterInterface {
+                /**
+                 * @throws \InvalidArgumentException
+                 */
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     $context->removeAttribute('benchmark');
@@ -78,6 +97,10 @@ final class LifecycleRuntimeBench
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function benchMetricsRequestAccounting(): int
     {
         $context = RequestContext::create($this->runtime, $this->requestPolicy);
@@ -93,6 +116,11 @@ final class LifecycleRuntimeBench
         return $this->metrics->snapshot()->memoryCurrentBytes;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public function benchRequestContextLifecycle(): int
     {
         $context = RequestContext::create($this->runtime, $this->requestPolicy);
@@ -102,6 +130,11 @@ final class LifecycleRuntimeBench
         return strlen($context->requestId);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public function benchRequestResetterRegistry(): int
     {
         $context = RequestContext::create($this->runtime, $this->requestPolicy);

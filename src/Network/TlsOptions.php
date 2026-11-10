@@ -14,6 +14,7 @@ final readonly class TlsOptions
     /**
      * @param list<string> $alpnProtocols
      * @param array<string, mixed> $extraContext
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $localCertificate,
@@ -42,9 +43,11 @@ final readonly class TlsOptions
     public function context(): array
     {
         $context = $this->extraContext;
-        $context['local_cert'] = realpath($this->localCertificate) ?: $this->localCertificate;
+        $certificate = realpath($this->localCertificate);
+        $context['local_cert'] = $certificate === false ? $this->localCertificate : $certificate;
         if ($this->privateKey !== null) {
-            $context['local_pk'] = realpath($this->privateKey) ?: $this->privateKey;
+            $privateKey = realpath($this->privateKey);
+            $context['local_pk'] = $privateKey === false ? $this->privateKey : $privateKey;
         }
         if ($this->passphrase !== null) {
             $context['passphrase'] = $this->passphrase;
@@ -76,7 +79,10 @@ final readonly class TlsOptions
         return $this->cryptoMethod ?? (STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_3_SERVER);
     }
 
-    /** @param list<string> $protocols */
+    /**
+     * @param list<string> $protocols
+     * @throws \InvalidArgumentException
+     */
     private static function validateAlpn(array $protocols): void
     {
         foreach ($protocols as $protocol) {
@@ -89,7 +95,10 @@ final readonly class TlsOptions
         }
     }
 
-    /** @param array<string, mixed> $context */
+    /**
+     * @param array<string, mixed> $context
+     * @throws \InvalidArgumentException
+     */
     private static function validateTrust(array $context, bool $required): void
     {
         if (!$required) {

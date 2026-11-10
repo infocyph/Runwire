@@ -18,24 +18,34 @@ final readonly class SystemResourceProbe
 
     /**
      * @param callable(string): ?string|null $reader
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         ?callable $reader = null,
         private ?int $hostCpuCount = null,
         private ?int $hostMemoryBytes = null,
     ) {
-        if ($hostCpuCount !== null && $hostCpuCount < 1) {
-            throw new InvalidArgumentException('Host CPU count override must be positive.');
-        }
-        if ($hostMemoryBytes !== null && $hostMemoryBytes < 1) {
-            throw new InvalidArgumentException('Host memory override must be positive.');
-        }
-
+        $this->assertConfiguredLimits();
         $this->reader = $reader === null ? self::readFile(...) : $reader(...);
     }
 
     /**
+     * Reject invalid host overrides even when the probe was deserialized without its validating constructor.
+     * @throws \InvalidArgumentException
+     */
+    public function assertConfiguredLimits(): void
+    {
+        if ($this->hostCpuCount !== null && $this->hostCpuCount < 1) {
+            throw new InvalidArgumentException('Host CPU count override must be positive.');
+        }
+        if ($this->hostMemoryBytes !== null && $this->hostMemoryBytes < 1) {
+            throw new InvalidArgumentException('Host memory override must be positive.');
+        }
+    }
+
+    /**
      * Probes and returns effective CPU and memory resources.
+     * @throws \InvalidArgumentException
      */
     public function probe(): SystemResources
     {

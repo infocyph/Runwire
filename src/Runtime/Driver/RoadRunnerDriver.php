@@ -26,7 +26,10 @@ final class RoadRunnerDriver implements HostDriverInterface
 
     private ?RoadRunnerSessionInterface $session = null;
 
-    /** @param callable(): RoadRunnerSessionInterface|null $sessionFactory */
+    /**
+     * @param callable(): RoadRunnerSessionInterface|null $sessionFactory
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly RoadRunnerOptions $options,
         ?callable $sessionFactory = null,
@@ -39,7 +42,10 @@ final class RoadRunnerDriver implements HostDriverInterface
 
     /**
      * Processes requests from a RoadRunner session until the worker stops or recycles.
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
      */
+    #[\Override]
     public function run(RuntimeApplicationInterface $application): void
     {
         $session = ($this->sessionFactory)();
@@ -62,11 +68,15 @@ final class RoadRunnerDriver implements HostDriverInterface
     /**
      * Stops the active RoadRunner session when present.
      */
+    #[\Override]
     public function stop(): void
     {
         $this->session?->stop();
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function runRequests(RoadRunnerSessionInterface $session, RuntimeApplicationInterface $application): void
     {
         $recycle = new WorkerRecycleState($this->recyclePolicy);

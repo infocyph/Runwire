@@ -15,10 +15,21 @@ use Infocyph\Runwire\Runtime;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
+function roadRunnerFixtureFdCount(): int
+{
+    $descriptors = glob('/proc/self/fd/*');
+
+    return $descriptors === false ? 0 : count($descriptors);
+}
+
+$workerPid = getmypid();
+if ($workerPid === false) {
+    throw new RuntimeException('Unable to identify the RoadRunner worker.');
+}
 $diagnosticPath = sys_get_temp_dir() . '/runwire-road-runner-worker-error.log';
 file_put_contents($diagnosticPath, sprintf(
     "BOOT pid=%d RR_MODE=%s RR_RELAY=%s%s",
-    getmypid(),
+    $workerPid,
     (string) getenv('RR_MODE'),
     (string) getenv('RR_RELAY'),
     PHP_EOL,
@@ -34,7 +45,7 @@ try {
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$sequence, &$previousTempPath, &$lastRequestFds): void {
             ++$sequence;
             $priorClean = $previousTempPath === null || !file_exists($previousTempPath);
-            $beforeFds = count(glob('/proc/self/fd/*') ?: []);
+            $beforeFds = roadRunnerFixtureFdCount();
             $priorFdStable = $lastRequestFds === null || $beforeFds <= $lastRequestFds;
             $path = tempnam(sys_get_temp_dir(), 'runwire-rr-scope-');
             if (!is_string($path)) {
@@ -46,8 +57,6 @@ try {
             $fileRoundtrip = false;
             $socketRoundtrip = false;
             $poolRoundtrip = false;
-            $poolClosed = false;
-            $poolWatchersClean = false;
             $pool = null;
             $poolConnection = null;
             $poolPair = null;
@@ -92,7 +101,7 @@ try {
                 $poolConnection?->abort();
                 if (is_array($poolPair)) {
                     foreach ($poolPair as $poolStream) {
-                        if (is_resource($poolStream)) {
+                        if (get_resource_type($poolStream) !== 'Unknown') {
                             fclose($poolStream);
                         }
                     }
@@ -107,7 +116,7 @@ try {
                 }
                 if (is_array($pair)) {
                     foreach ($pair as $stream) {
-                        if (is_resource($stream)) {
+                        if (get_resource_type($stream) !== 'Unknown') {
                             fclose($stream);
                         }
                     }
@@ -117,18 +126,17 @@ try {
                 }
             }
             clearstatcache(true, $path);
-            $fileClean = !is_resource($file) && !is_file($path);
-            $socketClean = is_array($pair)
-                && !is_resource($pair[0])
-                && !is_resource($pair[1]);
-            $afterFds = count(glob('/proc/self/fd/*') ?: []);
+            $fileClean = get_resource_type($file) === 'Unknown' && !is_file($path);
+            $socketClean = get_resource_type($pair[0]) === 'Unknown'
+                && get_resource_type($pair[1]) === 'Unknown';
+            $afterFds = roadRunnerFixtureFdCount();
             $fdStable = $afterFds <= $beforeFds;
             $lastRequestFds = $afterFds;
 
             $data = json_encode([
                 'method' => $request->method,
                 'target' => $request->target,
-                'pid' => getmypid(),
+                'pid' => posix_getpid(),
                 'sequence' => $sequence,
                 'prior_file_clean' => $priorClean,
                 'fd_before' => $beforeFds,

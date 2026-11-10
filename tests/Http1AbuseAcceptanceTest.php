@@ -9,17 +9,28 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 
-/** @return array{0: resource, 1: resource} */
+/**
+ * @return array{0: resource, 1: resource}
+ * @throws \RuntimeException
+ */
 function abuseHttp1Pair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    if (!is_array($pair)) {
+    if (!is_array($pair) || !isset($pair[0], $pair[1])) {
         throw new RuntimeException('Unable to create HTTP/1 abuse socket pair.');
     }
 
-    return $pair;
+    return [$pair[0], $pair[1]];
 }
 
+/**
+ * @return array{0: string, 1: int}
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \LogicException
+ * @throws \Throwable
+ * @throws \RuntimeException
+ */
 function abuseHttp1Exchange(string $wire, Http1Limits $limits, ?callable $handler = null): array
 {
     [$server, $client] = abuseHttp1Pair();
@@ -39,11 +50,16 @@ function abuseHttp1Exchange(string $wire, Http1Limits $limits, ?callable $handle
         },
     );
     fwrite($client, $wire);
-    $loop->delay(0.15, static fn() => $loop->stop());
+    $loop->delay(0.15, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
     fclose($client);
+    if ($response === false) {
+        throw new RuntimeException('Unable to obtain the independent HTTP/1 response.');
+    }
 
     return [$response, $called];
 }
@@ -89,7 +105,9 @@ it('rejects oversized declared and chunked request bodies', function (): void {
         "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n5\r\n12345\r\n4\r\n6789\r\n0\r\n\r\n",
         new Http1Limits(maxBodyBytes: 8),
         static function (HttpRequest $request): void {
-            $request->body->onData(static fn($body) => $body->read());
+            $request->body->onData(static function ($body): void {
+                $body->read();
+            });
         },
     );
 
@@ -109,7 +127,9 @@ it('times out incomplete headers and stalled request bodies', function (): void 
         static function (): void {},
     );
     fwrite($client, "GET / HTTP/1.1\r\nHost:");
-    $loop->delay(0.06, static fn() => $loop->stop());
+    $loop->delay(0.06, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $headerResponse = stream_get_contents($client);
@@ -122,11 +142,15 @@ it('times out incomplete headers and stalled request bodies', function (): void 
         new Connection($loop, $server),
         new Http1Limits(bodyIdleTimeoutSeconds: 0.02),
         static function (HttpRequest $request): void {
-            $request->body->onData(static fn($body) => $body->read());
+            $request->body->onData(static function ($body): void {
+                $body->read();
+            });
         },
     );
     fwrite($client, "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 4\r\n\r\na");
-    $loop->delay(0.06, static fn() => $loop->stop());
+    $loop->delay(0.06, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $bodyResponse = stream_get_contents($client);

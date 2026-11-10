@@ -32,7 +32,8 @@ it('rejects short diagnostic trials as matched release certification', function 
 
     $baseline = tempnam(sys_get_temp_dir(), 'runwire-baseline-');
     $candidate = tempnam(sys_get_temp_dir(), 'runwire-candidate-');
-    expect($baseline)->toBeString()->and($candidate)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($baseline);
+    \PHPUnit\Framework\Assert::assertIsString($candidate);
     try {
         file_put_contents($baseline, json_encode($summary, JSON_THROW_ON_ERROR));
         $summary['runtime_build'] = str_repeat('b', 40);
@@ -44,6 +45,9 @@ it('rejects short diagnostic trials as matched release certification', function 
             2 => ['pipe', 'w'],
         ], $pipes);
         expect(is_resource($process))->toBeTrue();
+        if (!is_resource($process)) {
+            throw new \RuntimeException('Unable to start the invalid-duration fixture.');
+        }
         fclose($pipes[0]);
         $stdout = stream_get_contents($pipes[1]);
         $stderr = stream_get_contents($pipes[2]);

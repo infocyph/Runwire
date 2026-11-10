@@ -53,6 +53,7 @@ final class HappyEyeballsAttempt
     /**
      * @param Closure(?Connection, ?Throwable):void $completion
      * @param Closure():void $onSettled
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -68,13 +69,20 @@ final class HappyEyeballsAttempt
         }
     }
 
-    /** Cancel this logical attempt and all candidates exactly once. */
+    /**
+     * Cancel this logical attempt and all candidates exactly once.
+     * @throws \LogicException
+     */
     public function cancel(): void
     {
         $this->finish(null, new CancelledException(CancellationReason::HOST_CANCELLED));
     }
 
-    /** Resolve A/AAAA using worker processes before starting candidate sockets. */
+    /**
+     * Resolve A/AAAA using worker processes before starting candidate sockets.
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public function runHostname(string $hostname, int $port): void
     {
         $this->port = $port;
@@ -113,6 +121,8 @@ final class HappyEyeballsAttempt
      * Start an already resolved address race using the shared numeric connector.
      *
      * @param list<string> $addresses
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function runResolved(array $addresses, int $port): void
     {
@@ -124,6 +134,9 @@ final class HappyEyeballsAttempt
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function addressUri(string $address, int $port): string
     {
         if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
@@ -140,9 +153,11 @@ final class HappyEyeballsAttempt
     /**
      * @param list<string> $addresses
      * @return list<string>
+     * @throws \InvalidArgumentException
      */
     private static function orderAddresses(array $addresses, int $port): array
     {
+        /** @var array<int, list<string>> $families */
         $families = [4 => [], 6 => []];
         $first = null;
 
@@ -155,10 +170,12 @@ final class HappyEyeballsAttempt
         $ordered = [];
         $other = $first === 6 ? 4 : 6;
 
-        while ($families[$first ?? 4] !== [] || $families[$other] !== []) {
+        while (($families[$first ?? 4] ?? []) !== [] || ($families[$other] ?? []) !== []) {
             foreach ([$first ?? 4, $other] as $family) {
-                if ($families[$family] !== []) {
-                    $ordered[] = array_shift($families[$family]);
+                if (($families[$family] ?? []) !== []) {
+                    $next = array_shift($families[$family]);
+                    /** @psalm-var string $next */
+                    $ordered[] = $next;
                 }
             }
         }
@@ -166,6 +183,10 @@ final class HappyEyeballsAttempt
         return $ordered;
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function begin(): void
     {
         $this->remaining = $this->options->connectTimeoutSeconds;
@@ -178,7 +199,7 @@ final class HappyEyeballsAttempt
             }
         }
 
-        $this->overallDeadlineNs = hrtime(true) + (int) ($this->remaining * 1_000_000_000);
+        $this->overallDeadlineNs = hrtime(true) + (int) ($this->remaining * 1_000_000_000.0);
         $this->timeoutTimer = $this->loop->delay(max(0, $this->remaining), function (): void {
             $this->finish(null, new RuntimeException('Overall hostname connection deadline exceeded.'));
         });
@@ -198,6 +219,9 @@ final class HappyEyeballsAttempt
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function finish(?Connection $winner, ?Throwable $error): void
     {
         if ($this->completed) {
@@ -227,6 +251,9 @@ final class HappyEyeballsAttempt
         ($this->completion)($winner, $error);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function launchCandidate(): void
     {
         if ($this->completed) {
@@ -264,6 +291,9 @@ final class HappyEyeballsAttempt
         $this->scheduleNext();
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function onCandidate(int $childId, ?Connection $connection, ?Throwable $error): void
     {
         unset($this->children[$childId]);
@@ -288,6 +318,9 @@ final class HappyEyeballsAttempt
         $this->launchCandidate();
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function scheduleNext(): void
     {
         if ($this->completed) {
@@ -310,7 +343,11 @@ final class HappyEyeballsAttempt
         }
     }
 
-    /** @param list<string> $addresses */
+    /**
+     * @param list<string> $addresses
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function setCandidates(array $addresses): void
     {
         $this->candidates = self::orderAddresses($addresses, $this->port);

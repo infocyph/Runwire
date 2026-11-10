@@ -11,7 +11,10 @@ use InvalidArgumentException;
 /** Resource, timeout and socket policy for an outbound connection attempt. */
 final readonly class DialOptions
 {
-    /** Create and validate a finite per-attempt connection timeout and optional inherited controls. */
+    /**
+     * Create and validate a finite per-attempt connection timeout and optional inherited controls.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public float $connectTimeoutSeconds = 10.0,
         public ?RequestDeadline $deadline = null,

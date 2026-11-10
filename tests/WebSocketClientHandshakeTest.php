@@ -68,7 +68,8 @@ it('rejects credentials, injected request target, wrong response, extensions and
 
 it('round-trips the upgrade challenge with an independent real Unix socket peer', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     [$client, $peer] = $pair;
 
     try {
@@ -83,10 +84,12 @@ it('round-trips the upgrade challenge with an independent real Unix socket peer'
             . "Sec-WebSocket-Accept: $accept\r\nSec-WebSocket-Protocol: chat\r\n\r\n";
         expect(fwrite($peer, $response))->toBe(strlen($response));
         $reply = fread($client, 4_096);
+        if ($reply === false) {
+            throw new \RuntimeException('Independent WebSocket peer response read failed.');
+        }
         expect(WebSocketClientHandshake::verify($reply, $request['key'], ['chat']))->toBe('chat');
     } finally {
         fclose($client);
         fclose($peer);
     }
 });
-

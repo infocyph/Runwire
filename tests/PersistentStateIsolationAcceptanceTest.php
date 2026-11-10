@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
+use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\ApplicationLifecycleHooks;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
@@ -14,7 +17,14 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\Tests\Support\PersistentFixtureResetter;
 use Infocyph\Runwire\Tests\Support\PersistentFixtureState;
+use RuntimeException;
 
+
+/**
+ * @throws \OverflowException
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ */
 function persistentIsolationRequest(string $target, int $startNanoseconds): HttpRequest
 {
     return new HttpRequest(
@@ -27,6 +37,9 @@ function persistentIsolationRequest(string $target, int $startNanoseconds): Http
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function persistentIsolationWriter(): CallbackResponseWriter
 {
     return new CallbackResponseWriter(
@@ -43,7 +56,7 @@ it('does not leak mutable request state across a long-lived application process'
     $requests = 30;
     $policy = new RequestExecutionPolicy(maxExecutionSeconds: 0.001);
     $application = new RuntimeApplication(
-        static function (HttpRequest $request, CallbackResponseWriter $writer) use ($state, &$seenClean): void {
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($state, &$seenClean): void {
             expect($state->clean())->toBeTrue();
             ++$seenClean;
 

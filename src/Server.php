@@ -42,6 +42,7 @@ final readonly class Server
      *
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
      * @param callable(WorkerContext): callable|null $workerHandlerFactory
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $name,
@@ -80,7 +81,6 @@ final readonly class Server
         }
         self::validateTimeouts($workerReadyTimeoutSeconds, $workerShutdownTimeoutSeconds);
 
-        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
         $this->applicationFactory = $applicationFactory;
@@ -90,7 +90,6 @@ final readonly class Server
 
             return;
         }
-        /** @var Closure(WorkerContext): callable $factoryClosure */
         $factoryClosure = Closure::fromCallable($workerHandlerFactory);
         $this->workerHandlerFactory = $factoryClosure;
     }
@@ -99,6 +98,7 @@ final readonly class Server
      * Create a basic HTTP server definition.
      *
      * @param callable(HttpRequest, ResponseWriterInterface): void $handler
+     * @throws \InvalidArgumentException
      */
     public static function http(string $address, callable $handler, string $name = 'web'): self
     {
@@ -107,6 +107,7 @@ final readonly class Server
 
     /**
      * Create an HTTP server backed by a runtime application factory.
+     * @throws \InvalidArgumentException
      */
     public static function httpApplicationFactory(
         string $address,
@@ -125,6 +126,7 @@ final readonly class Server
      * Create an HTTP server whose handler is built separately for each worker.
      *
      * @param callable(WorkerContext): callable $factory
+     * @throws \InvalidArgumentException
      */
     public static function httpFactory(string $address, callable $factory, string $name = 'web'): self
     {
@@ -138,6 +140,7 @@ final readonly class Server
 
     /**
      * Build the runtime application used by a specific worker.
+     * @throws \InvalidArgumentException
      */
     public function applicationFor(
         WorkerContext $workerContext,
@@ -183,6 +186,7 @@ final readonly class Server
 
     /**
      * Return a copy configured with a runtime application factory.
+     * @throws \InvalidArgumentException
      */
     public function withApplicationFactory(RuntimeApplicationFactoryInterface $factory): self
     {
@@ -206,6 +210,7 @@ final readonly class Server
 
     /**
      * Return a copy with HTTP/3 enabled, replaced, or disabled.
+     * @throws \InvalidArgumentException
      */
     public function withHttp3(?Http3Options $http3 = new Http3Options()): self
     {
@@ -230,6 +235,7 @@ final readonly class Server
 
     /**
      * Return a copy with the supplied TLS configuration.
+     * @throws \InvalidArgumentException
      */
     public function withTls(?TlsOptions $tls): self
     {
@@ -254,6 +260,7 @@ final readonly class Server
 
     /**
      * Return a copy with a different per-worker connection limit.
+     * @throws \InvalidArgumentException
      */
     public function withWorkerConnectionLimit(int $limit): self
     {
@@ -280,6 +287,7 @@ final readonly class Server
      * Return a copy whose handler is built separately for each worker.
      *
      * @param callable(WorkerContext): callable $factory
+     * @throws \InvalidArgumentException
      */
     public function withWorkerHandlerFactory(callable $factory): self
     {
@@ -303,6 +311,7 @@ final readonly class Server
 
     /**
      * Return a copy with a different worker count.
+     * @throws \InvalidArgumentException
      */
     public function withWorkers(int $workers): self
     {
@@ -325,6 +334,9 @@ final readonly class Server
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeouts(float $readySeconds, float $shutdownSeconds): void
     {
         foreach ([

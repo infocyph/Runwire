@@ -14,7 +14,10 @@ use Throwable;
  */
 final class ConnectionCallbackDispatcher
 {
-    /** @param list<Closure> $callbacks */
+    /**
+     * @param list<Closure> $callbacks
+     * @throws \Throwable
+     */
     public static function dispatch(array $callbacks, Connection $connection, CloseReason $reason): void
     {
         $firstFailure = null;
@@ -34,6 +37,7 @@ final class ConnectionCallbackDispatcher
 
     /**
      * Invokes a connection callback and runs the supplied failure cleanup on error.
+     * @throws \Throwable
      */
     public static function invoke(?Closure $callback, Connection $connection, Closure $onFailure): void
     {

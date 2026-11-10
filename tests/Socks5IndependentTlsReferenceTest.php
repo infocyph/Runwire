@@ -2,20 +2,49 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\Dialer;
+use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\Proxy\HttpConnectHandshake;
 use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
 use Infocyph\Runwire\Network\Proxy\Socks5Handshake;
 use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use RuntimeException;
+use Throwable;
+
+
+/**
+ * @param resource $pipe
+ * @throws \RuntimeException
+ */
+function runwireRequiredSocksPipe(mixed $pipe): string
+{
+    $bytes = stream_get_contents($pipe);
+    if ($bytes === false) {
+        throw new RuntimeException('Independent TLS peer pipe read failed.');
+    }
+
+    return $bytes;
+}
+
+require_once __DIR__ . '/Support/TlsFixture.php';
+
+require_once __DIR__ . '/Support/ReferenceProcess.php';
+require_once __DIR__ . '/Support/NativeReply.php';
 
 /**
  * Run a separate Python TLS peer implementing RFC 1928 and RFC 1929 itself.
  *
  * @return array{error:?Throwable,completed:int,verified:?string,peer:array<string,mixed>}
+ * @throws \RuntimeException
+ * @throws \OverflowException
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireIndependentSocksReference(string $host, bool $remoteDns, string $behavior = 'success', string $protocol = 'socks5'): array
 {
@@ -24,10 +53,8 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
         throw new RuntimeException('Cannot create independent SOCKS5 TLS test directory.');
     }
 
-    $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($cert)->not->toBeFalse();
+    [$cert, $key] = \Infocyph\Runwire\Tests\Support\signingPair('localhost', ['digest_alg' => 'sha256'], ['digest_alg' => 'sha256']);
+    \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($cert));
     openssl_x509_export($cert, $certPem);
     openssl_pkey_export($key, $keyPem);
     $ca = $dir . '/ca.pem';
@@ -58,22 +85,7 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
     $expired = false;
     $watchdog = null;
     try {
-        $readyLine = '';
-        $started = microtime(true);
-        while (!str_contains($readyLine, "\n") && microtime(true) - $started < 4.0) {
-            $readyLine .= stream_get_contents($pipes[1]);
-            if (str_contains($readyLine, "\n")) {
-                break;
-            }
-            $state = proc_get_status($process);
-            if (!$state['running']) {
-                break;
-            }
-            usleep(10_000);
-        }
-        if (preg_match('/^READY ([0-9]+)\n/', $readyLine, $matches) !== 1) {
-            throw new RuntimeException('Independent Python SOCKS5 peer could not bind: ' . stream_get_contents($pipes[2]));
-        }
+        $matches = \Infocyph\Runwire\Tests\Support\awaitReferenceReady($process, $pipes[1], $pipes[2], 4.0, '/^READY ([0-9]+)\n/', 'Independent Python SOCKS5 peer could not bind: ');
         $port = (int) $matches[1];
         $watchdog = $loop->delay(5, static function () use (&$expired, $loop): void {
             $expired = true;
@@ -100,7 +112,7 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
                     ++$completed;
                     $error = $proxyError;
                     if ($proxyError === null) {
-                        expect($tunneled)->not->toBeNull();
+                        \PHPUnit\Framework\Assert::assertNotNull($tunneled);
                     }
                     $loop->stop();
                 };
@@ -138,22 +150,10 @@ function runwireIndependentSocksReference(string $host, bool $remoteDns, string 
         expect($expired)->toBeFalse();
         $connection?->abort();
 
-        $output = '';
-        $state = null;
-        $finished = microtime(true);
-        while (microtime(true) - $finished < 2.0) {
-            $output .= stream_get_contents($pipes[1]);
-            $state = proc_get_status($process);
-            if (!$state['running']) {
-                break;
-            }
-            usleep(10_000);
-        }
-        $output .= stream_get_contents($pipes[1]);
-        expect($state['running'] ?? true)->toBeFalse();
+        $output = \Infocyph\Runwire\Tests\Support\awaitReferenceExit($process, $pipes[1], 2.0);
         $lines = array_filter(explode("\n", trim($output)));
         $decoded = json_decode((string) end($lines), true, 512, JSON_THROW_ON_ERROR);
-        expect($decoded)->toBeArray();
+        $decoded = \Infocyph\Runwire\Tests\Support\nativeReply($decoded);
 
         return ['error' => $error, 'completed' => $completed, 'verified' => $verified, 'peer' => $decoded];
     } finally {

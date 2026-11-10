@@ -19,6 +19,8 @@ final class NativeStreamWorker
 {
     /**
      * Attach a stream worker to an existing loop without taking loop ownership.
+     * @throws \LogicException
+     * @throws \RuntimeException
      */
     public static function attach(
         LoopInterface $loop,
@@ -30,7 +32,6 @@ final class NativeStreamWorker
         $sessions = [];
         $state = new WorkerStopState($ownsLoop);
         $handler = $bound->definition->handlerFor($context);
-        $stopWatcher = null;
 
         $bound->listener->start($loop, function (Connection $connection) use ($loop, $bound, $handler, &$sessions, $state): void {
             if ($state->isStopping()) {
@@ -94,6 +95,10 @@ final class NativeStreamWorker
 
     /**
      * Runs the bound stream listener until worker shutdown is requested.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public static function run(
         WorkerContext $context,
@@ -110,7 +115,11 @@ final class NativeStreamWorker
         }
     }
 
-    /** @param array<int, FramedConnection> $sessions */
+    /**
+     * @param array<int, FramedConnection> $sessions
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private static function beginDrain(
         WorkerContext $context,
         BoundStreamServer $bound,
@@ -133,6 +142,9 @@ final class NativeStreamWorker
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private static function closeWorkerListener(BoundStreamServer $bound): void
     {
         if ($bound->listener instanceof UnixListener) {

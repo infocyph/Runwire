@@ -15,6 +15,7 @@ final class ByteBudget
 
     /**
      * Create a byte budget with the supplied positive ceiling.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private readonly int $limit = 67_108_864)
     {
@@ -53,6 +54,7 @@ final class ByteBudget
 
     /**
      * Reserve bytes when sufficient capacity remains.
+     * @throws \InvalidArgumentException
      */
     public function reserve(int $bytes): bool
     {

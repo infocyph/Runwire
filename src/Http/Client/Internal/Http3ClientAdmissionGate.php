@@ -21,7 +21,10 @@ final class Http3ClientAdmissionGate
 
     private bool $ready = false;
 
-    /** Validate maximum live-stream and FIFO waiter budgets before admission. */
+    /**
+     * Validate maximum live-stream and FIFO waiter budgets before admission.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly int $maxActive = 32,
         private readonly int $maxPending = 128,
@@ -55,6 +58,9 @@ final class Http3ClientAdmissionGate
      * Queue a unique sibling; native stream creation occurs only after start().
      *
      * @return list<int>
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \OverflowException
      */
     public function enqueue(int $id): array
     {

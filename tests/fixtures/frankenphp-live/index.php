@@ -11,7 +11,15 @@ use Infocyph\Runwire\Runtime\Enum\FrankenPhpMode;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\RuntimeOptions;
 
-require '/runwire/vendor/autoload.php';
+$autoload = dirname(__DIR__, 3) . '/vendor/autoload.php';
+if (!is_file($autoload)) {
+    // The live-host fixture is also mounted independently at /app/public.
+    $autoload = '/runwire/vendor/autoload.php';
+}
+if (!is_file($autoload)) {
+    throw new RuntimeException('Runwire autoloader is unavailable for the live FrankenPHP fixture.');
+}
+require $autoload;
 
 // Intentionally one real FrankenPHP worker: a fresh PHP request process would
 // reset this counter to one, making lost persistent-worker ownership visible.

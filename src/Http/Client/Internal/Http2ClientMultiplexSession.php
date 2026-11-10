@@ -50,7 +50,10 @@ final class Http2ClientMultiplexSession
      */
     private array $streams = [];
 
-    /** Construct a bounded protocol-only session with no implicit socket ownership. */
+    /**
+     * Construct a bounded protocol-only session with no implicit socket ownership.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(private readonly int $maxStreams = 16)
     {
         if ($maxStreams < 1 || $maxStreams > 32) {
@@ -66,7 +69,11 @@ final class Http2ClientMultiplexSession
         return count($this->streams);
     }
 
-    /** Retire one stream without aborting a live sibling; transport must send returned RST. */
+    /**
+     * Retire one stream without aborting a live sibling; transport must send returned RST.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function cancel(int $streamId): string
     {
         if (!isset($this->streams[$streamId])) {
@@ -82,7 +89,10 @@ final class Http2ClientMultiplexSession
         return FrameWriter::encode(FrameWriter::rstStream($streamId, ErrorCode::CANCEL));
     }
 
-    /** Settle each unfinished response once on connection terminal failure. */
+    /**
+     * Settle each unfinished response once on connection terminal failure.
+     * @throws \Throwable
+     */
     public function close(?Throwable $error = null): void
     {
         if ($this->closed) {
@@ -109,7 +119,11 @@ final class Http2ClientMultiplexSession
         return $this->started && !$this->closed && $this->handshake->ready();
     }
 
-    /** Consume one frame in wire order, returning bounded connection/stream credit. */
+    /**
+     * Consume one frame in wire order, returning bounded connection/stream credit.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     public function receive(Frame $frame): string
     {
         if (!$this->started || $this->closed) {
@@ -137,6 +151,8 @@ final class Http2ClientMultiplexSession
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $onComplete
      * @return array{stream:int,wire:string}
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public function request(
         ClientRequest $request,
@@ -151,14 +167,15 @@ final class Http2ClientMultiplexSession
             throw new RuntimeException('HTTP/2 multiplex request admission unavailable.');
         }
         $parts = parse_url($request->uri);
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || strtolower($parts['scheme'] ?? '') !== 'https'
-            || !is_string($parts['host'] ?? null)
+            || !is_string($host)
             || !in_array($request->method, ['GET', 'HEAD'], true)
             || $request->body !== null
             || $request->protocol->negotiate('h2', true) !== ProtocolVersion::HTTP_2) {
             throw new InvalidArgumentException('HTTP/2 multiplex request requires a verified bodyless HTTPS origin.');
         }
-        $authority = strtolower($parts['host']);
+        $authority = strtolower($host);
         if (isset($parts['port']) && $parts['port'] !== 443) {
             $authority .= ':' . $parts['port'];
         }
@@ -195,7 +212,11 @@ final class Http2ClientMultiplexSession
         return ['stream' => $streamId, 'wire' => $wire];
     }
 
-    /** Return client preface exactly once; caller owns actual transport writes. */
+    /**
+     * Return client preface exactly once; caller owns actual transport writes.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     public function start(): string
     {
         if ($this->started || $this->closed) {
@@ -206,7 +227,10 @@ final class Http2ClientMultiplexSession
         return $this->handshake->start();
     }
 
-    /** Account for receive-window consumption without extending terminated streams. */
+    /**
+     * Account for receive-window consumption without extending terminated streams.
+     * @throws \InvalidArgumentException
+     */
     private static function credit(Frame $frame): string
     {
         $bytes = $frame->knownType() === FrameType::DATA ? strlen($frame->payload) : 0;
@@ -221,7 +245,10 @@ final class Http2ClientMultiplexSession
         return $wire;
     }
 
-    /** Enforce connection SETTINGS and reject GOAWAY streams above peer last ID. */
+    /**
+     * Enforce connection SETTINGS and reject GOAWAY streams above peer last ID.
+     * @throws \RuntimeException
+     */
     private function control(Frame $frame): string
     {
         $wire = $this->handshake->receive($frame);
@@ -247,7 +274,10 @@ final class Http2ClientMultiplexSession
         ($slot['complete'])($error);
     }
 
-    /** Drain previously canceled response frames without accepting new headers. */
+    /**
+     * Drain previously canceled response frames without accepting new headers.
+     * @throws \RuntimeException
+     */
     private function retiredFrame(Frame $frame): string
     {
         if ($frame->knownType() === FrameType::RST_STREAM) {
@@ -271,7 +301,11 @@ final class Http2ClientMultiplexSession
             : '';
     }
 
-    /** Validate and complete one response without closing sibling exchanges. */
+    /**
+     * Validate and complete one response without closing sibling exchanges.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     private function streamFrame(Frame $frame): string
     {
         $slot = $this->streams[$frame->streamId] ?? null;

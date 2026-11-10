@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/cli_local_paths.php';
+
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Worker;
@@ -12,6 +14,9 @@ use Infocyph\Runwire\Network\TlsOptions;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 6) {
     throw new InvalidArgumentException(
         'Usage: php http3_server.php <port> <certificate> <private-key> <ready-file> <expected-requests>',
@@ -21,7 +26,7 @@ if ($argc !== 6) {
 $port = (int) $argv[1];
 $certificate = $argv[2];
 $privateKey = $argv[3];
-$readyFile = $argv[4];
+$readyFile = runwireBenchmarkOutputPath($argv[4]);
 $expectedRequests = (int) $argv[5];
 if ($expectedRequests < 1 || $expectedRequests > 5_000) {
     throw new InvalidArgumentException('Expected HTTP/3 benchmark request count must be between 1 and 5000.');

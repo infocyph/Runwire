@@ -11,7 +11,10 @@ namespace Infocyph\Runwire\Network\Internal;
  */
 final class TcpSocketTuner
 {
-    /** Apply an explicit outbound TCP_NODELAY policy, failing when unavailable. */
+    /**
+     * Apply an explicit outbound TCP_NODELAY policy, failing when unavailable.
+     * @throws \RuntimeException
+     */
     public static function applyExplicitNoDelay(mixed $stream, bool $tcpTransport, ?bool $override): void
     {
         if (!$tcpTransport || $override === null) {

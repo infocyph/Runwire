@@ -34,6 +34,7 @@ final class TlsHandshakeReadiness
      * @param resource $stream
      * @param callable():void $onReady
      * @param callable():void $onTimeout
+     * @throws \Throwable
      */
     public function start(
         mixed $stream,
@@ -43,10 +44,17 @@ final class TlsHandshakeReadiness
         bool $watchWrite,
     ): void {
         try {
-            $this->timeoutTimer = $this->loop->delay($seconds, $onTimeout);
-            $this->readWatcher = $this->loop->onReadable($stream, $onReady);
+            $ready = static function (mixed $stream, int $watcher) use ($onReady): void {
+                unset($stream, $watcher);
+                $onReady();
+            };
+            $this->timeoutTimer = $this->loop->delay($seconds, static function (int $timer) use ($onTimeout): void {
+                unset($timer);
+                $onTimeout();
+            });
+            $this->readWatcher = $this->loop->onReadable($stream, $ready);
             if ($watchWrite) {
-                $this->writeWatcher = $this->loop->onWritable($stream, $onReady);
+                $this->writeWatcher = $this->loop->onWritable($stream, $ready);
             }
         } catch (Throwable $error) {
             $this->close();

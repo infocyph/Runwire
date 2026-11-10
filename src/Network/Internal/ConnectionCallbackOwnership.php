@@ -17,6 +17,7 @@ final class ConnectionCallbackOwnership
 
     /**
      * Ensures no adapter currently owns the connection callback slots.
+     * @throws \LogicException
      */
     public function assertUnclaimed(): void
     {
@@ -27,6 +28,7 @@ final class ConnectionCallbackOwnership
 
     /**
      * Grants exclusive callback-slot ownership to an adapter.
+     * @throws \LogicException
      */
     public function claim(object $owner, bool $slotsConfigured, bool $closed): void
     {
@@ -45,6 +47,7 @@ final class ConnectionCallbackOwnership
 
     /**
      * Transfers configured callback slots to one exclusive protocol owner.
+     * @throws \LogicException
      */
     public function handoff(object $owner, bool $closed): void
     {
@@ -66,6 +69,7 @@ final class ConnectionCallbackOwnership
 
     /**
      * Releases callback-slot ownership held by the supplied adapter.
+     * @throws \LogicException
      */
     public function release(object $owner): void
     {

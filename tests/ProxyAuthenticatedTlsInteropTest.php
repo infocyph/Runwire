@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use Closure;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
@@ -16,12 +19,24 @@ use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\TlsClientOptions;
 use Infocyph\Runwire\Network\TlsOptions;
+use InvalidArgumentException;
+use LogicException;
+use RuntimeException;
+use Throwable;
+
+require_once __DIR__ . '/Support/TlsFixture.php';
 
 /**
  * Exercise real nonblocking TLS client/proxy handshakes and authenticated
  * CONNECT/SOCKS5 negotiation without assuming nested original-target TLS.
  *
  * @return array{received:string,verified:?string,error:?Throwable,completed:int,accepted:bool}
+ * @throws \RuntimeException
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \Infocyph\Runwire\Exception\ListenerException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireAuthenticatedProxyInterop(
     string $protocol,
@@ -31,16 +46,13 @@ function runwireAuthenticatedProxyInterop(
     bool $remoteDns = false,
     bool $rejectMethod = false,
     ?Closure $onTunnel = null,
-): array
-{
+): array {
     $dir = sys_get_temp_dir() . '/runwire-proxy-tls-' . bin2hex(random_bytes(8));
     if (!mkdir($dir, 0700)) {
         throw new RuntimeException('Cannot prepare isolated proxy TLS fixtures.');
     }
-    $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($cert)->not->toBeFalse();
+    [$cert, $key] = \Infocyph\Runwire\Tests\Support\signingPair('localhost', ['digest_alg' => 'sha256'], ['digest_alg' => 'sha256']);
+    \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($cert));
     openssl_x509_export($cert, $certPem);
     openssl_pkey_export($key, $keyPem);
     $caFile = $dir . '/cert.pem';
@@ -67,67 +79,32 @@ function runwireAuthenticatedProxyInterop(
         $expired = true;
         $loop->stop();
     });
+
     try {
         $listener->start($loop, static function (Connection $peer) use (
-            &$received, &$accepted, $protocol, $rejectAuthentication, $rejectMethod,
+            &$received,
+            &$accepted,
+            $protocol,
+            $rejectAuthentication,
+            $rejectMethod,
         ): void {
             $accepted = true;
             $state = 0;
             $pending = '';
-            $peer->onData(static function (Connection $ready) use (
-                &$received, &$state, &$pending, $protocol, $rejectAuthentication, $rejectMethod,
-            ): void {
-                $pending .= $ready->read();
-                if ($protocol === 'http') {
-                    if (!str_contains($pending, "\r\n\r\n")) {
-                        return;
-                    }
-                    $received = $pending;
-                    $pending = '';
-                    $ready->write("HTTP/1.1 200 Connection Established\r\n\r\n");
-
-                    return;
-                }
-                if ($state === 0 && strlen($pending) >= 3) {
-                    expect($pending)->toBe("\x05\x01\x02");
-                    $pending = '';
-                    $state = 1;
-                    $ready->write($rejectMethod ? "\x05\x00" : "\x05\x02");
-
-                    return;
-                }
-                if ($state === 1 && strlen($pending) >= 13) {
-                    expect($pending)->toBe("\x01\x04user\x06secret");
-                    $pending = '';
-                    $state = $rejectAuthentication ? 3 : 2;
-                    $ready->write($rejectAuthentication ? "\x01\x01" : "\x01\x00");
-
-                    return;
-                }
-                if ($state === 2 && strlen($pending) >= 5) {
-                    $length = match (ord($pending[3])) {
-                        1 => 10,
-                        4 => 22,
-                        3 => 7 + ord($pending[4]),
-                        default => throw new RuntimeException('Invalid SOCKS5 test peer address type.'),
-                    };
-                    if (strlen($pending) < $length) {
-                        return;
-                    }
-
-                    $received = $pending;
-                    $pending = '';
-                    $state = 3;
-                    $ready->write("\x05\x00\x00\x01\x7f\x00\x00\x01\x01\xbb");
-                } elseif ($state === 3 && $pending !== '') {
-                    $received = $pending;
-                }
-            });
+            $peer->onData(runwireAuthenticatedPeerReader($received, $state, $pending, $protocol, $rejectAuthentication, $rejectMethod));
         });
         $dialer->connect(
             'tcp://' . $listener->address(),
             static function (?Connection $ready, ?Throwable $error) use (
-                &$client, &$verified, &$failure, &$completed, $loop, $protocol, $expectedProxy, $targetHost, $remoteDns,
+                &$client,
+                &$verified,
+                &$failure,
+                &$completed,
+                $loop,
+                $protocol,
+                $expectedProxy,
+                $targetHost,
+                $remoteDns,
                 $onTunnel,
             ): void {
                 if ($error !== null || $ready === null) {
@@ -138,19 +115,8 @@ function runwireAuthenticatedProxyInterop(
                 }
                 $client = $ready;
                 $verified = \Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers::peerName($ready);
-                $done = static function (?Connection $tunneled, ?Throwable $failureReason) use (
-                    &$failure, &$completed, $loop, $onTunnel,
-                ): void {
-                    ++$completed;
-                    $failure = $failureReason;
-                    if ($failureReason === null) {
-                        expect($tunneled)->not->toBeNull();
-                        if ($tunneled !== null) {
-                            $onTunnel?->__invoke($tunneled);
-                        }
-                    }
-                    $loop->stop();
-                };
+                $done = runwireAuthenticatedTunnelCompletion($failure, $completed, $loop, $onTunnel);
+
                 try {
                     if ($protocol === 'http') {
                         (new HttpConnectTunnel(
@@ -298,3 +264,108 @@ it('closes a real verified HTTPS CONNECT proxy when nested origin TLS is unavail
         ->and($nestedState)->toBe(ConnectionState::CLOSED)
         ->and($nestedCompleted)->toBe(0);
 });
+
+/**
+ * @return \Closure(?Connection,?Throwable):void
+ */
+function runwireAuthenticatedTunnelCompletion(?Throwable &$failure, int &$completed, SelectLoop $loop, ?Closure $onTunnel): \Closure
+{
+    return static function (?Connection $tunneled, ?Throwable $failureReason) use (
+        &$failure,
+        &$completed,
+        $loop,
+        $onTunnel,
+    ): void {
+        ++$completed;
+        $failure = $failureReason;
+        if ($failureReason === null) {
+            \PHPUnit\Framework\Assert::assertNotNull($tunneled);
+            $onTunnel?->__invoke($tunneled);
+        }
+        $loop->stop();
+    };
+}
+
+/**
+ * @return \Closure(Connection):void
+ */
+function runwireAuthenticatedPeerReader(string &$received, int &$state, string &$pending, string $protocol, bool $rejectAuthentication, bool $rejectMethod): \Closure
+{
+    return static function (Connection $ready) use (
+        &$received,
+        &$state,
+        &$pending,
+        $protocol,
+        $rejectAuthentication,
+        $rejectMethod,
+    ): void {
+        $pending .= $ready->read();
+        if ($protocol === 'http') {
+            runwireAuthenticatedHttpReply($ready, $received, $pending);
+
+            return;
+        }
+        if (runwireAuthenticatedSocksNegotiate($ready, $state, $pending, $rejectAuthentication, $rejectMethod)) {
+            return;
+        }
+        runwireAuthenticatedSocksConnect($ready, $received, $state, $pending);
+    };
+}
+
+/** @throws \Throwable */
+function runwireAuthenticatedHttpReply(Connection $ready, string &$received, string &$pending): void
+{
+    if (!str_contains($pending, "\r\n\r\n")) {
+        return;
+    }
+    $received = $pending;
+    $pending = '';
+    $ready->write("HTTP/1.1 200 Connection Established\r\n\r\n");
+
+}
+
+/** @throws \Throwable */
+function runwireAuthenticatedSocksNegotiate(Connection $ready, int &$state, string &$pending, bool $rejectAuthentication, bool $rejectMethod): bool
+{
+    if ($state === 0 && strlen($pending) >= 3) {
+        expect($pending)->toBe("\x05\x01\x02");
+        $pending = '';
+        $state = 1;
+        $ready->write($rejectMethod ? "\x05\x00" : "\x05\x02");
+
+        return true;
+    }
+    if ($state === 1 && strlen($pending) >= 13) {
+        expect($pending)->toBe("\x01\x04user\x06secret");
+        $pending = '';
+        $state = $rejectAuthentication ? 3 : 2;
+        $ready->write($rejectAuthentication ? "\x01\x01" : "\x01\x00");
+
+        return true;
+    }
+
+    return false;
+}
+
+/** @throws \Throwable */
+function runwireAuthenticatedSocksConnect(Connection $ready, string &$received, int &$state, string &$pending): void
+{
+    if ($state === 2 && strlen($pending) >= 5) {
+        $length = match (ord($pending[3])) {
+            1 => 10,
+            4 => 22,
+            3 => 7 + ord($pending[4]),
+            default => throw new RuntimeException('Invalid SOCKS5 test peer address type.'),
+        };
+        if (strlen($pending) < $length) {
+            return;
+        }
+
+        $received = $pending;
+        $pending = '';
+        $state = 3;
+        $ready->write("\x05\x00\x00\x01\x7f\x00\x00\x01\x01\xbb");
+    } elseif ($state === 3 && $pending !== '') {
+        $received = $pending;
+    }
+}

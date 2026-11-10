@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
@@ -15,6 +17,26 @@ use Infocyph\Runwire\Http\Http3\Internal\AdaptiveResponseStrategy as Http3Adapti
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 
 it('holds HTTP2 state through single-sample bursts and switches only after sustained crossover', function (): void {
+    runwireAdaptiveProtocolTransitionCase01();
+});
+
+it('adapts HTTP3 pump effort without flapping on isolated high-load samples', function (): void {
+    runwireAdaptiveProtocolTransitionCase02();
+});
+
+it('keeps every adaptive work budget inside configured protocol ceilings', function (): void {
+    runwireAdaptiveProtocolTransitionCase03();
+});
+
+it('keeps hard resource limits independent from adaptive policy', function (): void {
+    runwireAdaptiveProtocolTransitionCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireAdaptiveProtocolTransitionCase01(): void
+{
     $strategy = new Http2AdaptiveResponseStrategy(
         policy: new AdaptiveProtocolPolicy(
             lowWatermarkBasisPoints: 2_000,
@@ -43,9 +65,13 @@ it('holds HTTP2 state through single-sample bursts and switches only after susta
         ->and($strategy->wireLimit($low))->toBe(1_024)
         ->and($strategy->wireLimit($low))->toBe(1_024)
         ->and($strategy->state())->toBe(AdaptiveLoadState::LATENCY);
-});
+}
 
-it('adapts HTTP3 pump effort without flapping on isolated high-load samples', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireAdaptiveProtocolTransitionCase02(): void
+{
     $strategy = new AdaptivePumpStrategy(
         policy: new AdaptiveProtocolPolicy(
             lowWatermarkBasisPoints: 2_000,
@@ -74,9 +100,13 @@ it('adapts HTTP3 pump effort without flapping on isolated high-load samples', fu
     expect($strategy->state())->toBe(AdaptiveLoadState::THROUGHPUT)
         ->and($strategy->acceptLimit(64))->toBe(64)
         ->and($strategy->readLimit(256))->toBe(256);
-});
+}
 
-it('keeps every adaptive work budget inside configured protocol ceilings', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireAdaptiveProtocolTransitionCase03(): void
+{
     $samples = [
         new AdaptiveLoadSample(false, 0, 0),
         new AdaptiveLoadSample(false, 5_000, 5_000),
@@ -116,9 +146,13 @@ it('keeps every adaptive work budget inside configured protocol ceilings', funct
                 ->and($http3Pump->byteLimit(262_144))->toBeLessThanOrEqual(262_144);
         }
     }
-});
+}
 
-it('keeps hard resource limits independent from adaptive policy', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireAdaptiveProtocolTransitionCase04(): void
+{
     $throughput = new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::THROUGHPUT);
 
     $http1 = new Http1Limits(
@@ -148,4 +182,4 @@ it('keeps hard resource limits independent from adaptive policy', function (): v
         ->and($http2->maxStreamsPerConnection)->toBe(77)
         ->and($http3->limits->maxConcurrentRequestStreams)->toBe(9)
         ->and($http3->limits->maxRequestStreamsPerConnection)->toBe(99);
-});
+}

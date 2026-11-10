@@ -2,23 +2,42 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    throw new RuntimeException('Source audit tools require the PHP CLI SAPI.');
+}
+
 /**
  * Reproducible SOURCE-ONLY API fingerprint. No Composer install and no optional
  * extension is needed to inspect the published tag. The manifest records
  * declarations, not hypothetical runtime availability.
  *
- * php tools/public-api-manifest.php <source-dir> <destination.json> <source-commit> [--with-properties]
+ * php tools/public-api-manifest.php <source-dir> <source-commit> [--with-properties]
  */
 
-/** @var list<string> $arguments */
-$arguments = $_SERVER['argv'] ?? [];
-$withProperties = count($arguments) === 5 && $arguments[4] === '--with-properties';
-if ((count($arguments) !== 4 && !$withProperties) || !is_dir($arguments[1])) {
-    throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <output.json> <source-commit> [--with-properties]');
+/** Validate CLI arguments without trusting the ambient server array shape. */
+$readCliArguments = static function (mixed $input): array {
+    if (!is_array($input) || !array_is_list($input)) {
+        throw new InvalidArgumentException('CLI arguments must be a list of strings.');
+    }
+
+    $arguments = [];
+    foreach ($input as $value) {
+        if (!is_string($value)) {
+            throw new InvalidArgumentException('CLI arguments must be strings.');
+        }
+        $arguments[] = $value;
+    }
+
+    return $arguments;
+};
+$arguments = $readCliArguments($argv ?? []);
+$withProperties = count($arguments) === 4 && $arguments[3] === '--with-properties';
+if ((count($arguments) !== 3 && !$withProperties) || !is_dir($arguments[1])) {
+    throw new InvalidArgumentException('Usage: php tools/public-api-manifest.php <src-directory> <source-commit> [--with-properties]');
 }
 
-[$command, $inputRoot, $output, $revision] = $arguments;
-unset($command);
+$inputRoot = $arguments[1];
+$revision = $arguments[2];
 $root = realpath($inputRoot);
 if ($root === false || !preg_match('/^[0-9a-f]{40}$/D', $revision)) {
     throw new InvalidArgumentException('Expected an existing source directory and immutable 40-character source SHA.');
@@ -36,8 +55,13 @@ foreach ($iterator as $file) {
 sort($files, SORT_STRING);
 $symbols = [];
 $unrecognized = [];
+$sourcePrefix = rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 foreach ($files as $path) {
-    $source = file_get_contents($path);
+    $canonical = realpath($path);
+    if (is_link($path) || !is_string($canonical) || !str_starts_with($canonical, $sourcePrefix)) {
+        throw new RuntimeException('API manifest refuses symlinked or outside-root PHP source files.');
+    }
+    $source = file_get_contents($canonical);
     if (!is_string($source)) {
         throw new RuntimeException(sprintf('Cannot read PHP source: %s', $path));
     }
@@ -136,12 +160,13 @@ foreach ($files as $path) {
         sort($cases, SORT_STRING);
     }
 
+    $properties = [];
     if ($withProperties) {
         // Track declared public fields and constructor-promoted public properties.
         // The property manifest is additive to historical schema-v1 archives.
         $properties = [];
         preg_match_all(
-            '/^\\s*public\\s+(?:(?:readonly|static)\\s+)*(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b[^;]*;/m',
+            '/^\\s*public\\s+(?:(?:readonly|static)\\s+)*(?:[?\\w\\\\|&]+\\s+)?\\$([A-Za-z_]\\w*)\\b[^\r\n;]*;/m',
             $source,
             $propertyMatches,
             PREG_SET_ORDER,
@@ -187,8 +212,8 @@ $manifest = [
     'symbols' => $symbols,
 ];
 $encoded = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-if (file_put_contents($output, $encoded . "\n") === false) {
-    throw new RuntimeException(sprintf('Cannot write API manifest: %s', $output));
+if (fwrite(STDOUT, $encoded . "\n") === false) {
+    throw new RuntimeException('Cannot write API manifest to standard output.');
 }
 if ($unrecognized !== []) {
     throw new RuntimeException('Unrecognized source declarations: ' . implode(', ', $unrecognized));

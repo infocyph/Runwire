@@ -66,7 +66,10 @@ final class Http3ResponseWriter implements ResponseWriterInterface
 
     /**
      * End the response, optionally writing one final body chunk.
+     * @throws \LogicException
+     * @throws \Throwable
      */
+    #[\Override]
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -109,6 +112,7 @@ final class Http3ResponseWriter implements ResponseWriterInterface
     /**
      * Determine whether the response has ended.
      */
+    #[\Override]
     public function isEnded(): bool
     {
         return $this->ended;
@@ -117,6 +121,7 @@ final class Http3ResponseWriter implements ResponseWriterInterface
     /**
      * Determine whether response headers have been started.
      */
+    #[\Override]
     public function isStarted(): bool
     {
         return $this->started;
@@ -125,6 +130,7 @@ final class Http3ResponseWriter implements ResponseWriterInterface
     /**
      * Register a callback invoked when response write pressure drains.
      */
+    #[\Override]
     public function onDrain(callable $callback): self
     {
         $consumer = Closure::fromCallable($callback);
@@ -139,7 +145,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
 
     /**
      * Register a callback invoked when response ownership becomes terminal.
+     * @throws \OverflowException
      */
+    #[\Override]
     public function onTerminal(callable $callback): self
     {
         $this->terminal->observe($this, $callback);
@@ -149,7 +157,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
 
     /**
      * Start the response with a final status and headers.
+     * @throws \LogicException
      */
+    #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -187,7 +197,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
 
     /**
      * Write a response body chunk.
+     * @throws \LogicException
      */
+    #[\Override]
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {
@@ -224,6 +236,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::CLOSED, 0);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finish(WriteResult $result): WriteResult
     {
         if (!$result->accepted()) {
@@ -236,7 +251,10 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         return $result;
     }
 
-    /** @return array{0: list<HeaderField>, 1: ?int} */
+    /**
+     * @return array{0: list<HeaderField>, 1: ?int}
+     * @throws \InvalidArgumentException
+     */
     private function normalizeHeaders(Headers $headers): array
     {
         $fields = [];
@@ -257,6 +275,9 @@ final class Http3ResponseWriter implements ResponseWriterInterface
         return [$fields, $contentLengths[0] ?? null];
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function parseLength(string $value): int
     {
         $value = trim($value);

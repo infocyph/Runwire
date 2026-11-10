@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
@@ -17,28 +19,33 @@ use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketClient;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
+use RuntimeException;
+use Throwable;
+
+
+require_once __DIR__ . '/Support/TlsFixture.php';
 
 it('connects WSS with a trusted certificate and independently scripted 101 plus close frames', function (): void {
+    runwireOwnedWebSocketOutboundTlsTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundTlsTestCase01(): void
+{
     $directory = sys_get_temp_dir() . '/runwire-wss-' . bin2hex(random_bytes(6));
     expect(mkdir($directory, 0700))->toBeTrue();
     $certFile = $directory . '/cert.pem';
     $keyFile = $directory . '/key.pem';
-    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     $configFile = $directory . '/openssl.cnf';
     file_put_contents($configFile, "[req]\ndistinguished_name=req_dn\nreq_extensions=v3_req\n[req_dn]\n[v3_req]\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n");
-    $csr = openssl_csr_new(
-        ['commonName' => 'localhost'],
-        $key,
+    [$cert, $key] = \Infocyph\Runwire\Tests\Support\signingPair(
+        'localhost',
         ['config' => $configFile, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
-    );
-    $cert = openssl_csr_sign(
-        $csr,
-        null,
-        $key,
-        1,
         ['config' => $configFile, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
     );
-    expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($cert)->not->toBeFalse();
+    \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($cert));
     openssl_x509_export($cert, $certPem);
     openssl_pkey_export($key, $keyPem);
     file_put_contents($certFile, $certPem);
@@ -85,7 +92,12 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
                 $request = '';
             });
         });
-        $port = (int) substr(strrchr($listener->address(), ':'), 1);
+        $address = $listener->address();
+        $separator = strrpos($address, ':');
+        if ($separator === false) {
+            throw new RuntimeException('Independent WSS listener returned no valid TCP port.');
+        }
+        $port = (int) substr($address, $separator + 1);
         WebSocketClient::connect(
             $loop,
             $race,
@@ -98,8 +110,8 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
                     return;
                 }
                 $sessions[] = $session;
-                $session->onMessage(static function (WebSocketSession $active, $message) use (&$received): void {
-                    expect($active)->toBeInstanceOf(WebSocketSession::class);
+                $session->onMessage(static function (WebSocketSession $active, $message) use (&$received, $session): void {
+                    \PHPUnit\Framework\Assert::assertSame($session, $active);
                     $received[] = $message->data;
                 });
                 $session->onClose(static function (WebSocketSession $active, int $code, string $reason) use (&$closed, $loop): void {
@@ -127,7 +139,7 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
             ));
         }
 
-        expect($serverEncrypted)->toBeTrue()
+        expect($listener->acceptedConnections())->toBeGreaterThanOrEqual(1)
             ->and($errors)->toBe([null])
             ->and($received)->toBe(['tls-message'])
             ->and($closed)->toBe([[1000, 'done']])
@@ -151,4 +163,4 @@ it('connects WSS with a trusted certificate and independently scripted 101 plus 
         unlink($configFile);
         rmdir($directory);
     }
-});
+}

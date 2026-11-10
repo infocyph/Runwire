@@ -2,12 +2,39 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadController;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
-use Infocyph\Runwire\Http\Enum\AdaptiveLoadState;
 use InvalidArgumentException;
 
 it('normalizes adaptive load counters without exceeding basis-point bounds', function (): void {
+    runwireAdaptiveLoadControllerCase01();
+});
+
+it('moves through adaptive states only after smoothed sustained load', function (): void {
+    runwireAdaptiveLoadControllerCase02();
+});
+
+it('does not flap on isolated load spikes and promotes sustained transport pressure', function (): void {
+    runwireAdaptiveLoadControllerCase03();
+});
+
+it('resets adaptive state and smoothed score deterministically', function (): void {
+    runwireAdaptiveLoadControllerCase04();
+});
+
+
+it('keeps the largest safe EWMA ratio in integer range', function (): void {
+    runwireAdaptiveLoadControllerCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireAdaptiveLoadControllerCase01(): void
+{
     $sample = AdaptiveLoadSample::fromCounters(
         pressured: false,
         queuedBytes: 750,
@@ -24,9 +51,13 @@ it('normalizes adaptive load counters without exceeding basis-point bounds', fun
         ->toThrow(InvalidArgumentException::class)
         ->and(fn() => AdaptiveLoadSample::fromCounters(false, 0, 0, 0, 1))
         ->toThrow(InvalidArgumentException::class);
-});
+}
 
-it('moves through adaptive states only after smoothed sustained load', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireAdaptiveLoadControllerCase02(): void
+{
     $controller = new AdaptiveLoadController();
     $low = new AdaptiveLoadSample(false, 0, 0);
     $high = new AdaptiveLoadSample(false, 10_000, 10_000);
@@ -53,9 +84,13 @@ it('moves through adaptive states only after smoothed sustained load', function 
         $controller->observe($low);
     }
     expect($controller->state())->toBe(AdaptiveLoadState::LATENCY);
-});
+}
 
-it('does not flap on isolated load spikes and promotes sustained transport pressure', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireAdaptiveLoadControllerCase03(): void
+{
     $controller = new AdaptiveLoadController();
     $low = new AdaptiveLoadSample(false, 0, 0);
     foreach (range(1, 3) as $_) {
@@ -71,9 +106,13 @@ it('does not flap on isolated load spikes and promotes sustained transport press
     }
 
     expect($controller->state())->toBe(AdaptiveLoadState::THROUGHPUT);
-});
+}
 
-it('resets adaptive state and smoothed score deterministically', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireAdaptiveLoadControllerCase04(): void
+{
     $controller = new AdaptiveLoadController();
     foreach (range(1, 3) as $_) {
         $controller->observe(new AdaptiveLoadSample(true, 10_000, 10_000));
@@ -86,10 +125,13 @@ it('resets adaptive state and smoothed score deterministically', function (): vo
 
     expect($controller->state())->toBe(AdaptiveLoadState::BALANCED)
         ->and($controller->smoothedScore())->toBe(0);
-});
+}
 
-
-it('keeps the largest safe EWMA ratio in integer range', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireAdaptiveLoadControllerCase05(): void
+{
     $maximum = intdiv(PHP_INT_MAX, AdaptiveLoadSample::MAX_BASIS_POINTS);
     $controller = new AdaptiveLoadController(
         transitionSamples: 1,
@@ -105,4 +147,4 @@ it('keeps the largest safe EWMA ratio in integer range', function (): void {
             ewmaNumerator: PHP_INT_MAX,
             ewmaDenominator: PHP_INT_MAX,
         ))->toThrow(InvalidArgumentException::class);
-});
+}

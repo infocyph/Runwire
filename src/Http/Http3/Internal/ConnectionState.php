@@ -45,6 +45,7 @@ final class ConnectionState
 
     /**
      * Create connection state with bounded HTTP/3 and QPACK resources.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly Http3Limits $limits = new Http3Limits(),
@@ -63,6 +64,8 @@ final class ConnectionState
 
     /**
      * Cancel and discard a tracked request stream.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function cancelRequestStream(int $streamId): void
     {
@@ -77,6 +80,7 @@ final class ConnectionState
 
     /**
      * Finish a peer unidirectional stream while enforcing critical-stream lifetime rules.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function finishPeerUnidirectional(int $streamId): void
     {
@@ -105,6 +109,10 @@ final class ConnectionState
 
     /**
      * Finish a tracked request stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function finishRequestStream(int $streamId): void
     {
@@ -118,6 +126,7 @@ final class ConnectionState
 
     /**
      * Build the local control-stream preamble and SETTINGS frame.
+     * @throws \InvalidArgumentException
      */
     public function localControlPreamble(): string
     {
@@ -126,6 +135,7 @@ final class ConnectionState
 
     /**
      * Build the local QPACK decoder-stream type preamble.
+     * @throws \InvalidArgumentException
      */
     public function localQpackDecoderPreamble(): string
     {
@@ -134,6 +144,7 @@ final class ConnectionState
 
     /**
      * Build the local QPACK encoder-stream type preamble.
+     * @throws \InvalidArgumentException
      */
     public function localQpackEncoderPreamble(): string
     {
@@ -158,6 +169,8 @@ final class ConnectionState
 
     /**
      * Feed bytes from a peer unidirectional stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
      */
     public function pushPeerUnidirectional(int $streamId, string $bytes): void
     {
@@ -176,6 +189,10 @@ final class ConnectionState
 
     /**
      * Feed bytes into a request stream and return its state object.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function pushRequestStream(int $streamId, string $bytes): RequestStream
     {
@@ -187,6 +204,8 @@ final class ConnectionState
 
     /**
      * Release a request stream and cancel it first when unfinished.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function releaseRequestStream(int $streamId): void
     {
@@ -233,6 +252,10 @@ final class ConnectionState
         return $this->encoder?->takeEncoderInstructions() ?? '';
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
+     */
     private function claimPeerUnidirectional(PeerUnidirectionalStream $stream, int $typeValue): void
     {
         $type = StreamType::tryFrom($typeValue);
@@ -260,6 +283,11 @@ final class ConnectionState
         $stream->claim();
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function configureEncoder(): void
     {
         if ($this->encoder !== null) {
@@ -287,6 +315,10 @@ final class ConnectionState
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function createPeerUnidirectional(int $streamId): PeerUnidirectionalStream
     {
         ++$this->peerUnidirectionalStreamsCreated;
@@ -300,6 +332,10 @@ final class ConnectionState
         return $this->peerUnidirectionalStreams[$streamId] = new PeerUnidirectionalStream($streamId);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function createRequestStream(int $streamId): RequestStream
     {
         ++$this->requestStreamsCreated;
@@ -313,6 +349,11 @@ final class ConnectionState
         return $this->requestStreams[$streamId] = new RequestStream($streamId, $this->decoder, $this->limits, budget: $this->bufferBudget);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
+     */
     private function processControl(string $payload): void
     {
         if ($payload === '') {
@@ -323,6 +364,10 @@ final class ConnectionState
         $this->configureEncoder();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function processPeerDecoderInstructions(string $payload): void
     {
         if ($payload === '') {
@@ -343,6 +388,12 @@ final class ConnectionState
         $this->pendingPeerDecoderInstructions .= $payload;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function processPeerEncoderInstructions(string $payload): void
     {
         if ($payload === '') {

@@ -34,7 +34,8 @@ final class WorkerRecycleState
         ?int $seed = null,
         ?int $startedAtNs = null,
     ) {
-        $seed ??= ((int) hrtime(true)) ^ (getmypid() ?: 0);
+        $pid = getmypid();
+        $seed ??= ((int) hrtime(true)) ^ (is_int($pid) ? $pid : 0);
         $this->startedAtNs = $startedAtNs ?? (int) hrtime(true);
         $this->effectiveMaxRequests = $policy->maxRequests === 0
             ? 0

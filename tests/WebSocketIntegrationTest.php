@@ -13,15 +13,22 @@ use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
 use Infocyph\Runwire\WebSocket\WebSocketUpgrade;
 
+/**
+ *
+ * @throws \InvalidArgumentException
+ */
 function runwireWsClientFrame(int $opcode, string $payload, bool $fin = true, bool $masked = true): string
 {
+    if ($opcode < 0 || $opcode > 15) {
+        throw new InvalidArgumentException('WebSocket fixture opcode must fit four bits.');
+    }
     $mask = "\x12\x34\x56\x78";
     $length = strlen($payload);
-    $first = ($fin ? 0x80 : 0x00) | $opcode;
+    $first = ($fin ? 0x80 : 0x00) + $opcode;
     $maskBit = $masked ? 0x80 : 0x00;
 
     if ($length < 126) {
-        $head = chr($first) . chr($maskBit | $length);
+        $head = chr($first) . chr($maskBit + $length);
     } elseif ($length <= 65_535) {
         $head = chr($first) . chr($maskBit | 126) . pack('n', $length);
     } else {
@@ -34,7 +41,7 @@ function runwireWsClientFrame(int $opcode, string $payload, bool $fin = true, bo
 
     $wire = $payload;
     for ($index = 0; $index < $length; ++$index) {
-        $wire[$index] = $wire[$index] ^ $mask[$index & 3];
+        $wire[$index] = $wire[$index] ^ substr($mask, $index & 3, 1);
     }
 
     return $head . $mask . $wire;
@@ -53,7 +60,10 @@ function runwireWsHandshake(string $headers = '', string $frames = ''): string
         . $frames;
 }
 
-/** @return array{head: string, frames: list<array{opcode: int, payload: string}>} */
+/**
+ * @return array{head: string, frames: list<array{opcode: int, payload: string}>}
+ * @throws \RuntimeException
+ */
 function runwireWsParseServerWire(string $wire): array
 {
     $separator = strpos($wire, "\r\n\r\n");
@@ -74,28 +84,11 @@ function runwireWsParseServerWire(string $wire): array
 
         $opcode = $first & 0x0f;
         $indicator = $second & 0x7f;
-        $offset = 2;
-        if ($indicator < 126) {
-            $length = $indicator;
-        } elseif ($indicator === 126) {
-            if (strlen($buffer) < 4) {
-                break;
-            }
-            $decoded = unpack('nvalue', substr($buffer, 2, 2));
-            $length = (int) ($decoded['value'] ?? 0);
-            $offset = 4;
-        } else {
-            if (strlen($buffer) < 10) {
-                break;
-            }
-            $high = unpack('Nvalue', substr($buffer, 2, 4));
-            $low = unpack('Nvalue', substr($buffer, 6, 4));
-            if ((int) ($high['value'] ?? 0) !== 0) {
-                throw new RuntimeException('Test parser does not accept oversized server frames.');
-            }
-            $length = (int) ($low['value'] ?? 0);
-            $offset = 10;
+        $size = runwireWsServerFrameLength($buffer, $indicator);
+        if ($size === null) {
+            break;
         }
+        [$offset, $length] = $size;
 
         if (strlen($buffer) < $offset + $length) {
             break;
@@ -111,14 +104,22 @@ function runwireWsParseServerWire(string $wire): array
     return ['head' => $head, 'frames' => $frames];
 }
 
+/**
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function runwireWsExchange(
     string $clientWire,
     callable $handler,
     ?ConnectionLimits $connectionLimits = null,
     float $timeout = 0.25,
 ): string {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($server)->toBeResource()->and($client)->toBeResource();
+    [$server, $client] = runwireWebSocketIntegrationTestSocketPair();
+    \PHPUnit\Framework\Assert::assertSame('stream', get_resource_type($server));
+    \PHPUnit\Framework\Assert::assertSame('stream', get_resource_type($client));
 
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server, $connectionLimits ?? new ConnectionLimits());
@@ -162,8 +163,8 @@ it('upgrades HTTP1, negotiates a subprotocol, and echoes a pipelined text frame'
                     closeTimeoutSeconds: 0.02,
                 ),
             );
-            expect($session)->toBeInstanceOf(WebSocketSession::class);
-            $session?->onMessage(static function (WebSocketSession $session, $message) use (&$messages): void {
+            \PHPUnit\Framework\Assert::assertInstanceOf(WebSocketSession::class, $session);
+            $session->onMessage(static function (WebSocketSession $session, $message) use (&$messages): void {
                 $messages[] = $message->data;
                 $session->sendText('echo:' . $message->data);
                 $session->close(1000, 'done');
@@ -211,9 +212,9 @@ it('closes with protocol error for unmasked client frames', function (): void {
 
     $frames = runwireWsParseServerWire($wire)['frames'];
     $close = array_find($frames, static fn(array $frame): bool => $frame['opcode'] === 0x8);
-    expect($close)->not->toBeNull();
-    $code = unpack('nvalue', substr($close['payload'], 0, 2));
-    expect((int) ($code['value'] ?? 0))->toBe(1002);
+    \PHPUnit\Framework\Assert::assertNotNull($close);
+    $code = runwireWsUnpackInt('nvalue', substr($close['payload'], 0, 2));
+    expect($code)->toBe(1002);
 });
 
 it('reassembles fragmented messages while answering interleaved ping frames', function (): void {
@@ -277,9 +278,9 @@ it('enforces fragmented-message ceilings and idle close deadlines', function ():
         runwireWsParseServerWire($wire)['frames'],
         static fn(array $frame): bool => $frame['opcode'] === 0x8,
     );
-    expect($close)->not->toBeNull();
-    $code = unpack('nvalue', substr($close['payload'], 0, 2));
-    expect((int) ($code['value'] ?? 0))->toBe(1009);
+    \PHPUnit\Framework\Assert::assertNotNull($close);
+    $code = runwireWsUnpackInt('nvalue', substr($close['payload'], 0, 2));
+    expect($code)->toBe(1009);
 
     $idleWire = runwireWsExchange(
         runwireWsHandshake(),
@@ -300,7 +301,65 @@ it('enforces fragmented-message ceilings and idle close deadlines', function ():
         runwireWsParseServerWire($idleWire)['frames'],
         static fn(array $frame): bool => $frame['opcode'] === 0x8,
     );
-    expect($idleClose)->not->toBeNull();
-    $idleCode = unpack('nvalue', substr($idleClose['payload'], 0, 2));
-    expect((int) ($idleCode['value'] ?? 0))->toBe(1001);
+    \PHPUnit\Framework\Assert::assertNotNull($idleClose);
+    $idleCode = runwireWsUnpackInt('nvalue', substr($idleClose['payload'], 0, 2));
+    expect($idleCode)->toBe(1001);
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireWebSocketIntegrationTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}
+
+/**
+ * @return array{int,int}|null
+ * @throws RuntimeException
+ */
+function runwireWsServerFrameLength(string $buffer, int $indicator): ?array
+{
+    $offset = 2;
+    if ($indicator < 126) {
+        $length = $indicator;
+    } elseif ($indicator === 126) {
+        if (strlen($buffer) < 4) {
+            return null;
+        }
+        $length = runwireWsUnpackInt('nvalue', substr($buffer, 2, 2));
+        $offset = 4;
+    } else {
+        if (strlen($buffer) < 10) {
+            return null;
+        }
+        $upper = runwireWsUnpackInt('Nvalue', substr($buffer, 2, 4));
+        if ($upper !== 0) {
+            throw new RuntimeException('Test parser does not accept oversized server frames.');
+        }
+        $length = runwireWsUnpackInt('Nvalue', substr($buffer, 6, 4));
+        $offset = 10;
+    }
+
+    return [$offset, $length];
+}
+
+/**
+ *
+ * @throws \PHPUnit\Framework\Exception
+  * @throws \PHPUnit\Framework\ExpectationFailedException
+ */
+function runwireWsUnpackInt(string $format, string $bytes): int
+{
+    $decoded = unpack($format, $bytes);
+    $value = is_array($decoded) ? ($decoded['value'] ?? null) : null;
+    \PHPUnit\Framework\Assert::assertIsInt($value);
+
+    return $value;
+}

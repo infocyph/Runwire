@@ -36,6 +36,9 @@ final class ProcessExecutor
 
     private const int MAX_PACKET_BYTES = 1_600_000;
 
+    /** Per-executor authorization key for its private subprocess pipes. */
+    private readonly string $ipcKey;
+
     private readonly int $ownerPid;
 
     /** @var SplQueue<int> */
@@ -54,7 +57,7 @@ final class ProcessExecutor
 
     private int $failed = 0;
 
-    /** @var array<int, array{packet:string, callback:Closure, worker:?int, timer:?int, subscription:?CancellationSubscription}> */
+    /** @var array<int, array{packet:string, operation:string, callback:Closure, worker:?int, timer:?int, subscription:?CancellationSubscription}> */
     private array $jobs = [];
 
     private int $nextJobId = 1;
@@ -70,7 +73,11 @@ final class ProcessExecutor
     /** @var array<int, array{process:resource, input:resource, output:resource, readWatcher:int, writeWatcher:?int, outputBuffer:string, inputBuffer:string, job:?int}> */
     private array $workers = [];
 
-    /** Create an executor with bounded workers and pending jobs. */
+    /**
+     * Create an executor with bounded workers and pending jobs.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly int $maxWorkers = 2,
@@ -92,10 +99,19 @@ final class ProcessExecutor
             throw new RuntimeException('Unable to establish executor process ownership.');
         }
         $this->ownerPid = $pid;
+
+        try {
+            $this->ipcKey = bin2hex(random_bytes(32));
+        } catch (\Random\RandomException $error) {
+            throw new RuntimeException('Cannot generate a private executor IPC authorization key.', 0, $error);
+        }
         $this->pending = new SplQueue();
     }
 
-    /** Cancel queued or active work and complete the callback exactly once. */
+    /**
+     * Cancel queued or active work and complete the callback exactly once.
+     * @throws \LogicException
+     */
     public function cancel(
         int $id,
         CancellationReason $reason = CancellationReason::HOST_CANCELLED,
@@ -118,6 +134,7 @@ final class ProcessExecutor
 
     /**
      * Stop all work, release watchers/pipes/processes and reject outstanding jobs.
+     * @throws \Throwable
      */
     public function close(): void
     {
@@ -175,6 +192,7 @@ final class ProcessExecutor
 
     /**
      * @param callable():void $callback
+     * @throws \LogicException
      */
     public function onDrained(callable $callback): void
     {
@@ -186,6 +204,9 @@ final class ProcessExecutor
     /**
      * @param array<string,mixed> $arguments
      * @param callable(mixed, ?Throwable):void $completion
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function submit(
         string $operation,
@@ -209,16 +230,18 @@ final class ProcessExecutor
         }
 
         $id = $this->nextJobId++;
-        $packet = json_encode(
+        $payload = json_encode(
             ['id' => $id, 'op' => $operation, 'args' => $arguments],
             JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES,
-        ) . "\n";
+        );
+        $packet = hash_hmac('sha256', $payload, $this->ipcKey) . ':' . $payload . "\n";
         if (strlen($packet) > self::MAX_PACKET_BYTES) {
             throw new InvalidArgumentException('Executor payload exceeds its bounded IPC limit.');
         }
 
         $this->jobs[$id] = [
             'packet' => $packet,
+            'operation' => $operation,
             'callback' => $this->traceScope?->wrap($completion) ?? Closure::fromCallable($completion),
             'worker' => null,
             'timer' => null,
@@ -236,6 +259,9 @@ final class ProcessExecutor
         return $id;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
@@ -243,6 +269,10 @@ final class ProcessExecutor
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function attachCancellation(int $id, ?CancellationToken $token): void
     {
         if ($token === null) {
@@ -264,9 +294,9 @@ final class ProcessExecutor
             return;
         }
         $inherited = $token?->deadline();
-        if ($inherited?->monotonicNanoseconds !== null
-            && ($deadline?->monotonicNanoseconds === null
-                || $inherited->monotonicNanoseconds < $deadline->monotonicNanoseconds)) {
+        $inheritedNs = $inherited?->monotonicNanoseconds;
+        $deadlineNs = $deadline?->monotonicNanoseconds;
+        if ($inheritedNs !== null && ($deadlineNs === null || $inheritedNs < $deadlineNs)) {
             $deadline = $inherited;
         }
         $remaining = $deadline?->remainingSeconds();
@@ -277,6 +307,10 @@ final class ProcessExecutor
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function availableWorker(): ?int
     {
         $available = array_find_key($this->workers, static fn(array $worker): bool => $worker['job'] === null);

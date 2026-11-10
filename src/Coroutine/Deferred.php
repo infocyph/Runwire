@@ -34,6 +34,7 @@ final readonly class Deferred
 
     /**
      * Completes the future with an error.
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
      */
     public function reject(Throwable $error): void
     {
@@ -42,6 +43,7 @@ final readonly class Deferred
 
     /**
      * Completes the future with a value.
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
      */
     public function resolve(mixed $value): void
     {

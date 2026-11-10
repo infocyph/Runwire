@@ -10,7 +10,7 @@ function soakInternalFixture(int $heapStep = 0, int $rootsStep = 0, int $cacheSt
     $samples = [];
     for ($i = 0; $i <= 120; ++$i) {
         $samples[] = [
-            'elapsed_seconds' => $i * 15.0,
+            'elapsed_seconds' => (float) $i * 15.0,
             'allocated_bytes' => 16_777_216 + $i * $heapStep,
             'peak_allocated_bytes' => 16_777_216,
             'gc_enabled' => true,
@@ -56,9 +56,28 @@ it('fails worker internal heap, GC root, and OPcache growth separately', functio
 it('rejects incomplete worker telemetry and reset GC counters', function (): void {
     $short = soakAnalyzeRuntimeSnapshots(array_slice(soakInternalFixture(), 0, 30));
     $reset = soakInternalFixture();
-    $reset[40]['gc_runs'] = 0;
+    foreach ($reset as $index => &$sample) {
+        if ($index === 40) {
+            $sample['gc_runs'] = 0;
+        }
+    }
+    unset($sample);
 
     expect($short['status'])->toBe('insufficient_or_invalid_evidence')
         ->and($reset)->toHaveCount(121)
         ->and(soakAnalyzeRuntimeSnapshots($reset)['passed'])->toBeFalse();
+});
+
+
+it('rejects malformed runtime JSONL records before numerical analysis', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'runwire-soak-jsonl-');
+    if (!is_string($path)) {
+        throw new RuntimeException('Unable to allocate runtime telemetry fixture.');
+    }
+    try {
+        file_put_contents($path, '{"elapsed_seconds":[],"gc_enabled":true}' . "\n");
+        expect(fn() => soakReadRuntimeSnapshots($path))->toThrow(RuntimeException::class, 'named scalar metrics');
+    } finally {
+        unlink($path);
+    }
 });

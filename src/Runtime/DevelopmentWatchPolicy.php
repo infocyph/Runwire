@@ -15,7 +15,10 @@ final readonly class DevelopmentWatchPolicy
 
     private const int MAX_ROOTS = 32;
 
-    /** @param list<string> $paths */
+    /**
+     * @param list<string> $paths
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public bool $enabled = false,
         public array $paths = [],
@@ -38,6 +41,9 @@ final readonly class DevelopmentWatchPolicy
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function validatePaths(): void
     {
         if (count($this->paths) > self::MAX_ROOTS || count(array_unique($this->paths)) !== count($this->paths)) {

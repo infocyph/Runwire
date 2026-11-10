@@ -48,6 +48,7 @@ final class Http2ConnectedExchange
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection,?Throwable):void $onComplete
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -68,13 +69,23 @@ final class Http2ConnectedExchange
         $this->completion = Closure::fromCallable($onComplete);
     }
 
-    /** Abort this connection-scoped request and release all callbacks. */
+    /**
+     * Abort this connection-scoped request and release all callbacks.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function close(): void
     {
         $this->finish(new RuntimeException('HTTP/2 exchange closed before response completion.'));
     }
 
-    /** Bind to one open H2 socket and emit the protocol client preface. */
+    /**
+     * Bind to one open H2 socket and emit the protocol client preface.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function start(): void
     {
         if ($this->started || $this->settled || !$this->connection->isPoolIdleSafe()) {
@@ -96,7 +107,7 @@ final class Http2ConnectedExchange
                     $this->finish(new RuntimeException('HTTP/2 peer disconnected before END_STREAM.'));
                 },
             );
-            if ($this->settled) {
+            if ($this->isSettled()) {
                 return;
             }
             $this->ownsCallbacks = true;
@@ -110,10 +121,14 @@ final class Http2ConnectedExchange
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \RuntimeException
+     */
     private function armDeadline(): void
     {
         $token = $this->request->cancellation;
-        if ($token?->isCancelled()) {
+        if ($token !== null && $token->isCancelled()) {
             throw new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED);
         }
         $seconds = min(
@@ -132,6 +147,10 @@ final class Http2ConnectedExchange
         });
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function consume(): void
     {
         if ($this->settled) {
@@ -161,6 +180,10 @@ final class Http2ConnectedExchange
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function finish(?Throwable $error): void
     {
         if ($this->settled) {
@@ -186,7 +209,16 @@ final class Http2ConnectedExchange
         ($this->completion)(null, $error);
     }
 
-    /** Consume at most one bounded frame batch and stop on response completion. */
+    private function isSettled(): bool
+    {
+        return $this->settled;
+    }
+
+    /**
+     * Consume at most one bounded frame batch and stop on response completion.
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function processFrames(string $bytes): bool
     {
         foreach ($this->frames->push($bytes, 32) as $frame) {
@@ -205,6 +237,10 @@ final class Http2ConnectedExchange
         return false;
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function pump(): void
     {
         if ($this->settled || $this->outgoing === '') {
@@ -233,6 +269,9 @@ final class Http2ConnectedExchange
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function queue(string $wire): void
     {
         if ($wire === '') {

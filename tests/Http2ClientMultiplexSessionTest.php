@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientMultiplexSession;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
@@ -11,8 +13,19 @@ use Infocyph\Runwire\Http\Http2\FrameParser;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
 
 it('shares one H2 preface and HPACK decoder across simultaneously live response streams', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase01(): void
+{
     $session = new Http2ClientMultiplexSession(2);
     expect(str_starts_with($session->start(), Http2Connection::CLIENT_PREFACE))->toBeTrue()
         ->and(fn() => $session->request(
@@ -63,9 +76,17 @@ it('shares one H2 preface and HPACK decoder across simultaneously live response 
         ->and($bodies)->toBe(['one' => 'partone', 'three' => 'three'])
         ->and($completions['one'])->toBe([null])
         ->and($completions['three'])->toBe([null]);
-});
+}
 
 it('isolates peer RST and client cancellation while rejecting unsafe late frames', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase02(): void
+{
     $session = new Http2ClientMultiplexSession(2);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -79,25 +100,37 @@ it('isolates peer RST and client cancellation while rejecting unsafe late frames
         );
     }
     $reset = (new FrameParser())->push($session->cancel(1));
+    $firstFailure = $failures['a'][0] ?? throw new RuntimeException('HTTP/2 client cancellation callback was not delivered.');
+    \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $firstFailure);
     expect($reset)->toHaveCount(1)
         ->and($reset[0]->knownType())->toBe(FrameType::RST_STREAM)
         ->and($reset[0]->streamId)->toBe(1)
-        ->and($session->activeCount())->toBe(1)
-        ->and($failures['a'][0])->toBeInstanceOf(RuntimeException::class);
+        ->and($session->activeCount())->toBe(1);
     $lateCredit = (new FrameParser())->push($session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'late')));
     expect($lateCredit)->toHaveCount(1)->and($lateCredit[0]->streamId)->toBe(0);
     expect(fn() => $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, 'x')))
         ->toThrow(RuntimeException::class, 'unknown');
 
     $session->receive(new Frame(FrameType::RST_STREAM->value, 0, 3, pack('N', ErrorCode::CANCEL->value)));
-    expect($session->activeCount())->toBe(0)
-        ->and($failures['b'][0])->toBeInstanceOf(RuntimeException::class);
+    $secondFailure = $failures['b'][0] ?? throw new RuntimeException('HTTP/2 peer reset callback was not delivered.');
+    expect($session->activeCount())->toBe(0);
+    \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $secondFailure);
     $session->close();
-    expect($failures['a'])->toHaveCount(1)
-        ->and($failures['b'])->toHaveCount(1);
-});
+    $firstCompletions = runwireH2Completions($failures, 'a');
+    $secondCompletions = runwireH2Completions($failures, 'b');
+    expect($firstCompletions)->toHaveCount(1)
+        ->and($secondCompletions)->toHaveCount(1);
+}
 
 it('rejects cross-origin requests, invalid continuation interleaving and unaccepted GOAWAY streams', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase03(): void
+{
     $session = new Http2ClientMultiplexSession(3);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -125,14 +158,30 @@ it('rejects cross-origin requests, invalid continuation interleaving and unaccep
         ->toThrow(RuntimeException::class, 'admission');
     $session->receive(new Frame(FrameType::DATA->value, 0x1, 1));
     expect($session->activeCount())->toBe(0);
-});
+}
 
 it('bounds H2 stream admission before state allocation', function (): void {
-    expect(fn() => new Http2ClientMultiplexSession(0))->toThrow(InvalidArgumentException::class)
-        ->and(fn() => new Http2ClientMultiplexSession(33))->toThrow(InvalidArgumentException::class);
+    runwireOwnedHttp2ClientMultiplexSessionTestCase04();
 });
 
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase04(): void
+{
+    expect(fn() => new Http2ClientMultiplexSession(0))->toThrow(InvalidArgumentException::class)
+        ->and(fn() => new Http2ClientMultiplexSession(33))->toThrow(InvalidArgumentException::class);
+}
+
 it('honors an independent peer SETTINGS concurrency limit across sequential streams', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase05(): void
+{
     $session = new Http2ClientMultiplexSession(4);
     $session->start();
     $session->receive(FrameWriter::settings([\Infocyph\Runwire\Http\Http2\PeerSettings::MAX_CONCURRENT_STREAMS => 1]));
@@ -154,9 +203,17 @@ it('honors an independent peer SETTINGS concurrency limit across sequential stre
     ));
     expect($session->activeCount())->toBe(0)
         ->and($request()['stream'])->toBe(3);
-});
+}
 
 it('drains 64 canceled H2 streams and peer resets without orphaning live requests', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase06(): void
+{
     $session = new Http2ClientMultiplexSession(1);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -167,7 +224,7 @@ it('drains 64 canceled H2 streams and peer resets without orphaning live request
             static function (): void {},
             static function (): void {},
             static function (?Throwable $error) use (&$completed): void {
-                expect($error)->toBeInstanceOf(RuntimeException::class);
+                \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
                 ++$completed;
             },
         );
@@ -186,9 +243,17 @@ it('drains 64 canceled H2 streams and peer resets without orphaning live request
         ->and($session->activeCount())->toBe(0);
     $session->close();
     expect($completed)->toBe(64);
-});
+}
 
 it('fails closed when a peer withholds H2 reset acknowledgments beyond the bounded tombstone budget', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase07(): void
+{
     $session = new Http2ClientMultiplexSession(1);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -199,7 +264,7 @@ it('fails closed when a peer withholds H2 reset acknowledgments beyond the bound
             static function (): void {},
             static function (): void {},
             static function (?Throwable $error) use (&$settled): void {
-                expect($error)->toBeInstanceOf(RuntimeException::class);
+                \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
                 ++$settled;
             },
         );
@@ -210,7 +275,7 @@ it('fails closed when a peer withholds H2 reset acknowledgments beyond the bound
         static function (): void {},
         static function (): void {},
         static function (?Throwable $error) use (&$settled): void {
-            expect($error)->toBeInstanceOf(RuntimeException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
             ++$settled;
         },
     );
@@ -219,9 +284,17 @@ it('fails closed when a peer withholds H2 reset acknowledgments beyond the bound
     $session->close();
     expect($settled)->toBe(5)
         ->and($session->activeCount())->toBe(0);
-});
+}
 
 it('terminates every pending H2 sibling even when one application completion observer throws', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase08();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase08(): void
+{
     $session = new Http2ClientMultiplexSession(2);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -232,7 +305,7 @@ it('terminates every pending H2 sibling even when one application completion obs
         static function (): void {},
         static function (): void {},
         static function (?Throwable $error) use (&$first): void {
-            expect($error)->toBeInstanceOf(RuntimeException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
             ++$first;
             throw new RuntimeException('application callback failure');
         },
@@ -242,7 +315,7 @@ it('terminates every pending H2 sibling even when one application completion obs
         static function (): void {},
         static function (): void {},
         static function (?Throwable $error) use (&$second): void {
-            expect($error)->toBeInstanceOf(RuntimeException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
             ++$second;
         },
     );
@@ -252,9 +325,17 @@ it('terminates every pending H2 sibling even when one application completion obs
         ->and($session->activeCount())->toBe(0);
     $session->close();
     expect($first)->toBe(1)->and($second)->toBe(1);
-});
+}
 
 it('validates peer RST and DATA framing even after a local H2 stream cancellation', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase09();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase09(): void
+{
     $session = new Http2ClientMultiplexSession(1);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -276,9 +357,17 @@ it('validates peer RST and DATA framing even after a local H2 stream cancellatio
         ->toBe('');
     $session->close();
     expect($session->activeCount())->toBe(0);
-});
+}
 
 it('keeps valid HEAD metadata and ordinary body lengths distinct on multiplexed H2 streams', function (): void {
+    runwireOwnedHttp2ClientMultiplexSessionTestCase10();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientMultiplexSessionTestCase10(): void
+{
     $session = new Http2ClientMultiplexSession(2);
     $session->start();
     $session->receive(FrameWriter::settings());
@@ -302,4 +391,14 @@ it('keeps valid HEAD metadata and ordinary body lengths distinct on multiplexed 
     $session->receive(new Frame(FrameType::DATA->value, 0x1, 3, 'ok'));
     expect($completed)->toBe(['HEAD' => null, 'GET' => null])
         ->and($body)->toBe('ok')->and($session->activeCount())->toBe(0);
-});
+}
+
+/**
+ * @param array<string,list<?Throwable>> $completions
+ * @return list<?Throwable>
+ * @throws RuntimeException
+ */
+function runwireH2Completions(array $completions, string $key): array
+{
+    return $completions[$key] ?? throw new RuntimeException('HTTP/2 completion was not recorded: ' . $key);
+}

@@ -42,6 +42,9 @@ final readonly class PhpQuicHttp3Poller
      * @param list<PhpQuicHttp3Connection> $connections
      * @param list<PhpQuicConnection> $pendingConnections
      * @return array<int, int>
+     * @throws \InvalidArgumentException
+     * @throws \UnexpectedValueException
+     * @throws \LogicException
      */
     public function poll(
         ?PhpQuicListener $listener,
@@ -62,6 +65,7 @@ final readonly class PhpQuicHttp3Poller
     /**
      * @param array<int, array{0: object, 1: int}> $items
      * @return array<int, int>
+     * @throws \UnexpectedValueException
      */
     private static function normalizeReady(mixed $ready, array $items): array
     {
@@ -80,6 +84,9 @@ final readonly class PhpQuicHttp3Poller
         return $normalized;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeout(?float $timeoutSeconds): void
     {
         if ($timeoutSeconds !== null && (!is_finite($timeoutSeconds) || $timeoutSeconds < 0)) {
@@ -91,6 +98,7 @@ final readonly class PhpQuicHttp3Poller
      * @param list<PhpQuicHttp3Connection> $connections
      * @param list<PhpQuicConnection> $pendingConnections
      * @return array<int, array{0: object, 1: int}>
+     * @throws \LogicException
      */
     private function buildPollItems(
         ?PhpQuicListener $listener,
@@ -119,6 +127,7 @@ final readonly class PhpQuicHttp3Poller
     /**
      * @param array<int, array{0: object, 1: int}> $items
      * @param array<int, array{0: object, 1: int}> $incoming
+     * @throws \LogicException
      */
     private function mergePollItems(array &$items, array $incoming): void
     {

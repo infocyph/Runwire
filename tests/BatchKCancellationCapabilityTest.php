@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\RequestDeadline;
@@ -10,6 +12,7 @@ use Infocyph\Runwire\Runtime\Enum\RuntimeCapability;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
 use Infocyph\Runwire\Runtime\RuntimeCapabilityResolver;
 use Infocyph\Runwire\Runtime\RuntimeEnvironment;
+
 
 it('unsubscribes cancellation observers deterministically', function (): void {
     $source = new CancellationSource();
@@ -32,7 +35,7 @@ it('throws a reason-carrying cancellation checkpoint exception', function (): vo
 
     try {
         $source->token()->throwIfCancelled();
-        test()->fail('Expected cancellation checkpoint to throw.');
+        \PHPUnit\Framework\Assert::fail('Expected cancellation checkpoint to throw.');
     } catch (CancelledException $exception) {
         expect($exception->reason)->toBe(CancellationReason::WORKER_SHUTDOWN);
     }

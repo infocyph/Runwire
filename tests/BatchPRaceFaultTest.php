@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutinePolicy;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
@@ -14,7 +16,15 @@ use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Supervisor\Internal\WorkerCoroutineScope;
+use LogicException;
+use RuntimeException;
+use Throwable;
 
+
+/**
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function batchPExpectCancelled(Task $task): CancellationReason
 {
     try {
@@ -44,8 +54,8 @@ it('reports bounded scheduler and request scope diagnostics without task labels'
     });
 
     $after = $runtime->diagnostics();
-    expect($during)->not->toBeNull()
-        ->and($during->activeTasks)->toBe(1)
+    \PHPUnit\Framework\Assert::assertNotNull($during);
+    expect($during->activeTasks)->toBe(1)
         ->and($during->runnableTasks)->toBe(1)
         ->and($during->rootScopesActive)->toBe(1)
         ->and($during->requestScopesActive)->toBe(0)
@@ -72,14 +82,13 @@ it('reports bounded scheduler and request scope diagnostics without task labels'
     $requestRuntime = new CoroutineRuntime();
     $context = RequestContext::standalone();
     $requestDuring = null;
-    $requestRuntime->runRequest($context, function (CoroutineScope $scope) use ($requestRuntime, &$requestDuring): void {
-        unset($scope);
+    $requestRuntime->runRequest($context, function () use ($requestRuntime, &$requestDuring): void {
         $requestDuring = $requestRuntime->diagnostics();
     });
     $context->complete();
 
-    expect($requestDuring)->not->toBeNull()
-        ->and($requestDuring->rootScopesActive)->toBe(1)
+    \PHPUnit\Framework\Assert::assertNotNull($requestDuring);
+    expect($requestDuring->rootScopesActive)->toBe(1)
         ->and($requestDuring->requestScopesActive)->toBe(1)
         ->and($requestRuntime->diagnostics()->requestScopesActive)->toBe(0);
 });
@@ -150,8 +159,8 @@ it('settles future resolution versus waiter cancellation exactly once', function
     });
 
     $diagnostics = $runtime->diagnostics();
-    expect($task)->not->toBeNull()
-        ->and($task->state())->toBe(TaskState::CANCELLED)
+    \PHPUnit\Framework\Assert::assertNotNull($task);
+    expect($task->state())->toBe(TaskState::CANCELLED)
         ->and($diagnostics->spawnedTotal)->toBe(2)
         ->and($diagnostics->completedTotal)->toBe(1)
         ->and($diagnostics->cancelledTotal)->toBe(1)
@@ -224,10 +233,12 @@ it('settles channel close against blocked send and receive exactly once', functi
         $receiveChannel->close();
         $sendChannel->close();
 
-        expect(static fn() => $receiver->await())->toThrow(ChannelClosedException::class)
-            ->and(static fn() => $sender->await())->toThrow(ChannelClosedException::class)
+        expect(static fn() : mixed => $receiver->await())->toThrow(ChannelClosedException::class)
+            ->and(static function () use ($sender): void {
+                $sender->await();
+            })->toThrow(ChannelClosedException::class)
             ->and($sendChannel->receive())->toBe('buffered')
-            ->and(static fn() => $sendChannel->receive())->toThrow(ChannelClosedException::class);
+            ->and(static fn() : mixed => $sendChannel->receive())->toThrow(ChannelClosedException::class);
 
         return [$receiver->state(), $sender->state()];
     });
@@ -259,8 +270,8 @@ it('drains suspended request children before the request root leaves the schedul
     }
 
     $diagnostics = $runtime->diagnostics();
-    expect($caught)->not->toBeNull()
-        ->and($caught->reason)->toBe(CancellationReason::HOST_CANCELLED)
+    \PHPUnit\Framework\Assert::assertNotNull($caught);
+    expect($caught->reason)->toBe(CancellationReason::HOST_CANCELLED)
         ->and($runtime->activeTaskCount())->toBe(0)
         ->and($diagnostics->requestScopesActive)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
@@ -293,8 +304,8 @@ it('drains sibling failure storms and cleanup exceptions without retaining tasks
     }
 
     $diagnostics = $runtime->diagnostics();
-    expect($caught)->toBeInstanceOf(RuntimeException::class)
-        ->and($cleaned)->toBeTrue()
+    \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $caught);
+    expect($cleaned)->toBeTrue()
         ->and($runtime->activeTaskCount())->toBe(0)
         ->and($diagnostics->failedTotal >= 2)->toBeTrue()
         ->and($diagnostics->activeTasks)->toBe(0)

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\ConnectionFactory;
@@ -9,11 +11,27 @@ use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use LogicException;
+use ReflectionProperty;
+use RuntimeException;
+
+/**
+ * @return array{resource, resource}
+ * @throws \Throwable
+ */
+function runwireConnectionScopePair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    if (!isset($pair[0], $pair[1])) {
+        throw new RuntimeException('Unable to create a complete connection-scope socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}
 
 it('cancels an owned stream exactly once and releases observers and watchers', function (): void {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    [$stream, $peer] = $pair;
+    [$stream, $peer] = runwireConnectionScopePair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $source = new CancellationSource();
@@ -38,9 +56,7 @@ it('cancels an owned stream exactly once and releases observers and watchers', f
 });
 
 it('closes on the earliest inherited monotonic owner deadline', function (): void {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    [$stream, $peer] = $pair;
+    [$stream, $peer] = runwireConnectionScopePair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $source = new CancellationSource(RequestDeadline::afterSeconds(0.03, hrtime(true)));
@@ -57,9 +73,7 @@ it('closes on the earliest inherited monotonic owner deadline', function (): voi
 
 
 it('closes immediately for an already cancelled owner and never resurrects a timer', function (): void {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    [$stream, $peer] = $pair;
+    [$stream, $peer] = runwireConnectionScopePair();
     $loop = new SelectLoop();
     $source = new CancellationSource();
     $source->cancel(CancellationReason::HOST_CANCELLED);
@@ -81,9 +95,7 @@ it('closes immediately for an already cancelled owner and never resurrects a tim
 });
 
 it('honors a shorter explicit connection deadline and frees its owner observer', function (): void {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    [$stream, $peer] = $pair;
+    [$stream, $peer] = runwireConnectionScopePair();
     $loop = new SelectLoop();
     $source = new CancellationSource(RequestDeadline::afterSeconds(1.0, hrtime(true)));
     $connection = ConnectionFactory::accepted($loop, $stream);
@@ -98,9 +110,7 @@ it('honors a shorter explicit connection deadline and frees its owner observer',
 });
 
 it('transfers a live connection to a new token without closing on old owner cancellation', function (): void {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    [$stream, $peer] = $pair;
+    [$stream, $peer] = runwireConnectionScopePair();
     $loop = new SelectLoop();
     $previous = new CancellationSource();
     $next = new CancellationSource();
@@ -128,9 +138,7 @@ it('transfers a live connection to a new token without closing on old owner canc
 });
 
 it('does not detach the previous owner when a transfer target is cancelled', function (): void {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    [$stream, $peer] = $pair;
+    [$stream, $peer] = runwireConnectionScopePair();
     $loop = new SelectLoop();
     $previous = new CancellationSource();
     $next = new CancellationSource();
@@ -157,9 +165,7 @@ it('does not detach the previous owner when a transfer target is cancelled', fun
 
 
 it('rebinds transferred connection deadline without inheriting the earlier request timeout', function (): void {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    [$stream, $peer] = $pair;
+    [$stream, $peer] = runwireConnectionScopePair();
     $loop = new SelectLoop();
     $old = new CancellationSource(RequestDeadline::afterSeconds(0.01, hrtime(true)));
     $pool = new CancellationSource(RequestDeadline::afterSeconds(0.09, hrtime(true)));
@@ -190,15 +196,15 @@ it('rebinds transferred connection deadline without inheriting the earlier reque
 
 
 it('does not accumulate close observers across repeated pooled-owner transfers', function (): void {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    [$stream, $peer] = $pair;
+    [$stream, $peer] = runwireConnectionScopePair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $source = new CancellationSource();
     $connection->bindOwner($source->token());
     $callbackSlot = new ReflectionProperty($connection, 'closeCallbacks');
-    $originalCallbacks = count($callbackSlot->getValue($connection));
+    $original = $callbackSlot->getValue($connection);
+    \PHPUnit\Framework\Assert::assertIsArray($original);
+    $originalCallbacks = count($original);
 
     try {
         for ($i = 0; $i < 64; ++$i) {
@@ -208,7 +214,9 @@ it('does not accumulate close observers across repeated pooled-owner transfers',
             $source->dispose();
             $source = $next;
         }
-        expect(count($callbackSlot->getValue($connection)))->toBe($originalCallbacks)
+        $remaining = $callbackSlot->getValue($connection);
+        \PHPUnit\Framework\Assert::assertIsArray($remaining);
+        expect(count($remaining))->toBe($originalCallbacks)
             ->and($connection->state())->toBe(ConnectionState::OPEN)
             ->and($source->token()->subscriptionCount())->toBe(1);
 
@@ -225,9 +233,7 @@ it('does not accumulate close observers across repeated pooled-owner transfers',
 
 
 it('unregisters close observers without losing remaining listeners or terminal delivery', function (): void {
-    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
-    [$stream, $peer] = $pair;
+    [$stream, $peer] = runwireConnectionScopePair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $seen = [];
@@ -238,9 +244,9 @@ it('unregisters close observers without losing remaining listeners or terminal d
         $keep = $connection->registerCloseObserver(static function () use (&$seen): void {
             $seen[] = 'kept';
         });
-        expect($remove)->toBeInt()
-            ->and($keep)->toBeInt()
-            ->and($connection->unregisterCloseObserver($remove))->toBeTrue()
+        \PHPUnit\Framework\Assert::assertIsInt($remove);
+        \PHPUnit\Framework\Assert::assertIsInt($keep);
+        expect($connection->unregisterCloseObserver($remove))->toBeTrue()
             ->and($connection->unregisterCloseObserver($remove))->toBeFalse();
 
         $connection->abort();

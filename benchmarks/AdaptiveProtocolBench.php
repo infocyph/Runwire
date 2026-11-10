@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Benchmarks;
+
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
@@ -40,6 +42,18 @@ final class AdaptiveProtocolBench
 
     private AdaptiveLoadSample $low;
 
+    /**
+     * Initialize fixtures before PHPBench's per-iteration setup refresh.
+     * @throws \InvalidArgumentException
+     */
+    public function __construct()
+    {
+        $this->setUp();
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function setUp(): void
     {
         $auto = new AdaptiveProtocolPolicy(
@@ -91,6 +105,9 @@ final class AdaptiveProtocolBench
         return $this->http2Fixed->wireLimit($this->high);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3PumpAutoHigh(): int
     {
         $this->http3PumpAuto->observe(100, 100, 100);
@@ -98,6 +115,9 @@ final class AdaptiveProtocolBench
         return $this->http3PumpAuto->readLimit(256) + $this->http3PumpAuto->acceptLimit(64);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3PumpAutoLow(): int
     {
         $this->http3PumpAuto->observe(0, 0, 100);
@@ -105,6 +125,9 @@ final class AdaptiveProtocolBench
         return $this->http3PumpAuto->readLimit(256) + $this->http3PumpAuto->acceptLimit(64);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3PumpFixed(): int
     {
         $this->http3PumpFixed->observe(100, 100, 100);
@@ -112,16 +135,25 @@ final class AdaptiveProtocolBench
         return $this->http3PumpFixed->readLimit(256) + $this->http3PumpFixed->acceptLimit(64);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3ResponseAutoHigh(): int
     {
         return $this->http3ResponseAuto->writeLimit($this->high, 128);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3ResponseAutoLow(): int
     {
         return $this->http3ResponseAuto->writeLimit($this->low, 128);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHttp3ResponseFixed(): int
     {
         return $this->http3ResponseFixed->writeLimit($this->high, 128);

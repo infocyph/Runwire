@@ -50,6 +50,7 @@ final class Http3ClientSiblingManager
      * @param callable(Throwable):void $fatal
      * @param callable():void $feedback
      * @param callable():void $onEmpty
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -73,7 +74,11 @@ final class Http3ClientSiblingManager
         return $this->exchanges !== [];
     }
 
-    /** Cancel just one sibling and reset its native stream when present. */
+    /**
+     * Cancel just one sibling and reset its native stream when present.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function cancel(int $id, Throwable $error): bool
     {
         $state = $this->exchanges[$id] ?? null;
@@ -122,6 +127,9 @@ final class Http3ClientSiblingManager
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function enqueue(
         ClientRequest $request,
@@ -149,7 +157,7 @@ final class Http3ClientSiblingManager
             $this->cancel($id, new RuntimeException('HTTP/3 sibling exchange deadline expired.'));
         });
         $token = $request->cancellation;
-        if ($token?->isCancelled()) {
+        if ($token !== null && $token->isCancelled()) {
             $this->cancel($id, new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
 
             return $id;
@@ -178,7 +186,12 @@ final class Http3ClientSiblingManager
         }
     }
 
-    /** Release a QPACK-blocked sibling after matching peer encoder instructions. */
+    /**
+     * Release a QPACK-blocked sibling after matching peer encoder instructions.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function unblock(ReadyFieldSection $ready): bool
     {
         $id = $this->streams[$ready->streamId] ?? null;
@@ -210,7 +223,12 @@ final class Http3ClientSiblingManager
         }
     }
 
-    /** Validate the native response before extracting the per-stream payload. */
+    /**
+     * Validate the native response before extracting the per-stream payload.
+     * @throws \RuntimeException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
+     */
     private function acceptRead(int $id, mixed $result): void
     {
         if (!is_array($result)) {
@@ -240,7 +258,10 @@ final class Http3ClientSiblingManager
         $this->poll(fn() => $this->read($id));
     }
 
-    /** @param array<string,mixed> $receipt */
+    /**
+     * @param array<string,mixed> $receipt
+     * @throws \RuntimeException
+     */
     private function acceptReset(array $receipt): void
     {
         if (!is_bool($receipt['reset'] ?? null)) {
@@ -250,6 +271,8 @@ final class Http3ClientSiblingManager
 
     /**
      * @param callable():void $next
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function acceptWrite(
         int $id,
@@ -405,6 +428,10 @@ final class Http3ClientSiblingManager
         $this->read($id);
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     private function upload(int $id): void
     {
         $state = $this->exchanges[$id] ?? null;
@@ -443,7 +470,10 @@ final class Http3ClientSiblingManager
         });
     }
 
-    /** @param callable():void $next */
+    /**
+     * @param callable():void $next
+     * @throws \InvalidArgumentException
+     */
     private function write(int $id, string $bytes, bool $fin, callable $next, int $offset = 0): void
     {
         $state = $this->exchanges[$id] ?? null;

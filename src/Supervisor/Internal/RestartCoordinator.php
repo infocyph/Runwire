@@ -109,6 +109,8 @@ final class RestartCoordinator
     /**
      * @param array<string, array<int, int>> $currentSlots
      * @param array<int, ChildRecord> $children
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function schedule(ChildRecord $record, array $currentSlots, array $children): void
     {
@@ -227,7 +229,11 @@ final class RestartCoordinator
         );
     }
 
-    /** @return list<int> */
+    /**
+     * @return list<int>
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function recentRestartHistory(WorkerGroup $group, int $now): array
     {
         $window = MonotonicTime::secondsToNanoseconds($group->restartPolicy->windowSeconds);
@@ -239,6 +245,10 @@ final class RestartCoordinator
         ));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function reserveRestart(WorkerGroup $group, int $slot): ?float
     {
         $now = MonotonicTime::nowNanoseconds();

@@ -14,6 +14,8 @@ final class IntegerCodec
 {
     /**
      * Decode one complete QPACK prefixed integer and advance the offset.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public static function decode(string $data, int &$offset, int $prefixBits, ErrorCode $errorCode): int
     {
@@ -29,6 +31,8 @@ final class IntegerCodec
 
     /**
      * Encode an integer using a QPACK prefix width and mask.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function encode(int $value, int $prefixBits, int $prefixMask = 0): string
     {
@@ -52,7 +56,11 @@ final class IntegerCodec
         return $encoded . self::byte($value);
     }
 
-    /** @return array{0: int, 1: int}|null */
+    /**
+     * @return array{0: int, 1: int}|null
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public static function tryDecode(string $data, int $offset, int $prefixBits, ErrorCode $errorCode): ?array
     {
         self::validatePrefix($prefixBits);
@@ -83,6 +91,9 @@ final class IntegerCodec
         return null;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private static function byte(int $value): string
     {
         if ($value < 0 || $value > 255) {
@@ -92,6 +103,9 @@ final class IntegerCodec
         return chr($value);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validatePrefix(int $bits): void
     {
         if ($bits < 1 || $bits > 8) {

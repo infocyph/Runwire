@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\HttpRequest;
@@ -14,7 +16,12 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeCapabilities;
 use Infocyph\Runwire\RuntimeContext;
+use LogicException;
 
+
+/**
+ * @throws \InvalidArgumentException
+ */
 function requestContextActivationRuntime(): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(
@@ -37,6 +44,9 @@ function requestContextActivationRuntime(): RuntimeContext
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function requestContextActivationWriter(): CallbackResponseWriter
 {
     return new CallbackResponseWriter(

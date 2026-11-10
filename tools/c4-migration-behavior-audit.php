@@ -2,22 +2,35 @@
 
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    throw new RuntimeException('Source audit tools require the PHP CLI SAPI.');
+}
+
 /**
  * Fail closed if any changed published implementation lacks a reviewed
  * migration disposition and an executable, source-present regression test.
  * This is a documentation coverage gate, not proof that all historical
  * runtime behavior is backward compatible.
  */
-/** @var list<string> $arguments */
-$arguments = $_SERVER['argv'] ?? [];
-if (count($arguments) !== 3) {
-    throw new InvalidArgumentException(
-        'Usage: php tools/c4-migration-behavior-audit.php <source-diff.json> <ledger.json>',
-    );
+/** Source Audit supplies two already-opened JSON documents through bounded stdin. */
+if (!is_array($argv ?? null) || count($argv) !== 1) {
+    throw new InvalidArgumentException('Usage: php tools/c4-migration-behavior-audit.php < audit-envelope.json');
 }
+$input = stream_get_contents(STDIN, 33_600_001);
+if (!is_string($input) || $input === '' || strlen($input) > 33_600_000) {
+    throw new InvalidArgumentException('Migration audit input is missing or exceeds 33.6 MiB.');
+}
+/** @return array<array-key, mixed> */
+$validateEnvelope = static function (mixed $decoded): array {
+    if (!is_array($decoded) || array_is_list($decoded)) {
+        throw new InvalidArgumentException('Migration audit requires a JSON object envelope.');
+    }
 
-$diff = json_decode((string) file_get_contents($arguments[1]), true, flags: JSON_THROW_ON_ERROR);
-$ledger = json_decode((string) file_get_contents($arguments[2]), true, flags: JSON_THROW_ON_ERROR);
+    return $decoded;
+};
+$envelope = $validateEnvelope(json_decode($input, true, 64, JSON_THROW_ON_ERROR));
+$diff = $envelope['diff'] ?? null;
+$ledger = $envelope['ledger'] ?? null;
 if (!is_array($diff) || !is_array($ledger) || ($diff['schemaVersion'] ?? null) !== 1
     || ($ledger['schemaVersion'] ?? null) !== 1
     || ($ledger['publishedRevision'] ?? null) !== $diff['baselineRevision']

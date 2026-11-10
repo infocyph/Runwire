@@ -14,6 +14,7 @@ final readonly class FieldSectionDecoder
 {
     /**
      * Create a field-section decoder with decoded-size and field-count limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private DynamicTable $table,
@@ -27,6 +28,9 @@ final readonly class FieldSectionDecoder
 
     /**
      * Decode a complete QPACK field section.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Infocyph\Runwire\Http\Http3\Qpack\BlockedFieldSectionException
+     * @throws \InvalidArgumentException
      */
     public function decode(string $block): DecodedFieldSection
     {
@@ -77,6 +81,10 @@ final readonly class FieldSectionDecoder
         return new DecodedFieldSection($fields, $requiredInsertCount, $base, $dynamicReferenced);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function decodeBase(string $block, int &$offset, int $requiredInsertCount): int
     {
         if (!isset($block[$offset])) {
@@ -103,7 +111,11 @@ final readonly class FieldSectionDecoder
         return $requiredInsertCount - $delta - 1;
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function decodeField(string $block, int &$offset, int $base): array
     {
         $first = ord($block[$offset]);
@@ -123,7 +135,11 @@ final readonly class FieldSectionDecoder
         return $this->literalPostBaseNameReference($block, $offset, $base);
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function indexed(string $block, int &$offset, int $base): array
     {
         $static = (ord($block[$offset]) & 0x40) !== 0;
@@ -139,7 +155,11 @@ final readonly class FieldSectionDecoder
         return [$entry['name'], $entry['value'], true];
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function indexedPostBase(string $block, int &$offset, int $base): array
     {
         $index = IntegerCodec::decode($block, $offset, 4, ErrorCode::QPACK_DECOMPRESSION_FAILED);
@@ -148,7 +168,11 @@ final readonly class FieldSectionDecoder
         return [$entry['name'], $entry['value'], true];
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function literalName(string $block, int &$offset): array
     {
         $name = StringCodec::decode(
@@ -171,7 +195,11 @@ final readonly class FieldSectionDecoder
         return [$name, $value, false];
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function literalNameReference(string $block, int &$offset, int $base): array
     {
         $static = (ord($block[$offset]) & 0x10) !== 0;
@@ -191,7 +219,11 @@ final readonly class FieldSectionDecoder
         return [$name, $value, !$static];
     }
 
-    /** @return array{0: string, 1: string, 2: bool} */
+    /**
+     * @return array{0: string, 1: string, 2: bool}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function literalPostBaseNameReference(string $block, int &$offset, int $base): array
     {
         $index = IntegerCodec::decode($block, $offset, 3, ErrorCode::QPACK_DECOMPRESSION_FAILED);
@@ -208,6 +240,9 @@ final readonly class FieldSectionDecoder
         return [$entry['name'], $value, true];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function requiredInsertCount(int $encodedInsertCount): int
     {
         if ($encodedInsertCount === 0) {

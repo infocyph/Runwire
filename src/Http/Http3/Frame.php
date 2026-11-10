@@ -13,6 +13,7 @@ final readonly class Frame
 {
     /**
      * Create an HTTP/3 frame from its type identifier and payload.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $type,
@@ -25,6 +26,7 @@ final readonly class Frame
 
     /**
      * Encode this frame including its type and payload length.
+     * @throws \InvalidArgumentException
      */
     public function encode(): string
     {

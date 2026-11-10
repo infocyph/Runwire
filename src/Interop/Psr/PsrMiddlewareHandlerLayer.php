@@ -24,6 +24,7 @@ final readonly class PsrMiddlewareHandlerLayer implements RequestHandlerInterfac
     ) {}
 
     /** Delegate one request through this middleware without reactor adaptation. */
+    #[\Override]
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         return $this->middleware->process($request, $this->next);

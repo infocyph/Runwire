@@ -29,7 +29,6 @@ final class ConnectionTimeouts
         ?float $lifetimeTimeoutSeconds,
         callable $onTimeout,
     ) {
-        /** @var Closure(CloseReason): void $timeoutClosure */
         $timeoutClosure = Closure::fromCallable($onTimeout);
         $this->onTimeout = $timeoutClosure;
         $this->lastActivityAt = $loop->now();

@@ -28,6 +28,8 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
 
     /**
      * Creates a session from the installed RoadRunner worker runtime.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \ReflectionException
      */
     public static function create(): self
     {
@@ -52,7 +54,9 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
 
     /**
      * Sends one HTTP response chunk through RoadRunner.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
+    #[\Override]
     public function respond(int $status, string $body, array $headers, bool $endOfStream): void
     {
         DynamicHostObject::method($this->httpWorker, 'respond')($status, $body, $headers, $endOfStream);
@@ -60,7 +64,9 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
 
     /**
      * Stops the underlying RoadRunner worker.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
+    #[\Override]
     public function stop(): void
     {
         DynamicHostObject::method($this->worker, 'stop')();
@@ -68,7 +74,10 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
 
     /**
      * Waits for and normalizes the next RoadRunner HTTP request.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function waitRequest(int $maxRequestBodyBytes): ?HttpRequest
     {
         if ($maxRequestBodyBytes < 1) {
@@ -133,6 +142,10 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
         return implode('\\', $parts);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private static function normalizeRequest(object $request, int $maxRequestBodyBytes): HttpRequest
     {
         $body = self::stringProperty($request, 'body');
@@ -154,6 +167,9 @@ final readonly class RoadRunnerSession implements RoadRunnerSessionInterface
         );
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private static function stringProperty(object $object, string $property): string
     {
         if (!property_exists($object, $property)) {

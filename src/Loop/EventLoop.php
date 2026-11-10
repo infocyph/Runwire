@@ -49,6 +49,8 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Create an ext-event loop with the callback-overrun threshold.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     public function __construct(float $callbackOverrunSeconds = 0.05)
     {
@@ -76,6 +78,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Cancel a watcher, timer, or deferred callback handle.
      */
+    #[\Override]
     public function cancel(int $id): bool
     {
         $event = $this->events[$id] ?? null;
@@ -103,7 +106,10 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Queue a callback for the next event-loop turn.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function defer(callable $callback): int
     {
         return $this->timer(0.0, $callback, false);
@@ -111,7 +117,10 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Schedule a one-shot timer.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function delay(float $seconds, callable $callback): int
     {
         return $this->timer($seconds, $callback, false);
@@ -120,6 +129,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Capture current event-loop diagnostics.
      */
+    #[\Override]
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         return new LoopDiagnosticsSnapshot(
@@ -138,6 +148,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Return monotonic time in seconds.
      */
+    #[\Override]
     public function now(): float
     {
         return MonotonicTime::nowNanoseconds() / MonotonicTime::NANOSECONDS_PER_SECOND;
@@ -147,7 +158,10 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
      * Register a readable stream watcher.
      *
      * @param resource $stream
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, Event::READ, $this->readIndex, 'readable');
@@ -157,7 +171,10 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
      * Register a writable stream watcher.
      *
      * @param resource $stream
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function onWritable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, Event::WRITE, $this->writeIndex, 'writable');
@@ -165,7 +182,10 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Schedule a repeating timer.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function repeat(float $interval, callable $callback): int
     {
         if (!is_finite($interval) || $interval <= 0) {
@@ -177,7 +197,9 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
 
     /**
      * Run until stopped or no referenced event remains.
+     * @throws \LogicException
      */
+    #[\Override]
     public function run(): void
     {
         if ($this->running) {
@@ -196,12 +218,22 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
     /**
      * Request that the running loop stop.
      */
+    #[\Override]
     public function stop(): void
     {
         $this->base->stop();
         $this->running = false;
     }
 
+    /** A registered stream may be closed before its native callback fires. */
+    private static function isLiveStream(mixed $stream): bool
+    {
+        return is_resource($stream);
+    }
+
+    /**
+     * @throws \OverflowException
+     */
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -211,6 +243,9 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         return $this->nextId++;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function invoke(Closure $callback, mixed ...$arguments): void
     {
         $started = MonotonicTime::nowNanoseconds();
@@ -221,7 +256,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
             // Opt-in failing-soak diagnostics only: preserve propagation and
             // expose the original stack when libevent reports only its wrapper.
             if (getenv('RUNWIRE_SOAK_DIAGNOSTICS') === '1') {
-                error_log('Runwire soak callback failure: ' . $error);
+                error_log('Runwire soak callback failure: ' . $error->__toString());
             }
 
             throw $error;
@@ -235,6 +270,10 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private function timer(float $seconds, callable $callback, bool $repeat): int
     {
         if (!is_finite($seconds) || $seconds < 0) {
@@ -282,7 +321,11 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
         return $id;
     }
 
-    /** @param array<int, int> $index */
+    /**
+     * @param array<int, int> $index
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private function watch(mixed $stream, callable $callback, int $flag, array &$index, string $direction): int
     {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
@@ -301,7 +344,7 @@ final class EventLoop implements LoopDiagnosticsProviderInterface, LoopInterface
             $stream,
             $flag | Event::PERSIST,
             function (mixed $ready) use ($id, $stream, $closure): void {
-                if (!isset($this->events[$id]) || !is_resource($stream)) {
+                if (!isset($this->events[$id]) || !self::isLiveStream($stream)) {
                     return;
                 }
                 $this->invoke($closure, $ready, $id);

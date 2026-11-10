@@ -71,6 +71,7 @@ it('preserves bounded streaming request body and response contract without a tra
     $body = new class implements ClientBodySourceInterface {
         private string $buffer = 'payload';
 
+        #[\Override]
         public function read(int $maxBytes = PHP_INT_MAX): string
         {
             $chunk = substr($this->buffer, 0, $maxBytes);
@@ -79,11 +80,13 @@ it('preserves bounded streaming request body and response contract without a tra
             return $chunk;
         }
 
+        #[\Override]
         public function eof(): bool
         {
             return $this->buffer === '';
         }
 
+        #[\Override]
         public function trailers(): ?Headers
         {
             return null;

@@ -17,7 +17,7 @@ it('aborts live worker-owned accepted TCP sockets on repeated shutdown', functio
         $accepted[] = $connection;
     });
     $client = stream_socket_client('tcp://' . $listener->address(), $errno, $error, 1.0);
-    expect($client)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($client);
 
     try {
         $loop->delay(0.03, static function () use ($worker, $listener): void {
@@ -26,7 +26,9 @@ it('aborts live worker-owned accepted TCP sockets on repeated shutdown', functio
             $worker->requestStop();
             $worker->close();
         });
-        $loop->delay(0.1, static fn() => $loop->stop());
+        $loop->delay(0.1, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
 
         expect($accepted)->toHaveCount(1)

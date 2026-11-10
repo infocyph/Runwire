@@ -29,12 +29,14 @@ it('preserves explicitly owned trace scope across worker completion and caller c
 
     expect($scope->current())->toBeNull();
     $loop->run();
-    expect($captured['first'][0])->toBe($first)
-        ->and($captured['second'][0])->toBe($second)
-        ->and($captured['first'][1])->toBe(25)
-        ->and($captured['second'][1])->toBe(25)
-        ->and($captured['first'][2])->toBeNull()
-        ->and($captured['second'][2])->toBeNull()
+    $firstResult = $captured['first'] ?? throw new RuntimeException('First worker trace completion was not delivered.');
+    $secondResult = $captured['second'] ?? throw new RuntimeException('Second worker trace completion was not delivered.');
+    expect($firstResult[0])->toBe($first)
+        ->and($secondResult[0])->toBe($second)
+        ->and($firstResult[1])->toBe(25)
+        ->and($secondResult[1])->toBe(25)
+        ->and($firstResult[2])->toBeNull()
+        ->and($secondResult[2])->toBeNull()
         ->and($scope->current())->toBeNull()
         ->and($executor->diagnostics()['workers'])->toBe(0);
 });

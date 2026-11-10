@@ -10,6 +10,10 @@ use Infocyph\Runwire\Process\Enum\TerminationReason;
 use Infocyph\Runwire\Process\ProcessPolicy;
 use Infocyph\Runwire\Process\ProcessRunner;
 
+/**
+ * @param array{allowedExecutables?:list<string>|null,allowedEnvironmentKeys?:list<string>,allowedCwdRoots?:list<string>,maxArgumentCount?:int,maxArgumentBytes?:int,maxArgvBytes?:int,maxEnvironmentCount?:int,maxEnvironmentValueBytes?:int,maxEnvironmentBytes?:int,maxStdinBytes?:int,maxOutputBytes?:int,maxTimeoutSeconds?:float,maxTerminationGraceSeconds?:float,postExitDrainSeconds?:float,postKillWaitSeconds?:float} $policy
+ * @throws \InvalidArgumentException
+ */
 function processRunner(array $policy = []): ProcessRunner
 {
     return new ProcessRunner(new ProcessPolicy(...$policy));
@@ -22,9 +26,11 @@ it('executes argv literally without a shell', function (): void {
 
 it('supports bounded string resource and producer stdin', function (): void {
     $runner = processRunner();
-    $echo = static fn (mixed $input) => $runner->run(Command::executable(PHP_BINARY, ['-r', 'echo stream_get_contents(STDIN);'])->stdin($input))->stdout;
+    $echo = static fn (mixed $input) : string => $runner->run(Command::executable(PHP_BINARY, ['-r', 'echo stream_get_contents(STDIN);'])->stdin($input))->stdout;
     $resource = fopen('php://temp', 'w+');
-    expect($resource)->toBeResource();
+    if (!is_resource($resource)) {
+        throw new RuntimeException('Unable to create process stdin stream fixture.');
+    }
     fwrite($resource, 'resource');
     rewind($resource);
     $chunks = ['pro', 'ducer', null];
@@ -93,7 +99,9 @@ it('enforces executable environment cwd and command resource policy', function (
         ->environment(['RUNWIRE_TEST' => 'yes'])
         ->cwd($root)
         ->terminationGrace(0.5);
-    expect($runner->run($command)->stdout)->toBe('yes|' . realpath($root));
+    $canonicalRoot = realpath($root);
+    \PHPUnit\Framework\Assert::assertIsString($canonicalRoot);
+    expect($runner->run($command)->stdout)->toBe('yes|' . $canonicalRoot);
     expect(fn () => $runner->run($command->environment(['DENIED' => 'x'])))->toThrow(ProcessStartException::class)
         ->and(fn () => $runner->run($command->terminationGrace(1.0)))->toThrow(ProcessStartException::class);
 });
@@ -112,7 +120,9 @@ it('rejects non-stream stdin resources before spawning the configured command', 
         [0 => ['file', $nullDevice, 'r'], 1 => ['file', $nullDevice, 'w'], 2 => ['file', $nullDevice, 'w']],
         $pipes,
     );
-    expect($fixture)->toBeResource();
+    if (!is_resource($fixture)) {
+        throw new RuntimeException('Unable to start process resource fixture.');
+    }
 
     try {
         expect(fn() => Command::executable(PHP_BINARY)->stdin($fixture))
@@ -211,4 +221,17 @@ it('remains reusable across repeated forced terminations', function (): void {
     }
 
     expect($runner->run(Command::executable(PHP_BINARY, ['-r', 'echo "ok";']))->stdout)->toBe('ok');
+});
+
+it('rejects an already closed stdin resource without corrupting subsequent runs', function (): void {
+    $closed = fopen('php://temp', 'w+');
+    if (!is_resource($closed)) {
+        throw new RuntimeException('Unable to create closed stdin fixture.');
+    }
+    fclose($closed);
+
+    $runner = processRunner();
+    expect(fn () => Command::executable(PHP_BINARY, ['-r', 'echo stream_get_contents(STDIN);'])->stdin($closed))
+        ->toThrow(InvalidArgumentException::class);
+    expect($runner->run(Command::executable(PHP_BINARY, ['-r', 'echo "ready";']))->stdout)->toBe('ready');
 });

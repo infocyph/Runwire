@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
-use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
+require_once __DIR__.'/Support/ProcessFixture.php';
 
+use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\FrameParser;
+use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Http3Limits;
 use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicConnection;
@@ -18,17 +20,19 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Runtime;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
+use Infocyph\Runwire\Runtime\RuntimeCapabilityResolver;
 use Infocyph\Runwire\Runtime\RuntimeEnvironmentProbe;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Server;
+use PHPUnit\Framework\Assert;
 
 function workerQuicStream(int $id, bool $bidirectional): object
 {
-    return new class($id, $bidirectional) {
-        public function __construct(
-            private readonly int $id,
-            private readonly bool $bidirectional,
-        ) {}
+    return new class($id, $bidirectional)
+    {
+        private ?int $resetCode = null;
+
+        public function __construct(private readonly int $id, private readonly bool $bidirectional) {}
 
         public function end(): void {}
 
@@ -39,7 +43,7 @@ function workerQuicStream(int $id, bool $bidirectional): object
 
         public function getResetCode(): ?int
         {
-            return null;
+            return $this->resetCode;
         }
 
         public function isBidirectional(): bool
@@ -52,7 +56,10 @@ function workerQuicStream(int $id, bool $bidirectional): object
             return $length > 0 ? '' : null;
         }
 
-        public function reset(int $errorCode = 0): void {}
+        public function reset(int $errorCode = 0): void
+        {
+            $this->resetCode = $errorCode;
+        }
 
         public function write(string $data): int
         {
@@ -61,19 +68,23 @@ function workerQuicStream(int $id, bool $bidirectional): object
     };
 }
 
-/** @param list<?string> $negotiatedAlpns */
+/**
+ * @param  list<?string>  $negotiatedAlpns
+ * @return object{blocking:bool,closed:list<array{0:int,1:string,2:bool}>}
+ */
 function workerQuicConnection(array $negotiatedAlpns = ['h3']): object
 {
-    return new class($negotiatedAlpns) {
+    return new class($negotiatedAlpns)
+    {
         public bool $blocking = true;
 
         /** @var list<array{0: int, 1: string, 2: bool}> */
         public array $closed = [];
 
+        private ?string $lastNegotiatedAlpn = null;
+
         /** @var list<object> */
         private array $localStreams;
-
-        private ?string $lastNegotiatedAlpn = null;
 
         /** @param list<?string> $negotiatedAlpns */
         public function __construct(private array $negotiatedAlpns)
@@ -85,7 +96,7 @@ function workerQuicConnection(array $negotiatedAlpns = ['h3']): object
             ];
         }
 
-        public function acceptStream(): ?object
+        public function acceptStream(): null
         {
             return null;
         }
@@ -104,10 +115,13 @@ function workerQuicConnection(array $negotiatedAlpns = ['h3']): object
             return $this->lastNegotiatedAlpn;
         }
 
+        /**
+         * @throws RuntimeException
+         */
         public function openStream(bool $bidirectional = true): object
         {
             $stream = array_shift($this->localStreams);
-            if (!is_object($stream) || $stream->isBidirectional() !== $bidirectional) {
+            if (! is_object($stream) || ! is_callable([$stream, 'isBidirectional']) || $stream->isBidirectional() !== $bidirectional) {
                 throw new RuntimeException('Invalid worker test QUIC stream.');
             }
 
@@ -121,14 +135,22 @@ function workerQuicConnection(array $negotiatedAlpns = ['h3']): object
     };
 }
 
+/**
+ * @param  list<object>  $connections
+ * @return object{closed:bool}
+ */
 function workerQuicListener(array $connections): object
 {
-    return new class($connections) {
+    return new class($connections)
+    {
         public bool $blocking = true;
 
         public bool $closed = false;
 
-        /** @param list<object> $connections */
+        /**
+         * @param  list<object>  $connections
+         * @return object{closed:bool}
+         */
         public function __construct(private array $connections) {}
 
         public function accept(): ?object
@@ -148,7 +170,14 @@ function workerQuicListener(array $connections): object
     };
 }
 
-/** @return array{0: string, 1: string} */
+require_once __DIR__.'/Support/TlsFixture.php';
+
+/**
+ * @return array{0: string, 1: string}
+ *
+ * @throws RuntimeException
+ * @throws Throwable
+ */
 function workerHttp3CertificatePair(): array
 {
     $certificatePath = tempnam(sys_get_temp_dir(), 'runwire-h3-cert-');
@@ -158,25 +187,15 @@ function workerHttp3CertificatePair(): array
     }
 
     try {
-        $privateKey = openssl_pkey_new([
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-            'private_key_bits' => 2_048,
-        ]);
-        if ($privateKey === false) {
-            throw new RuntimeException('Unable to generate the HTTP/3 test private key.');
-        }
-        $request = openssl_csr_new(['commonName' => 'localhost'], $privateKey, ['digest_alg' => 'sha256']);
-        if ($request === false) {
-            throw new RuntimeException('Unable to generate the HTTP/3 test certificate request.');
-        }
-        $certificate = openssl_csr_sign($request, null, $privateKey, 1, ['digest_alg' => 'sha256']);
-        if ($certificate === false) {
-            throw new RuntimeException('Unable to self-sign the HTTP/3 test certificate.');
-        }
-        if (!openssl_x509_export_to_file($certificate, $certificatePath)) {
+        [$certificate, $privateKey] = \Infocyph\Runwire\Tests\Support\signingPair(
+            'localhost',
+            ['digest_alg' => 'sha256'],
+            ['digest_alg' => 'sha256'],
+        );
+        if (! openssl_x509_export_to_file($certificate, $certificatePath)) {
             throw new RuntimeException('Unable to export the HTTP/3 test certificate.');
         }
-        if (!openssl_pkey_export_to_file($privateKey, $privateKeyPath)) {
+        if (! openssl_pkey_export_to_file($privateKey, $privateKeyPath)) {
             throw new RuntimeException('Unable to export the HTTP/3 test private key.');
         }
 
@@ -193,17 +212,21 @@ function workerHttp3CertificatePair(): array
     }
 }
 
-/** @return array{0: string, 1: int} */
+/**
+ * @return array{0: string, 1: int}
+ *
+ * @throws RuntimeException
+ */
 function workerHttp3Endpoint(): array
 {
     $probe = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
-    if (!is_resource($probe)) {
+    if (! is_resource($probe)) {
         throw new RuntimeException(sprintf('Unable to reserve HTTP/3 test port: [%d] %s', $errno, $error));
     }
 
     $address = stream_socket_get_name($probe, false);
     fclose($probe);
-    if (!is_string($address)) {
+    if (! is_string($address)) {
         throw new RuntimeException('Unable to resolve the HTTP/3 test port.');
     }
 
@@ -219,22 +242,24 @@ function workerHttp3Endpoint(): array
     return [$address, $port];
 }
 
+/**
+ * @throws RuntimeException
+ */
 function workerHttp3Connect(int $port): PhpQuicConnection
 {
-    $connectionClass = new ReflectionClass('Quic\\Connection');
-    $lastError = null;
-    for ($attempt = 0; $attempt < 50; ++$attempt) {
+    $class = workerHttp3Class('Quic\\Connection');
+    $reflection = new ReflectionClass($class);
+    for ($attempt = 0; $attempt < 50; $attempt++) {
         try {
-            $connection = $connectionClass->newInstance('127.0.0.1', $port, [
+            $connection = $reflection->newInstance('127.0.0.1', $port, [
                 'alpn' => 'h3',
                 'verify_peer' => false,
                 'verify_peer_name' => false,
                 'connect_timeout_ms' => 100,
                 'idle_timeout_ms' => 2_000,
             ]);
-            if (is_object($connection)) {
-                return new PhpQuicConnection($connection);
-            }
+
+            return new PhpQuicConnection($connection);
         } catch (Throwable $error) {
             $lastError = $error;
         }
@@ -243,12 +268,18 @@ function workerHttp3Connect(int $port): PhpQuicConnection
 
     $message = 'Unable to connect to the native HTTP/3 runtime.';
     if ($lastError instanceof Throwable) {
-        $message .= ' Last QUIC error: ' . $lastError->getMessage();
+        $message .= ' Last QUIC error: '.$lastError->getMessage();
     }
 
     throw new RuntimeException($message, 0, $lastError);
 }
 
+/**
+ * @throws UnexpectedValueException
+ * @throws InvalidArgumentException
+ * @throws RuntimeException
+ * @throws Http3Exception
+ */
 function workerHttp3RoundTrip(PhpQuicConnection $connection, string $authority): string
 {
     $control = $connection->openStream(false);
@@ -258,8 +289,7 @@ function workerHttp3RoundTrip(PhpQuicConnection $connection, string $authority):
         throw new RuntimeException('Unable to initialize HTTP/3 client critical streams.');
     }
 
-    $fields = "\x00\x00\xD1\xD7\x50" . chr(strlen($authority)) . $authority . "\xC1";
-    $request = "\x01" . chr(strlen($fields)) . $fields;
+    $request = workerHttp3RequestFrame($authority);
     $stream = $connection->openStream(true);
     if ($stream->write($request, true) !== strlen($request)) {
         throw new RuntimeException('Unable to write the complete HTTP/3 request.');
@@ -279,7 +309,7 @@ function workerHttp3RoundTrip(PhpQuicConnection $connection, string $authority):
     }
 
     $body = '';
-    foreach ((new FrameParser())->push($response) as $frame) {
+    foreach ((new FrameParser)->push($response) as $frame) {
         if ($frame->type === FrameType::DATA->value) {
             $body .= $frame->payload;
         }
@@ -288,13 +318,18 @@ function workerHttp3RoundTrip(PhpQuicConnection $connection, string $authority):
     return $body;
 }
 
-/** @return array{0: int, 1: int} */
+/**
+ * @return array{0: int, 1: int}
+ *
+ * @throws RuntimeException
+ */
 function workerHttp3Reap(int $runtimePid): array
 {
     $status = 0;
     $deadline = microtime(true) + 3.0;
     do {
         $reaped = pcntl_waitpid($runtimePid, $status, WNOHANG);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         if ($reaped === $runtimePid) {
             return [$reaped, $status];
         }
@@ -303,10 +338,14 @@ function workerHttp3Reap(int $runtimePid): array
 
     posix_kill($runtimePid, SIGKILL);
     $reaped = pcntl_waitpid($runtimePid, $status);
+    $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
 
     return [$reaped, $status];
 }
 
+/**
+ * @throws RuntimeException
+ */
 function workerHttp3StatusPath(): string
 {
     $path = tempnam(sys_get_temp_dir(), 'runwire-h3-status-');
@@ -317,6 +356,9 @@ function workerHttp3StatusPath(): string
     return $path;
 }
 
+/**
+ * @throws RuntimeException
+ */
 function workerHttp3WriteStatus(string $path, string $status): void
 {
     if (file_put_contents($path, $status, LOCK_EX) === false) {
@@ -324,6 +366,9 @@ function workerHttp3WriteStatus(string $path, string $status): void
     }
 }
 
+/**
+ * @throws RuntimeException
+ */
 function workerHttp3AwaitStatus(string $path): void
 {
     $deadline = microtime(true) + 2.0;
@@ -334,7 +379,7 @@ function workerHttp3AwaitStatus(string $path): void
                 return;
             }
 
-            throw new RuntimeException('Direct HTTP/3 worker failed: ' . $status);
+            throw new RuntimeException('Direct HTTP/3 worker failed: '.$status);
         }
         usleep(10_000);
     } while (microtime(true) < $deadline);
@@ -342,10 +387,13 @@ function workerHttp3AwaitStatus(string $path): void
     throw new RuntimeException('Direct HTTP/3 worker did not report readiness.');
 }
 
+/**
+ * @throws RuntimeException
+ */
 function workerHttp3RunDirect(int $port, string $certificatePath, string $privateKeyPath, string $statusPath): never
 {
     try {
-        $options = new Http3Options();
+        $options = new Http3Options;
         $tls = new TlsOptions($certificatePath, $privateKeyPath);
         $listener = PhpQuicListener::bind('127.0.0.1', $port, $options->listenerOptions($tls));
         $served = false;
@@ -373,7 +421,7 @@ function workerHttp3RunDirect(int $port, string $certificatePath, string $privat
         $worker->stopAccepting();
         (\exit(...))($served ? 0 : 71);
     } catch (Throwable $error) {
-        workerHttp3WriteStatus($statusPath, $error::class . ': ' . $error->getMessage());
+        workerHttp3WriteStatus($statusPath, $error::class.': '.$error->getMessage());
         (\exit(...))(70);
     }
 }
@@ -400,7 +448,7 @@ it('polls one worker-wide QUIC set, defers incomplete handshakes, and removes li
     $worker = new PhpQuicHttp3Worker(
         new PhpQuicListener($listenerRaw),
         static function (): void {},
-        new Http3Limits(),
+        new Http3Limits,
         1,
         $poller,
     );
@@ -426,14 +474,15 @@ it('polls one worker-wide QUIC set, defers incomplete handshakes, and removes li
         ->and($worker->drainComplete())->toBeTrue();
 
     $worker->stopAccepting();
+    Assert::assertObjectHasProperty('closed', $listenerRaw);
     expect($worker->accepting())->toBeFalse()
         ->and($listenerRaw->closed)->toBeTrue();
 });
 
 it('serves an interoperable HTTP/3 request through a direct native QUIC worker', function (): void {
-    $environment = (new RuntimeEnvironmentProbe())->probe();
-    if (!$environment->supportsQuic) {
-        expect($environment->supportsQuic)->toBeFalse();
+    $environment = (new RuntimeEnvironmentProbe)->probe();
+    if (! $environment->supportsQuic) {
+        expect((new RuntimeCapabilityResolver)->resolve(RuntimeDriver::NATIVE, $environment)->supportsHttp3)->toBeFalse();
 
         return;
     }
@@ -448,7 +497,7 @@ it('serves an interoperable HTTP/3 request through a direct native QUIC worker',
     }
 
     $client = null;
-    $body = null;
+
     try {
         workerHttp3AwaitStatus($statusPath);
         $client = workerHttp3Connect($port);
@@ -472,9 +521,9 @@ it('serves an interoperable HTTP/3 request through a direct native QUIC worker',
 });
 
 it('serves an interoperable HTTP/3 request through the full native runtime', function (): void {
-    $environment = (new RuntimeEnvironmentProbe())->probe();
-    if (!$environment->supportsQuic) {
-        expect($environment->supportsQuic)->toBeFalse();
+    $environment = (new RuntimeEnvironmentProbe)->probe();
+    if (! $environment->supportsQuic) {
+        expect((new RuntimeCapabilityResolver)->resolve(RuntimeDriver::NATIVE, $environment)->supportsHttp3)->toBeFalse();
 
         return;
     }
@@ -486,7 +535,9 @@ it('serves an interoperable HTTP/3 request through the full native runtime', fun
     if ($runtimePid === 0) {
         $server = Server::httpFactory($address, static function (): callable {
             return static function (HttpRequest $request, ResponseWriterInterface $writer): void {
-                $request->body->onEnd(static fn () => $writer->end('runwire-http3-ok'));
+                $request->body->onEnd(static function () use ($writer): void {
+                    $writer->end('runwire-http3-ok');
+                });
             };
         })
             ->withTls(new TlsOptions($certificatePath, $privateKeyPath))
@@ -498,7 +549,7 @@ it('serves an interoperable HTTP/3 request through the full native runtime', fun
     }
 
     $client = null;
-    $body = null;
+
     try {
         $client = workerHttp3Connect($port);
         $body = workerHttp3RoundTrip($client, 'localhost');
@@ -522,7 +573,6 @@ it('serves an interoperable HTTP/3 request through the full native runtime', fun
         ->and(pcntl_wexitstatus($status))->toBe(0);
 });
 
-
 it('uses adaptive HTTP3 poll timeouts for idle and handshaking workers', function (): void {
     $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
     $connectionRaw = workerQuicConnection([null, null]);
@@ -544,10 +594,10 @@ it('uses adaptive HTTP3 poll timeouts for idle and handshaking workers', functio
     $worker = new PhpQuicHttp3Worker(
         new PhpQuicListener($listenerRaw),
         static function (): void {},
-        new Http3Limits(),
+        new Http3Limits,
         4,
         $poller,
-        inboundAdaptive: new AdaptiveProtocolPolicy(),
+        inboundAdaptive: new AdaptiveProtocolPolicy,
     );
 
     $worker->tick(0.05);
@@ -556,3 +606,39 @@ it('uses adaptive HTTP3 poll timeouts for idle and handshaking workers', functio
     expect($timeouts)->toBe([0.2, 0.01])
         ->and($worker->connectionCount())->toBe(1);
 });
+
+/** @throws InvalidArgumentException */
+function workerHttp3RequestFrame(string $authority): string
+{
+    $authorityBytes = strlen($authority);
+    if ($authorityBytes > 63) {
+        throw new InvalidArgumentException('The independent fixture requires a short authority literal.');
+    }
+    $literalLength = $authorityBytes < 63 ? chr($authorityBytes) : "\x3f\x00";
+    $fields = "\x00\x00\xD1\xD7\x50".$literalLength.$authority."\xC1";
+    $fieldBytes = strlen($fields);
+    $frameLength = $fieldBytes < 64 ? chr($fieldBytes) : pack('n', 0x4000 | $fieldBytes);
+
+    return "\x01".$frameLength.$fields;
+}
+
+it('keeps independent H3 request lengths valid across QPACK and QUIC prefix boundaries', function (): void {
+    expect(workerHttp3RequestFrame(str_repeat('a', 56)))->toStartWith("\x01\x3f")
+        ->and(workerHttp3RequestFrame(str_repeat('a', 57)))->toStartWith("\x01\x40\x40")
+        ->and(workerHttp3RequestFrame(str_repeat('a', 62)))->toStartWith("\x01\x40\x45")
+        ->and(workerHttp3RequestFrame(str_repeat('a', 63)))->toStartWith("\x01\x40\x47\x00\x00\xD1\xD7\x50\x3f\x00");
+});
+
+/**
+ * @return class-string
+ *
+ * @throws RuntimeException
+ */
+function workerHttp3Class(string $class): string
+{
+    if (! class_exists($class)) {
+        throw new RuntimeException('Native QUIC connection class is unavailable.');
+    }
+
+    return $class;
+}

@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+
+require_once __DIR__ . '/Support/SocketFixture.php';
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
@@ -9,9 +14,11 @@ use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use RuntimeException;
+
 
 it('drains 128 simultaneous socket pairs without abandoned watchers, owner tokens or queued bytes', function (): void {
-    $before = is_dir('/proc/self/fd') ? count(glob('/proc/self/fd/*') ?: []) : null;
+    $before = is_dir('/proc/self/fd') ? runwireChurnFdCount() : null;
     $loop = new SelectLoop();
     $source = new CancellationSource();
     $budget = new ByteBudget(16_384);
@@ -22,7 +29,8 @@ it('drains 128 simultaneous socket pairs without abandoned watchers, owner token
     $owned = 0;
     for ($i = 0; $i < 128; ++$i) {
         $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-        expect($pair)->toBeArray();
+        \PHPUnit\Framework\Assert::assertIsArray($pair);
+        \PHPUnit\Framework\Assert::assertCount(2, $pair);
         [$stream, $peer] = $pair;
         $connection = ConnectionFactory::accepted($loop, $stream, bufferBudget: $budget);
         $connection->onClose(function () use (&$closed): void {
@@ -69,7 +77,7 @@ it('drains 128 simultaneous socket pairs without abandoned watchers, owner token
     }
     expect($closed)->toBe(128);
     if ($before !== null) {
-        expect(count(glob('/proc/self/fd/*') ?: []))->toBeLessThanOrEqual($before + 3);
+        expect(runwireChurnFdCount())->toBeLessThanOrEqual($before + 3);
     }
 });
 
@@ -91,7 +99,7 @@ it('stops a real TCP acceptor while dozens of sockets are active without leaving
     for ($i = 0; $i < 24; ++$i) {
         $stream = stream_socket_client('tcp://' . $listener->address(), $errno, $error, 1.0);
         if (!is_resource($stream)) {
-            throw new RuntimeException($error);
+            throw \Infocyph\Runwire\Tests\Support\socketFailure($error, 'Socket operation failed.');
         }
         fwrite($stream, 'hello');
         $clients[] = $stream;
@@ -113,3 +121,10 @@ it('stops a real TCP acceptor while dozens of sockets are active without leaving
         fclose($client);
     }
 });
+
+function runwireChurnFdCount(): int
+{
+    $descriptors = glob('/proc/self/fd/*');
+
+    return $descriptors === false ? 0 : count($descriptors);
+}

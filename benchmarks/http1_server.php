@@ -20,6 +20,9 @@ if (getenv('RUNWIRE_SOAK_DIAGNOSTICS') === '1') {
     require_once __DIR__ . '/soak_runtime_telemetry.php';
 }
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 2) {
     throw new InvalidArgumentException('Usage: php http1_server.php <port>');
 }

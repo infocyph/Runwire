@@ -22,6 +22,7 @@ final readonly class AdaptiveResponseStrategy
 
     /**
      * Create the HTTP/2 response strategy and validate its state-specific budgets.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         ?AdaptiveLoadController $controller = null,

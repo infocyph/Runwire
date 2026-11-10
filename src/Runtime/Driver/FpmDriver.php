@@ -47,7 +47,10 @@ final readonly class FpmDriver implements HostDriverInterface
 
     /**
      * Handles the current FPM request and shuts down the application lifecycle.
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
      */
+    #[\Override]
     public function run(RuntimeApplicationInterface $application): void
     {
         $failure = null;
@@ -66,5 +69,6 @@ final readonly class FpmDriver implements HostDriverInterface
     /**
      * Requests driver shutdown; FPM owns the request process lifecycle.
      */
+    #[\Override]
     public function stop(): void {}
 }

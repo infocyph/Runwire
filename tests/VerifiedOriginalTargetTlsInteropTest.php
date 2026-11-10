@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
@@ -9,9 +11,34 @@ use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use Infocyph\Runwire\Network\Proxy\HttpConnectHandshake;
 use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use RuntimeException;
+use Throwable;
+
+/**
+ * @param resource $pipe
+ * @throws \RuntimeException
+ */
+function runwireRequiredOriginalTargetPipe(mixed $pipe): string
+{
+    $bytes = stream_get_contents($pipe);
+    if ($bytes === false) {
+        throw new RuntimeException('Independent TLS peer pipe read failed.');
+    }
+
+    return $bytes;
+}
+
+require_once __DIR__ . '/Support/TlsFixture.php';
+
+require_once __DIR__ . '/Support/ReferenceProcess.php';
 
 /**
  * @return array{response:string,error:?Throwable,callbacks:int,peer:?string,alpn:?string,sni:?string,origin_received:bool,origin_error:?string}
+ * @throws \RuntimeException
+ * @throws \OverflowException
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
 {
@@ -19,10 +46,8 @@ function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
     if (!mkdir($dir, 0700)) {
         throw new RuntimeException('Could not prepare original-target TLS certificate fixture.');
     }
-    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    $csr = openssl_csr_new(['commonName' => 'origin.example'], $key, ['digest_alg' => 'sha256']);
-    $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($cert)->not->toBeFalse();
+    [$cert, $key] = \Infocyph\Runwire\Tests\Support\signingPair('origin.example', ['digest_alg' => 'sha256'], ['digest_alg' => 'sha256']);
+    \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($cert));
     openssl_x509_export($cert, $pem);
     openssl_pkey_export($key, $keyPem);
     $ca = $dir . '/ca.pem';
@@ -39,6 +64,7 @@ function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
         unlink($ca);
         unlink($private);
         rmdir($dir);
+
         throw new RuntimeException('Could not start independent TLS/origin reference.');
     }
     fclose($pipes[0]);
@@ -55,27 +81,25 @@ function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
     $verifiedPeer = null;
     $alpn = null;
     $watchdog = null;
+
     try {
-        $ready = '';
-        $started = microtime(true);
-        while (!str_contains($ready, "\n") && microtime(true) - $started < 5.0) {
-            $ready .= stream_get_contents($pipes[1]);
-            if (str_contains($ready, "\n") || !proc_get_status($proc)['running']) {
-                break;
-            }
-            usleep(10000);
-        }
-        if (preg_match('/^READY ([0-9]+)\n/', $ready, $matches) !== 1) {
-            throw new RuntimeException('TLS origin fixture startup failed: ' . stream_get_contents($pipes[2]));
-        }
+        $matches = \Infocyph\Runwire\Tests\Support\awaitReferenceReady($proc, $pipes[1], $pipes[2], 5.0, '/^READY ([0-9]+)\n/', 'TLS origin fixture startup failed: ');
         $watchdog = $loop->delay(8.0, static function () use ($loop): void {
             $loop->stop();
         });
         $dialer->connect(
             'tcp://127.0.0.1:' . $matches[1],
             static function (?Connection $ready, ?Throwable $failure) use (
-                &$connection, &$target, &$error, &$callbacks, &$response,
-                &$verifiedPeer, &$alpn, $loop, $ca, $wrongHost,
+                &$connection,
+                &$target,
+                &$error,
+                &$callbacks,
+                &$response,
+                &$verifiedPeer,
+                &$alpn,
+                $loop,
+                $ca,
+                $wrongHost,
             ): void {
                 if ($failure !== null || $ready === null) {
                     $error = $failure ?? new RuntimeException('Independent proxy TCP dial failed.');
@@ -90,51 +114,7 @@ function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
                     new HttpConnectHandshake(),
                     'origin.example',
                     443,
-                    static function (?Connection $tunneled, ?Throwable $proxyFailure) use (
-                        &$target, &$error, &$callbacks, &$response,
-                        &$verifiedPeer, &$alpn, $loop, $ca, $wrongHost,
-                    ): void {
-                        if ($proxyFailure !== null || $tunneled === null) {
-                            $error = $proxyFailure ?? new RuntimeException('Original TLS CONNECT denied.');
-                            $loop->stop();
-
-                            return;
-                        }
-                        $tls = new TlsClientOptions(
-                            $wrongHost ? 'wrong.example' : 'origin.example',
-                            caFile: $ca,
-                            alpnProtocols: ['http/1.1'],
-                            handshakeTimeoutSeconds: 4.0,
-                        );
-                        $tunneled->upgradeToVerifiedTls(
-                            $tls,
-                            static function (?Connection $secured, ?Throwable $tlsFailure) use (
-                                &$target, &$error, &$callbacks, &$response,
-                                &$verifiedPeer, &$alpn, $loop,
-                            ): void {
-                                ++$callbacks;
-                                if ($tlsFailure !== null || $secured === null) {
-                                    $error = $tlsFailure ?? new RuntimeException('Original TLS verification failed.');
-                                    $loop->stop();
-
-                                    return;
-                                }
-                                $target = $secured;
-                                $verifiedPeer = VerifiedOutboundTlsPeers::peerName($secured);
-                                $alpn = $secured->negotiatedProtocol();
-                                $secured->onData(static function (Connection $live) use (&$response, $loop): void {
-                                    $response .= $live->read();
-                                    if ($response === "pong-from-original\n") {
-                                        $loop->stop();
-                                    }
-                                });
-                                if (!$secured->write("ping-to-original\n")->accepted()) {
-                                    $error = new RuntimeException('Original TLS request was not accepted.');
-                                    $loop->stop();
-                                }
-                            },
-                        );
-                    },
+                    runwireOriginalProxyCompletion($target, $error, $callbacks, $response, $verifiedPeer, $alpn, $loop, $ca, $wrongHost),
                 ))->start();
             },
         );
@@ -142,22 +122,8 @@ function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
         $target?->abort();
         $connection?->abort();
 
-        $output = '';
-        $status = null;
-        $start = microtime(true);
-        while (microtime(true) - $start < 3.0) {
-            $output .= stream_get_contents($pipes[1]);
-            $status = proc_get_status($proc);
-            if (!$status['running']) {
-                break;
-            }
-            usleep(10000);
-        }
-        $output .= stream_get_contents($pipes[1]);
-        expect($status['running'] ?? true)->toBeFalse();
-        $lines = array_values(array_filter(explode("\n", trim($output))));
-        $peer = json_decode((string) end($lines), true, 512, JSON_THROW_ON_ERROR);
-        expect($peer)->toBeArray();
+        $output = \Infocyph\Runwire\Tests\Support\awaitReferenceExit($proc, $pipes[1], 3.0);
+        $peer = runwireOriginalTargetEvidence($output);
 
         return [
             'response' => $response,
@@ -167,7 +133,7 @@ function runwireVerifiedOriginalTargetInterop(bool $wrongHost): array
             'alpn' => $alpn,
             'sni' => $peer['sni'],
             'origin_received' => $peer['received'],
-            'origin_error' => $peer['origin_error'] ?? null,
+            'origin_error' => $peer['origin_error'],
         ];
     } finally {
         if ($watchdog !== null) {
@@ -208,3 +174,97 @@ it('fails closed on wrong original-target certificate identity and does not send
         ->and($result['origin_received'])->toBeFalse()
         ->and($result['response'])->toBe('');
 });
+
+/**
+ * @return \Closure(?Connection,?Throwable):void
+ */
+function runwireOriginalTlsCompletion(?Connection &$target, ?Throwable &$error, int &$callbacks, string &$response, ?string &$verifiedPeer, ?string &$alpn, SelectLoop $loop): \Closure
+{
+    return static function (?Connection $secured, ?Throwable $tlsFailure) use (
+        &$target,
+        &$error,
+        &$callbacks,
+        &$response,
+        &$verifiedPeer,
+        &$alpn,
+        $loop,
+    ): void {
+        ++$callbacks;
+        if ($tlsFailure !== null || $secured === null) {
+            $error = $tlsFailure ?? new RuntimeException('Original TLS verification failed.');
+            $loop->stop();
+
+            return;
+        }
+        $target = $secured;
+        $verifiedPeer = VerifiedOutboundTlsPeers::peerName($secured);
+        $alpn = $secured->negotiatedProtocol();
+        $secured->onData(static function (Connection $live) use (&$response, $loop): void {
+            $response .= $live->read();
+            if ($response === "pong-from-original\n") {
+                $loop->stop();
+            }
+        });
+        if (!$secured->write("ping-to-original\n")->accepted()) {
+            $error = new RuntimeException('Original TLS request was not accepted.');
+            $loop->stop();
+        }
+    };
+}
+
+/**
+ * @return array{sni:?string,received:bool,origin_error:?string}
+ * @throws \Throwable
+ */
+function runwireOriginalTargetEvidence(string $output): array
+{
+    $lines = array_values(array_filter(explode("\n", trim($output))));
+    $peer = json_decode((string) end($lines), true, 512, JSON_THROW_ON_ERROR);
+    \PHPUnit\Framework\Assert::assertIsArray($peer);
+    $sni = $peer['sni'] ?? null;
+    $error = $peer['origin_error'] ?? null;
+    if ($sni !== null) {
+        \PHPUnit\Framework\Assert::assertIsString($sni);
+    }
+    if ($error !== null) {
+        \PHPUnit\Framework\Assert::assertIsString($error);
+    }
+    \PHPUnit\Framework\Assert::assertIsBool($peer['received'] ?? null);
+
+    return ['sni' => $sni, 'received' => $peer['received'], 'origin_error' => $error];
+}
+
+/**
+ * @return \Closure(?Connection,?Throwable):void
+ */
+function runwireOriginalProxyCompletion(?Connection &$target, ?Throwable &$error, int &$callbacks, string &$response, ?string &$verifiedPeer, ?string &$alpn, SelectLoop $loop, string $ca, bool $wrongHost): \Closure
+{
+    return static function (?Connection $tunneled, ?Throwable $proxyFailure) use (
+        &$target,
+        &$error,
+        &$callbacks,
+        &$response,
+        &$verifiedPeer,
+        &$alpn,
+        $loop,
+        $ca,
+        $wrongHost,
+    ): void {
+        if ($proxyFailure !== null || $tunneled === null) {
+            $error = $proxyFailure ?? new RuntimeException('Original TLS CONNECT denied.');
+            $loop->stop();
+
+            return;
+        }
+        $tls = new TlsClientOptions(
+            $wrongHost ? 'wrong.example' : 'origin.example',
+            caFile: $ca,
+            alpnProtocols: ['http/1.1'],
+            handshakeTimeoutSeconds: 4.0,
+        );
+        $tunneled->upgradeToVerifiedTls(
+            $tls,
+            runwireOriginalTlsCompletion($target, $error, $callbacks, $response, $verifiedPeer, $alpn, $loop),
+        );
+    };
+}

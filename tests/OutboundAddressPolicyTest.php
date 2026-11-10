@@ -17,7 +17,6 @@ it('blocks private loopback link-local reserved and IPv4-mapped destinations', f
     }
     $policy->assertCandidate('8.8.8.8');
     $policy->assertCandidate('2606:4700:4700::1111');
-    expect(true)->toBeTrue();
 });
 
 it('rejects shared special-use documentation and multicast destinations', function (string $ip): void {
@@ -98,7 +97,8 @@ it('denies special-use direct and resolved candidates without acquiring socket o
             expect(fn() => $numeric->connect('tcp://' . $host . ':443', static function (): void {}, $options))
                 ->toThrow(RuntimeException::class);
             $racer->connectResolved([$ip], 443, static function ($connection, $error) use (&$completed): void {
-                expect($connection)->toBeNull()->and($error)->toBeInstanceOf(RuntimeException::class);
+                \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
+                expect($connection)->toBeNull();
                 ++$completed;
             }, $options);
         }

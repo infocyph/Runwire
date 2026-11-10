@@ -9,7 +9,10 @@ use RuntimeException;
 /** @internal Separate native QUIC wire IDs from worker-local stream handles. */
 final readonly class QuicWorkerStreamIdentity
 {
-    /** @return array{wire_stream_id:int}|array{} */
+    /**
+     * @return array{wire_stream_id:int}|array{}
+     * @throws \RuntimeException
+     */
     public static function fields(object $stream): array
     {
         if (!method_exists($stream, 'getId')) {

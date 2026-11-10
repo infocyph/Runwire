@@ -15,17 +15,24 @@ use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use Infocyph\Runwire\Http\Http3\VarIntCodec;
 
-/** @param callable(): void $action */
+/**
+ * @param callable(): void $action
+ * @throws \PHPUnit\Framework\AssertionFailedError
+ */
 function expectHttp3Fault(callable $action, ErrorCode $expected): void
 {
     try {
         $action();
-        test()->fail(sprintf('Expected HTTP/3 fault %s.', $expected->name));
+        \PHPUnit\Framework\Assert::fail(sprintf('Expected HTTP/3 fault %s.', $expected->name));
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe($expected);
     }
 }
 
+/**
+ * @param list<array{0: string, 1: string}> $extra
+ * @throws \Throwable
+ */
 function abuseRequestHeaders(Encoder $encoder, int $streamId, array $extra = []): string
 {
     return $encoder->encode([
@@ -42,7 +49,7 @@ it('rejects an oversized frame from its declared length before payload allocatio
     $wire = VarIntCodec::encode(FrameType::DATA->value) . VarIntCodec::encode(9);
 
     expectHttp3Fault(
-        static fn() => $parser->push($wire),
+        static function () use ($parser, $wire): void { $parser->push($wire); },
         ErrorCode::EXCESSIVE_LOAD,
     );
     expect($parser->bufferedBytes())->toBeLessThanOrEqual(16);
@@ -153,10 +160,12 @@ it('bounds request-stream churn after completed state is released', function ():
     }
 
     expectHttp3Fault(
-        static fn() => $state->pushRequestStream(8, (new Frame(
-            FrameType::HEADERS->value,
-            abuseRequestHeaders($encoder, 8),
-        ))->encode()),
+        static function () use ($state, $encoder): void {
+            $state->pushRequestStream(8, (new Frame(
+                FrameType::HEADERS->value,
+                abuseRequestHeaders($encoder, 8),
+            ))->encode());
+        },
         ErrorCode::EXCESSIVE_LOAD,
     );
 });

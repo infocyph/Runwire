@@ -13,15 +13,21 @@ use Infocyph\Runwire\Http\Http3\Qpack\IntegerCodec;
 
 it('decodes the RFC 9204 static-name literal example', function (): void {
     $decoder = new FieldSectionDecoder(new DynamicTable(0));
-    $section = $decoder->decode(hex2bin('0000510b2f696e6465782e68746d6c'));
+    $block = hex2bin('0000510b2f696e6465782e68746d6c');
+    \PHPUnit\Framework\Assert::assertIsString($block);
+    $section = $decoder->decode($block);
     expect($section->fields)->toBe([[':path', '/index.html']])->and($section->requiredInsertCount)->toBe(0)->and($section->dynamicReferenced)->toBeFalse();
 });
 
 it('decodes RFC 9204 dynamic table inserts and post-base references', function (): void {
     $table = new DynamicTable(220);
     $encoderStream = new EncoderStreamDecoder($table);
-    $insertions = $encoderStream->push(hex2bin('3fbd01c00f7777772e6578616d706c652e636f6dc10c2f73616d706c652f70617468'));
-    $section = (new FieldSectionDecoder($table))->decode(hex2bin('03811011'));
+    $instructions = hex2bin('3fbd01c00f7777772e6578616d706c652e636f6dc10c2f73616d706c652f70617468');
+    $block = hex2bin('03811011');
+    \PHPUnit\Framework\Assert::assertIsString($instructions);
+    \PHPUnit\Framework\Assert::assertIsString($block);
+    $insertions = $encoderStream->push($instructions);
+    $section = (new FieldSectionDecoder($table))->decode($block);
     expect($insertions)->toBe(2)->and($table->insertCount())->toBe(2)->and($section->fields)->toBe([[':authority', 'www.example.com'], [':path', '/sample/path']])->and($section->requiredInsertCount)->toBe(2)->and($section->dynamicReferenced)->toBeTrue();
 });
 
@@ -44,7 +50,7 @@ it('rejects QPACK Base arithmetic overflow as a decompression failure', function
 
     try {
         $decoder->decode($block);
-        test()->fail('Expected QPACK arithmetic overflow to fail.');
+        \PHPUnit\Framework\Assert::fail('Expected QPACK arithmetic overflow to fail.');
     } catch (Http3Exception $error) {
         expect($error->errorCode)->toBe(ErrorCode::QPACK_DECOMPRESSION_FAILED)
             ->and($error->getMessage())->toContain('Base exceeds');
@@ -56,7 +62,7 @@ it('rejects QPACK post-base index overflow as a decompression failure', function
 
     try {
         $table->postBaseIndex(PHP_INT_MAX, 1);
-        test()->fail('Expected QPACK post-base arithmetic overflow to fail.');
+        \PHPUnit\Framework\Assert::fail('Expected QPACK post-base arithmetic overflow to fail.');
     } catch (Http3Exception $error) {
         expect($error->errorCode)->toBe(ErrorCode::QPACK_DECOMPRESSION_FAILED)
             ->and($error->getMessage())->toContain('post-base index');

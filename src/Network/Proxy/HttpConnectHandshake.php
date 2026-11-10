@@ -12,7 +12,10 @@ final readonly class HttpConnectHandshake
 {
     public const int MAX_HEADER_BYTES = 8192;
 
-    /** Validate the proxy authentication requirement at construction. */
+    /**
+     * Validate the proxy authentication requirement at construction.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private ?string $username = null,
         private ?string $password = null,
@@ -32,7 +35,10 @@ final readonly class HttpConnectHandshake
         }
     }
 
-    /** Build CONNECT for the destination origin, never an arbitrary request path. */
+    /**
+     * Build CONNECT for the destination origin, never an arbitrary request path.
+     * @throws \InvalidArgumentException
+     */
     public function request(string $host, int $port): string
     {
         if ($port < 1 || $port > 65_535) {
@@ -57,7 +63,10 @@ final readonly class HttpConnectHandshake
             . 'Host: ' . $authority . "\r\n" . $auth . "\r\n";
     }
 
-    /** Parse fragmented 2xx tunnel response, returning consumed length without stealing TLS bytes. */
+    /**
+     * Parse fragmented 2xx tunnel response, returning consumed length without stealing TLS bytes.
+     * @throws \RuntimeException
+     */
     public function responseLength(string $buffer): ?int
     {
         $end = strpos($buffer, "\r\n\r\n");
@@ -92,7 +101,10 @@ final readonly class HttpConnectHandshake
         return $this->username !== null;
     }
 
-    /** @param list<string> $lines */
+    /**
+     * @param list<string> $lines
+     * @throws \RuntimeException
+     */
     private static function assertResponseHeaders(array $lines): void
     {
         foreach ($lines as $line) {
@@ -110,7 +122,10 @@ final readonly class HttpConnectHandshake
         }
     }
 
-    /** Execute the bounded proxy exchange phase. */
+    /**
+     * Execute the bounded proxy exchange phase.
+     * @throws \InvalidArgumentException
+     */
     private static function validateHost(string $host): void
     {
         if ($host === '' || strlen($host) > 253 || str_contains($host, ':')) {

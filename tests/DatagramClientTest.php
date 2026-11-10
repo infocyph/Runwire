@@ -25,13 +25,17 @@ it('round trips real connected IPv4 UDP through the same inbound datagram engine
     });
     expect($client->connectedPeer())->toBe('udp://' . $server->address())
         ->and($client->send('ping')->state)->toBe(DatagramWriteState::SENT);
-    $timeout = $loop->delay(1.0, static fn () => $loop->stop());
+    $timeout = $loop->delay(1.0, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     $loop->cancel($timeout);
     $client->close();
     $server->close();
-    expect($response)->toBeInstanceOf(Datagram::class)
-        ->and($response->payload)->toBe('pong')
+    if (!$response instanceof Datagram) {
+        throw new \RuntimeException('Datagram client callback did not deliver its expected response.');
+    }
+    expect($response->payload)->toBe('pong')
         ->and($response->peerAddress)->toBe($server->address())
         ->and($loop->diagnostics()->readWatchers)->toBe(0);
 });
@@ -51,7 +55,9 @@ it('reuses the server datagram engine for unconnected client sendTo and metadata
     });
     expect($client->connectedPeer())->toBeNull()
         ->and($client->sendTo('hello', $server->address())->sent())->toBeTrue();
-    $timeout = $loop->delay(1.0, static fn () => $loop->stop());
+    $timeout = $loop->delay(1.0, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     $loop->cancel($timeout);
     $client->close();
@@ -72,11 +78,13 @@ it('delivers empty UDP packets and rejects oversized datagrams without merging m
         }
     });
     $client = stream_socket_client('udp://' . $socket->address(), $errno, $error, 0.0);
-    expect($client)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($client);
     expect(stream_socket_sendto($client, ''))->toBe(0)
         ->and(stream_socket_sendto($client, 'oversize'))->toBe(8)
         ->and(stream_socket_sendto($client, 'ok'))->toBe(2);
-    $timeout = $loop->delay(1.0, static fn () => $loop->stop());
+    $timeout = $loop->delay(1.0, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     $loop->cancel($timeout);
     $socket->close();
@@ -115,7 +123,9 @@ it('round trips connected UDP over IPv6 when the local kernel supports it', func
         $loop->stop();
     });
     expect($client->send('ipv6')->sent())->toBeTrue();
-    $timeout = $loop->delay(1.0, static fn () => $loop->stop());
+    $timeout = $loop->delay(1.0, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     $loop->cancel($timeout);
     $client->close();

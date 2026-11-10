@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
@@ -19,7 +21,13 @@ use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\RuntimeCapabilities;
 use Infocyph\Runwire\RuntimeContext;
+use LogicException;
+use OverflowException;
 
+
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchBRuntimeContext(): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(
@@ -122,7 +130,7 @@ it('cancels once and isolates observer failures', function (): void {
     $called = 0;
 
     $token->onCancel(static function (CancellationToken $token): void {
-        throw new LogicException($token->reason()?->value ?? 'missing');
+        throw new LogicException($token->reason()->value ?? 'missing');
     });
     $token->onCancel(static function (CancellationToken $token) use (&$called): void {
         if ($token->isCancelled()) {
@@ -191,8 +199,8 @@ it('binds host requests to the resolved runtime and clears request state after h
         new BufferedRequestBody(''),
     );
     $writer = new CallbackResponseWriter(
-        static function (int $status, Headers $headers): void {},
-        static function (string $chunk): void {},
+        static function (): void {},
+        static function (): void {},
         static function (): void {},
         1_024,
     );

@@ -51,7 +51,11 @@ final class BoundedConnectionPool
     /** @var array<int, array{key:PoolIsolationKey, callback:Closure, timer:int}> */
     private array $waiting = [];
 
-    /** Bound simultaneous active ownership, waiters and idle retention. */
+    /**
+     * Bound simultaneous active ownership, waiters and idle retention.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly int $maxActive = 16,
@@ -77,6 +81,10 @@ final class BoundedConnectionPool
     /**
      * Request an existing healthy socket or a fresh dial slot; no busy retry.
      * @param callable(int,?Connection,?Throwable):void $ready
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function acquire(PoolIsolationKey $key, callable $ready, float $waitSeconds = 10.0): int
     {
@@ -117,7 +125,10 @@ final class BoundedConnectionPool
         return $id;
     }
 
-    /** Number of leased (including pending dial) active connection slots. */
+    /**
+     * Number of leased (including pending dial) active connection slots.
+     * @throws \LogicException
+     */
     public function activeCount(): int
     {
         $this->assertProcessOwner();
@@ -125,7 +136,10 @@ final class BoundedConnectionPool
         return count($this->active);
     }
 
-    /** Cancel a queued waiter exactly once; active leases use release(). */
+    /**
+     * Cancel a queued waiter exactly once; active leases use release().
+     * @throws \LogicException
+     */
     public function cancel(int $id): bool
     {
         $this->assertProcessOwner();
@@ -140,7 +154,10 @@ final class BoundedConnectionPool
         return true;
     }
 
-    /** Shut down all idle connections and settle queued waiters. Active leases are caller-owned. */
+    /**
+     * Shut down all idle connections and settle queued waiters. Active leases are caller-owned.
+     * @throws \Throwable
+     */
     public function close(): void
     {
         $this->assertProcessOwner();
@@ -169,7 +186,10 @@ final class BoundedConnectionPool
         }
     }
 
-    /** Number of quiescent, verified sockets available for identity-safe reuse. */
+    /**
+     * Number of quiescent, verified sockets available for identity-safe reuse.
+     * @throws \LogicException
+     */
     public function idleCount(): int
     {
         $this->assertProcessOwner();
@@ -181,6 +201,7 @@ final class BoundedConnectionPool
      * Snapshot optionally enabled bounded counters without exposing tenant/proxy credentials.
      *
      * @return array<string, int|bool>
+     * @throws \LogicException
      */
     public function metrics(): array
     {
@@ -195,7 +216,11 @@ final class BoundedConnectionPool
         ];
     }
 
-    /** Retire a lease; unhealthy, foreign or closed-pool sockets are aborted. */
+    /**
+     * Retire a lease; unhealthy, foreign or closed-pool sockets are aborted.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function release(int $id, ?Connection $connection = null): bool
     {
         $this->assertProcessOwner();
@@ -217,7 +242,10 @@ final class BoundedConnectionPool
         return true;
     }
 
-    /** Number of bounded FIFO acquisitions awaiting a lease permit. */
+    /**
+     * Number of bounded FIFO acquisitions awaiting a lease permit.
+     * @throws \LogicException
+     */
     public function waitingCount(): int
     {
         $this->assertProcessOwner();
@@ -225,6 +253,9 @@ final class BoundedConnectionPool
         return count($this->waiting);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
@@ -232,6 +263,9 @@ final class BoundedConnectionPool
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function dispatch(): void
     {
         while (!$this->closed && count($this->active) < $this->maxActive && $this->waiting !== []) {
@@ -246,6 +280,9 @@ final class BoundedConnectionPool
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function grant(int $id, PoolIsolationKey $key, Closure $callback): void
     {
         $connection = $this->idle->take($key);
@@ -275,7 +312,10 @@ final class BoundedConnectionPool
         ($entry['callback'])($id, null, $error);
     }
 
-    /** Preserve socket ownership and bounded opt-in accounting after lease retirement. */
+    /**
+     * Preserve socket ownership and bounded opt-in accounting after lease retirement.
+     * @throws \Throwable
+     */
     private function retainReleasedConnection(PoolIsolationKey $key, Connection $connection): void
     {
         if ($this->closed) {

@@ -1,0 +1,53 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Infocyph\Runwire\Tests;
+
+use Infocyph\Runwire\Loop\SelectLoop;
+use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\ConnectionLimits;
+use Infocyph\Runwire\Network\Internal\VerifiedTargetTlsUpgrade;
+use Infocyph\Runwire\Network\TlsClientOptions;
+use LogicException;
+use RuntimeException;
+use Throwable;
+
+
+it('fails a closed post-tunnel TLS stream without starting an asynchronous handshake', function (): void {
+    runwireOwnedVerifiedTargetTlsUpgradeTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedVerifiedTargetTlsUpgradeTestCase01(): void
+{
+    $stream = fopen('php://temp', 'w+');
+    if (!is_resource($stream)) {
+        throw new RuntimeException('Unable to open the closed TLS-stream fixture.');
+    }
+    fclose($stream);
+
+    $calls = 0;
+    $connection = null;
+    $error = null;
+
+    VerifiedTargetTlsUpgrade::start(
+        new SelectLoop(),
+        $stream,
+        new TlsClientOptions(peerName: 'example.com'),
+        new ConnectionLimits(),
+        false,
+        null,
+        static function (?Connection $result, ?Throwable $failure) use (&$calls, &$connection, &$error): void {
+            ++$calls;
+            $connection = $result;
+            $error = $failure;
+        },
+    );
+    \PHPUnit\Framework\Assert::assertInstanceOf(LogicException::class, $error);
+
+    expect($calls)->toBe(1)
+        ->and($connection)->toBeNull();
+}

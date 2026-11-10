@@ -13,7 +13,7 @@ final class ProcessHandle
 {
     private const int MAX_DETACHED_HANDLES = 64;
 
-    /** @var list<array{resource: resource, pid: ?int, process_group: bool}> */
+    /** @var list<array{resource: resource|closed-resource, pid: ?int, process_group: bool}> */
     private static array $detached = [];
 
     private readonly ?int $pid;
@@ -97,7 +97,10 @@ final class ProcessHandle
         return proc_close($resource);
     }
 
-    /** @return resource */
+    /**
+     * @return resource
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     public function resource(): mixed
     {
         if (!is_resource($this->resource)) {
@@ -129,8 +132,8 @@ final class ProcessHandle
     {
         self::reapDetached();
         while (count(self::$detached) >= self::MAX_DETACHED_HANDLES) {
-            $oldest = array_shift(self::$detached);
-            if (!is_resource($oldest['resource'])) {
+            $oldest = self::shiftDetached();
+            if ($oldest === null || !is_resource($oldest['resource'])) {
                 continue;
             }
 
@@ -150,6 +153,16 @@ final class ProcessHandle
             'pid' => $pid,
             'process_group' => $processGroup,
         ];
+    }
+
+    /**
+     * Return the oldest detached child, which can be absent if ownership changes.
+     *
+     * @return array{resource: resource|closed-resource, pid: ?int, process_group: bool}|null
+     */
+    private static function shiftDetached(): ?array
+    {
+        return array_shift(self::$detached);
     }
 
     private function isolateProcessGroup(): bool

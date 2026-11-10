@@ -22,7 +22,7 @@ it('retires owned pool waiters and QUIC worker resources on stop without duplica
         $context->ownQuicSession($quic);
         $id = $pool->acquire($key, static function (): void {});
         $pool->acquire($key, static function (int $waiterId, mixed $connection, ?Throwable $error) use (&$closed): void {
-            unset($connection);
+            expect($connection)->toBeNull();
             $closed[] = [$waiterId, $error];
         });
         expect($pool->waitingCount())->toBe(1);

@@ -19,6 +19,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
 {
     /**
      * Create a runtime context from explicit execution metadata and capabilities.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public RuntimeDriver $driver,
@@ -53,6 +54,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
 
     /**
      * Build a runtime context directly from a resolved capability set.
+     * @throws \InvalidArgumentException
      */
     public static function fromCapabilities(
         RuntimeCapabilities $capabilities,
@@ -81,6 +83,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
 
     /**
      * Create a minimal standalone context for work outside a managed runtime.
+     * @throws \InvalidArgumentException
      */
     public static function standalone(): self
     {
@@ -91,6 +94,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
 
     /**
      * Require a runtime capability or fail with a runtime availability error.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function requireCapability(RuntimeCapability $capability): void
     {
@@ -105,6 +109,7 @@ final readonly class RuntimeContext implements MetricsProviderInterface
     /**
      * Capture the current runtime metrics snapshot.
      */
+    #[\Override]
     public function snapshot(): RuntimeMetricsSnapshot
     {
         return $this->metrics->snapshot();

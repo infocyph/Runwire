@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 it('propagates the event loop and native reset counters through every async QUIC callback boundary', function (): void {
     $fixture = file_get_contents(dirname(__DIR__) . '/tests/fixtures/quic_session_echo_client.php');
-    expect($fixture)->toBeString()
+    \PHPUnit\Framework\Assert::assertIsString($fixture);
+    expect($fixture)
         ->toContain('use ($session, $loop, $stop, $exchange, $sendUni, $rejectUnsupported, $options, &$completed, &$nativeResets, &$postResetBidi, &$readyWrites): void')
         ->toContain('use ($session, $loop, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void')
         ->toContain('use ($session, $loop, $stop, $sendUni, $exchange, &$readyWrites, &$nativeResets, &$postResetBidi): void')

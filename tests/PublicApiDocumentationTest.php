@@ -14,68 +14,6 @@ it('documents source types and public methods', function (): void {
         new RecursiveDirectoryIterator($sourceRoot, FilesystemIterator::SKIP_DOTS),
     );
 
-    $hasDocCommentBefore = static function (array $tokens, int $index): bool {
-        $attributeDepth = 0;
-
-        for (--$index; $index >= 0; --$index) {
-            $token = $tokens[$index];
-
-            if ($token === ']') {
-                ++$attributeDepth;
-
-                continue;
-            }
-            if ($attributeDepth > 0) {
-                if (is_array($token) && $token[0] === T_ATTRIBUTE) {
-                    --$attributeDepth;
-                }
-
-                continue;
-            }
-            if (is_string($token)) {
-                if ($token === '&') {
-                    continue;
-                }
-
-                return false;
-            }
-
-            if ($token[0] === T_DOC_COMMENT) {
-                return true;
-            }
-            if (in_array($token[0], [
-                T_WHITESPACE,
-                T_COMMENT,
-                T_PUBLIC,
-                T_PROTECTED,
-                T_PRIVATE,
-                T_STATIC,
-                T_FINAL,
-                T_ABSTRACT,
-                T_READONLY,
-            ], true)) {
-                continue;
-            }
-
-            return false;
-        }
-
-        return false;
-    };
-
-    $previousMeaningfulToken = static function (array $tokens, int $index): array|string|null {
-        for (--$index; $index >= 0; --$index) {
-            $token = $tokens[$index];
-            if (is_array($token) && in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
-                continue;
-            }
-
-            return $token;
-        }
-
-        return null;
-    };
-
     /** @var SplFileInfo $file */
     foreach ($iterator as $file) {
         if (!$file->isFile() || $file->getExtension() !== 'php') {
@@ -118,7 +56,7 @@ it('documents source types and public methods', function (): void {
             }
 
             if (in_array($token[0], [T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM], true)) {
-                $previous = $previousMeaningfulToken($tokens, $index);
+                $previous = runwirePreviousMeaningfulToken($tokens, $index);
                 if (
                     $token[0] === T_CLASS
                     && is_array($previous)
@@ -127,7 +65,7 @@ it('documents source types and public methods', function (): void {
                     continue;
                 }
 
-                if (!$hasDocCommentBefore($tokens, $index)) {
+                if (!runwireHasDocCommentBefore($tokens, $index)) {
                     $violations[] = sprintf('%s:%d type declaration is missing a docblock.', $relative, $token[2]);
                 }
                 $pendingType = true;
@@ -151,6 +89,7 @@ it('documents source types and public methods', function (): void {
                 }
                 if (in_array($modifier[0], [T_PRIVATE, T_PROTECTED], true)) {
                     $isNonPublic = true;
+
                     break;
                 }
                 if (in_array($modifier[0], [T_FUNCTION, T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM], true)) {
@@ -158,7 +97,7 @@ it('documents source types and public methods', function (): void {
                 }
             }
 
-            if ($isNonPublic || $hasDocCommentBefore($tokens, $index)) {
+            if ($isNonPublic || runwireHasDocCommentBefore($tokens, $index)) {
                 continue;
             }
 
@@ -167,6 +106,7 @@ it('documents source types and public methods', function (): void {
                 $nameToken = $tokens[$nameIndex];
                 if (is_array($nameToken) && $nameToken[0] === T_STRING) {
                     $methodName = $nameToken[1];
+
                     break;
                 }
                 if ($nameToken === '(') {
@@ -182,3 +122,75 @@ it('documents source types and public methods', function (): void {
 
     expect($violations)->toBe([]);
 });
+
+/** @param list<array{0:int,1:string,2:int}|string> $tokens */
+function runwireHasDocCommentBefore(array $tokens, int $index): bool
+{
+    $attributeDepth = 0;
+
+    for (--$index; $index >= 0; --$index) {
+        $token = $tokens[$index];
+
+        $insideAttribute = $attributeDepth > 0 || $token === ']';
+        $attributeDepth = runwireDocAttributeDepth($token, $attributeDepth);
+        if ($insideAttribute) {
+            continue;
+        }
+        if (is_string($token)) {
+            if ($token === '&') {
+                continue;
+            }
+
+            return false;
+        }
+
+        if (in_array($token[0], [
+            T_WHITESPACE,
+            T_COMMENT,
+            T_PUBLIC,
+            T_PROTECTED,
+            T_PRIVATE,
+            T_STATIC,
+            T_FINAL,
+            T_ABSTRACT,
+            T_READONLY,
+        ], true)) {
+            continue;
+        }
+
+        return $token[0] === T_DOC_COMMENT;
+    }
+
+    return false;
+}
+
+/**
+         * @param list<array{0:int,1:string,2:int}|string> $tokens
+         * @return array{0:int,1:string,2:int}|string|null
+         */
+function runwirePreviousMeaningfulToken(array $tokens, int $index): array|string|null
+{
+    for (--$index; $index >= 0; --$index) {
+        $token = $tokens[$index];
+        if (is_array($token) && in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+            continue;
+        }
+
+        return $token;
+    }
+
+    return null;
+}
+
+/** @param array{0:int,1:string,2:int}|string $token */
+function runwireDocAttributeDepth(array|string $token, int $depth): int
+{
+    if ($token === ']') {
+        return $depth + 1;
+    }
+    if ($depth > 0 && is_array($token) && $token[0] === T_ATTRIBUTE) {
+        return $depth - 1;
+    }
+
+    return $depth;
+}

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/SocketFixture.php';
+
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\DialEndpoint;
@@ -12,10 +15,10 @@ use Infocyph\Runwire\Network\Enum\ConnectionState;
 it('establishes a real numeric IPv4 TCP connection without blocking on stream acceptance', function (): void {
     $server = stream_socket_server('tcp://127.0.0.1:0', $code, $message);
     if (!is_resource($server)) {
-        throw new RuntimeException($message);
+        throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'Socket operation failed.');
     }
     $address = stream_socket_get_name($server, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
     $loop = new SelectLoop();
     $dialer = new Dialer($loop);
     $resolved = null;
@@ -26,12 +29,12 @@ it('establishes a real numeric IPv4 TCP connection without blocking on stream ac
         $loop->stop();
     });
     $loop->run();
-    expect($failed)->toBeNull()
-        ->and($resolved)->toBeInstanceOf(Connection::class)
-        ->and($resolved->state())->toBe(ConnectionState::OPEN)
+    \PHPUnit\Framework\Assert::assertInstanceOf(Connection::class, $resolved);
+    expect($failed)->toBeNull();
+    expect($resolved->state())->toBe(ConnectionState::OPEN)
         ->and($dialer->pendingCount())->toBe(0);
     $peer = stream_socket_accept($server, 1.0);
-    expect($peer)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($peer);
     $resolved->abort();
     fclose($peer);
     fclose($server);
@@ -44,7 +47,7 @@ it('connects a real Unix-domain socket and rejects synchronous DNS fallback', fu
     $path = sys_get_temp_dir() . '/runwire-dial-' . bin2hex(random_bytes(8)) . '.sock';
     $listener = stream_socket_server('unix://' . $path, $errno, $message);
     if (!is_resource($listener)) {
-        throw new RuntimeException($message);
+        throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'Socket operation failed.');
     }
     try {
         $loop = new SelectLoop();
@@ -58,10 +61,10 @@ it('connects a real Unix-domain socket and rejects synchronous DNS fallback', fu
             $loop->stop();
         });
         $loop->run();
-        expect($resolved)->toBeInstanceOf(Connection::class)
-            ->and($dialer->pendingCount())->toBe(0);
+        \PHPUnit\Framework\Assert::assertInstanceOf(Connection::class, $resolved);
+        expect($dialer->pendingCount())->toBe(0);
         $peer = stream_socket_accept($listener, 1.0);
-        expect($peer)->toBeResource();
+        \PHPUnit\Framework\Assert::assertIsResource($peer);
         $resolved->abort();
         fclose($peer);
     } finally {
@@ -73,10 +76,10 @@ it('connects a real Unix-domain socket and rejects synchronous DNS fallback', fu
 it('rejects over-capacity dials and releases watchers and socket timers on cancellation', function (): void {
     $server = stream_socket_server('tcp://127.0.0.1:0', $code, $message);
     if (!is_resource($server)) {
-        throw new RuntimeException($message);
+        throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'Socket operation failed.');
     }
     $address = stream_socket_get_name($server, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
     $loop = new SelectLoop();
     $dialer = new Dialer($loop, 1);
     $events = [];
@@ -107,7 +110,7 @@ it('validates outgoing nonblocking TCP connectivity on a live IPv6 loopback peer
         return;
     }
     $address = stream_socket_get_name($listener, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
     $loop = new SelectLoop();
     $dialer = new Dialer($loop);
     $connection = null;
@@ -118,12 +121,12 @@ it('validates outgoing nonblocking TCP connectivity on a live IPv6 loopback peer
         $loop->stop();
     });
     $loop->run();
+    \PHPUnit\Framework\Assert::assertInstanceOf(Connection::class, $connection);
     expect($error)->toBeNull()
-        ->and($connection)->toBeInstanceOf(Connection::class)
         ->and($connection->state())->toBe(ConnectionState::OPEN)
         ->and($dialer->pendingCount())->toBe(0);
     $peer = stream_socket_accept($listener, 1.0);
-    expect($peer)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($peer);
     $connection->abort();
     fclose($peer);
     fclose($listener);
@@ -147,7 +150,7 @@ it('reports a missing Unix peer without a blocking fallback or leaked watcher', 
     }
     if (!$failedAtCreation) {
         $loop->run();
-        expect($error)->toBeInstanceOf(RuntimeException::class);
+        \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
     }
     expect($dialer->pendingCount())->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)

@@ -20,7 +20,10 @@ final class AutoscaleHysteresis
 
     private int $lowSamples = 0;
 
-    /** Define stable capacity thresholds without scheduling any process work. */
+    /**
+     * Define stable capacity thresholds without scheduling any process work.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly int $minWorkers,
         private readonly int $maxWorkers,
@@ -44,6 +47,7 @@ final class AutoscaleHysteresis
      * Return an at-most-one-worker capacity change from monotonic samples.
      * Request backlog prevents idle-down, and a full worker group may scale
      * out even before the application records a queued request.
+     * @throws \InvalidArgumentException
      */
     public function propose(int $current, int $busy, int $queued, int $nowNanoseconds): int
     {
@@ -56,7 +60,7 @@ final class AutoscaleHysteresis
         $this->lowSamples = $low ? min($this->lowSamples + 1, $this->scaleInSamples) : 0;
 
         if ($this->lastChangeNanoseconds !== null
-            && ($nowNanoseconds - $this->lastChangeNanoseconds) < $this->cooldownSeconds * 1_000_000_000) {
+            && ($nowNanoseconds - $this->lastChangeNanoseconds) < $this->cooldownSeconds * 1_000_000_000.0) {
             return $current;
         }
         if ($this->highSamples >= $this->scaleOutSamples && $current < $this->maxWorkers) {
@@ -77,6 +81,9 @@ final class AutoscaleHysteresis
         $this->lastChangeNanoseconds = null;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function assertSample(int $current, int $busy, int $queued, int $nowNanoseconds): void
     {
         if ($current < $this->minWorkers || $current > $this->maxWorkers

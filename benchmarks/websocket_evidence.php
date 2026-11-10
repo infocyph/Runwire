@@ -6,7 +6,12 @@ final class WebSocketEvidenceProtocolFailure extends RuntimeException {}
 
 final class WebSocketEvidenceTimeout extends RuntimeException {}
 
-/** @return resource */
+/**
+ * @return resource
+ * @throws \RuntimeException
+ * @throws \WebSocketEvidenceProtocolFailure
+ * @throws \WebSocketEvidenceTimeout
+ */
 function wsConnect(int $port): mixed
 {
     $socket = stream_socket_client(
@@ -41,10 +46,11 @@ function wsConnect(int $port): mixed
     $expected = base64_encode(sha1($key . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
     $headers = [];
     foreach (explode("\r\n", $head) as $line) {
-        if (!str_contains($line, ':')) {
+        $parts = explode(':', $line, 2);
+        if (count($parts) !== 2) {
             continue;
         }
-        [$name, $value] = explode(':', $line, 2);
+        [$name, $value] = $parts;
         $headers[strtolower(trim($name))] = trim($value);
     }
     if (($headers['sec-websocket-accept'] ?? '') !== $expected) {
@@ -56,7 +62,27 @@ function wsConnect(int $port): mixed
     return $socket;
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws WebSocketEvidenceTimeout
+ * @throws WebSocketEvidenceProtocolFailure
+ */
+function wsCheckEmptyRead(mixed $socket, string $timeout, string $closed): void
+{
+    $metadata = stream_get_meta_data($socket);
+    if ($metadata['timed_out']) {
+        throw new WebSocketEvidenceTimeout($timeout);
+    }
+    if (feof($socket)) {
+        throw new WebSocketEvidenceProtocolFailure($closed);
+    }
+}
+
+/**
+ * @param resource $socket
+ * @throws \WebSocketEvidenceTimeout
+ * @throws \RuntimeException
+ */
 function wsReadHead(mixed $socket): string
 {
     $buffer = '';
@@ -70,13 +96,7 @@ function wsReadHead(mixed $socket): string
             throw new RuntimeException('Unable to read WebSocket handshake.');
         }
         if ($chunk === '') {
-            $metadata = stream_get_meta_data($socket);
-            if (($metadata['timed_out'] ?? false) === true) {
-                throw new WebSocketEvidenceTimeout('Timed out reading WebSocket handshake.');
-            }
-            if (feof($socket)) {
-                throw new WebSocketEvidenceProtocolFailure('Peer closed during WebSocket handshake.');
-            }
+            wsCheckEmptyRead($socket, 'Timed out reading WebSocket handshake.', 'Peer closed during WebSocket handshake.');
 
             continue;
         }
@@ -88,7 +108,12 @@ function wsReadHead(mixed $socket): string
     return $head . "\r\n\r\n";
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \InvalidArgumentException
+ * @throws \WebSocketEvidenceTimeout
+ * @throws \RuntimeException
+ */
 function wsReadExact(mixed $socket, int $bytes): string
 {
     if ($bytes < 0) {
@@ -102,13 +127,7 @@ function wsReadExact(mixed $socket, int $bytes): string
             throw new RuntimeException('Unable to read WebSocket frame.');
         }
         if ($chunk === '') {
-            $metadata = stream_get_meta_data($socket);
-            if (($metadata['timed_out'] ?? false) === true) {
-                throw new WebSocketEvidenceTimeout('Timed out reading WebSocket frame.');
-            }
-            if (feof($socket)) {
-                throw new WebSocketEvidenceProtocolFailure('Peer closed before the WebSocket frame completed.');
-            }
+            wsCheckEmptyRead($socket, 'Timed out reading WebSocket frame.', 'Peer closed before the WebSocket frame completed.');
 
             continue;
         }
@@ -120,7 +139,47 @@ function wsReadExact(mixed $socket, int $bytes): string
 
 /**
  * @param resource $socket
+ * @throws RuntimeException
+ * @throws WebSocketEvidenceTimeout
+ * @throws WebSocketEvidenceProtocolFailure
+   * @throws \InvalidArgumentException
+ */
+function wsFrameLength(mixed $socket, int $indicator): int
+{
+    if ($indicator < 126) {
+        return $indicator;
+    }
+    if ($indicator === 126) {
+        $extended = wsReadExact($socket, 2);
+        $length = (ord($extended[0]) << 8) | ord($extended[1]);
+        if ($length < 126) {
+            throw new WebSocketEvidenceProtocolFailure('Server used a non-minimal 16-bit frame length.');
+        }
+
+        return $length;
+    }
+    $extended = wsReadExact($socket, 8);
+    if (ord($extended[0]) !== 0 || ord($extended[1]) !== 0 || ord($extended[2]) !== 0 || ord($extended[3]) !== 0) {
+        throw new WebSocketEvidenceProtocolFailure('Evidence client refuses frames above 32-bit length.');
+    }
+    $length = (ord($extended[4]) << 24)
+        | (ord($extended[5]) << 16)
+        | (ord($extended[6]) << 8)
+        | ord($extended[7]);
+    if ($length < 65_536) {
+        throw new WebSocketEvidenceProtocolFailure('Server used a non-minimal 64-bit frame length.');
+    }
+
+    return $length;
+}
+
+/**
+ * @param resource $socket
  * @return array{opcode: int, fin: bool, payload: string}
+ * @throws \WebSocketEvidenceProtocolFailure
+ * @throws \InvalidArgumentException
+ * @throws \WebSocketEvidenceTimeout
+ * @throws \RuntimeException
  */
 function wsReadFrame(mixed $socket): array
 {
@@ -137,27 +196,7 @@ function wsReadFrame(mixed $socket): array
     }
 
     $indicator = $second & 0x7f;
-    if ($indicator < 126) {
-        $length = $indicator;
-    } elseif ($indicator === 126) {
-        $extended = wsReadExact($socket, 2);
-        $length = (ord($extended[0]) << 8) | ord($extended[1]);
-        if ($length < 126) {
-            throw new WebSocketEvidenceProtocolFailure('Server used a non-minimal 16-bit frame length.');
-        }
-    } else {
-        $extended = wsReadExact($socket, 8);
-        if (ord($extended[0]) !== 0 || ord($extended[1]) !== 0 || ord($extended[2]) !== 0 || ord($extended[3]) !== 0) {
-            throw new WebSocketEvidenceProtocolFailure('Evidence client refuses frames above 32-bit length.');
-        }
-        $length = (ord($extended[4]) << 24)
-            | (ord($extended[5]) << 16)
-            | (ord($extended[6]) << 8)
-            | ord($extended[7]);
-        if ($length < 65_536) {
-            throw new WebSocketEvidenceProtocolFailure('Server used a non-minimal 64-bit frame length.');
-        }
-    }
+    $length = wsFrameLength($socket, $indicator);
     if ($length > 1_048_576) {
         throw new WebSocketEvidenceProtocolFailure('Server frame exceeded the 1 MiB evidence ceiling.');
     }
@@ -172,7 +211,12 @@ function wsReadFrame(mixed $socket): array
     ];
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \InvalidArgumentException
+ * @throws \WebSocketEvidenceTimeout
+ * @throws \RuntimeException
+ */
 function wsWriteFrame(mixed $socket, int $opcode, string $payload): void
 {
     if ($opcode < 0 || $opcode > 15) {
@@ -198,7 +242,11 @@ function wsWriteFrame(mixed $socket, int $opcode, string $payload): void
     wsWriteAll($socket, $head . $mask . $masked);
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \WebSocketEvidenceTimeout
+ * @throws \RuntimeException
+ */
 function wsWriteAll(mixed $socket, string $wire): void
 {
     $offset = 0;
@@ -210,7 +258,7 @@ function wsWriteAll(mixed $socket, string $wire): void
         }
         if ($written === 0) {
             $metadata = stream_get_meta_data($socket);
-            if (($metadata['timed_out'] ?? false) === true) {
+            if ($metadata['timed_out'] === true) {
                 throw new WebSocketEvidenceTimeout('Timed out writing WebSocket bytes.');
             }
 
@@ -223,7 +271,12 @@ function wsWriteAll(mixed $socket, string $wire): void
     }
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \WebSocketEvidenceTimeout
+ * @throws \RuntimeException
+ * @throws \InvalidArgumentException
+ */
 function wsAwaitDataFrame(mixed $socket, int $expectedOpcode): string
 {
     while (true) {
@@ -244,7 +297,12 @@ function wsAwaitDataFrame(mixed $socket, int $expectedOpcode): string
     }
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \InvalidArgumentException
+ * @throws \WebSocketEvidenceTimeout
+ * @throws \RuntimeException
+ */
 function wsPing(mixed $socket, string $payload): void
 {
     wsWriteFrame($socket, 0x9, $payload);
@@ -263,7 +321,13 @@ function wsPing(mixed $socket, string $payload): void
     }
 }
 
-/** @param resource $socket */
+/**
+ * @param resource $socket
+ * @throws \WebSocketEvidenceProtocolFailure
+ * @throws \InvalidArgumentException
+   * @throws \WebSocketEvidenceTimeout
+   * @throws \RuntimeException
+ */
 function wsClose(mixed $socket): void
 {
     wsWriteFrame($socket, 0x8, pack('n', 1000));
@@ -313,10 +377,14 @@ function wsWorker(int $port, float $duration, int $workerId): array
     ];
     $latencies = [];
     $errorSample = '';
-    $socket = null;
+    $owner = new class {
+        /** @var resource|closed-resource|null */
+        public mixed $socket = null;
+    };
 
     try {
         $socket = wsConnect($port);
+        $owner->socket = $socket;
         $deadline = microtime(true) + $duration;
         $sequence = 0;
 
@@ -348,7 +416,7 @@ function wsWorker(int $port, float $duration, int $workerId): array
         }
 
         wsClose($socket);
-        $socket = null;
+        $owner->socket = null;
     } catch (WebSocketEvidenceTimeout $error) {
         ++$counters['timeouts'];
         $errorSample = 'timeout: ' . $error->getMessage();
@@ -356,9 +424,7 @@ function wsWorker(int $port, float $duration, int $workerId): array
         ++$counters['errors'];
         $errorSample = $error::class . ': ' . $error->getMessage();
     } finally {
-        if (is_resource($socket)) {
-            fclose($socket);
-        }
+        wsReleaseSocket($owner->socket);
     }
 
     return [
@@ -368,8 +434,126 @@ function wsWorker(int $port, float $duration, int $workerId): array
     ];
 }
 
-/** @return ?array<string, mixed> Null is returned in forked child processes after writing their result. */
-function wsTrial(int $port, int $concurrency, float $duration): ?array
+/**
+ * @param array<array-key,mixed> $record
+ * @throws WebSocketEvidenceProtocolFailure
+ */
+function wsCounter(array $record, string $name): int
+{
+    $value = $record[$name] ?? null;
+    if (!is_int($value) || $value < 0) {
+        throw new WebSocketEvidenceProtocolFailure('Worker requires a non-negative integer counter: ' . $name);
+    }
+
+    return $value;
+}
+
+/**
+ * @return list<float>
+ * @throws WebSocketEvidenceProtocolFailure
+ */
+function wsLatencies(mixed $value): array
+{
+    if (!is_array($value) || !array_is_list($value)) {
+        throw new WebSocketEvidenceProtocolFailure('Worker latency samples must be a list.');
+    }
+    $latencies = [];
+    foreach ($value as $sample) {
+        if ((!is_int($sample) && !is_float($sample)) || !is_finite((float) $sample) || $sample < 0) {
+            throw new WebSocketEvidenceProtocolFailure('Worker latency samples must be finite non-negative numbers.');
+        }
+        $latencies[] = (float) $sample;
+    }
+
+    return $latencies;
+}
+
+/**
+ * @return array{messages:int,successful_messages:int,pings:int,errors:int,timeouts:int,validation_failures:int,latencies:list<float>,error_sample:string}
+ * @throws WebSocketEvidenceProtocolFailure
+ */
+function wsWorkerResult(mixed $value): array
+{
+    $errorSample = is_array($value) ? ($value['error_sample'] ?? null) : null;
+    if (!is_array($value) || !is_string($errorSample)) {
+        throw new WebSocketEvidenceProtocolFailure('Worker returned an incomplete evidence object.');
+    }
+    $result = [
+        'messages' => wsCounter($value, 'messages'),
+        'successful_messages' => wsCounter($value, 'successful_messages'),
+        'pings' => wsCounter($value, 'pings'),
+        'errors' => wsCounter($value, 'errors'),
+        'timeouts' => wsCounter($value, 'timeouts'),
+        'validation_failures' => wsCounter($value, 'validation_failures'),
+        'latencies' => wsLatencies($value['latencies'] ?? null),
+        'error_sample' => $errorSample,
+    ];
+    if ($result['successful_messages'] > $result['messages']
+        || count($result['latencies']) !== $result['successful_messages']) {
+        throw new WebSocketEvidenceProtocolFailure('Worker message counters and latency samples disagree.');
+    }
+
+    return $result;
+}
+
+/** @return array{messages:int,successful_messages:int,pings:int,errors:int,timeouts:int,validation_failures:int,latencies:list<float>,error_sample:string} */
+function wsFailedWorker(string $message): array
+{
+    return [
+        'messages' => 0, 'successful_messages' => 0, 'pings' => 0,
+        'errors' => 1, 'timeouts' => 0, 'validation_failures' => 0,
+        'latencies' => [], 'error_sample' => $message,
+    ];
+}
+
+/** @return array{messages:int,successful_messages:int,pings:int,errors:int,timeouts:int,validation_failures:int,latencies:list<float>,error_sample:string} */
+function wsChildRecord(mixed $status, mixed $raw): array
+{
+    if (!is_int($status) || !pcntl_wifexited($status) || pcntl_wexitstatus($status) !== 0
+        || !is_string($raw) || $raw === '') {
+        return wsFailedWorker('worker returned no evidence');
+    }
+
+    try {
+        return wsWorkerResult(json_decode($raw, true, flags: JSON_THROW_ON_ERROR));
+    } catch (JsonException|WebSocketEvidenceProtocolFailure $error) {
+        return wsFailedWorker('worker returned invalid evidence: ' . $error->getMessage());
+    }
+}
+
+/**
+ * @param array{pid:int,path:string} $child
+ * @return array{messages:int,successful_messages:int,pings:int,errors:int,timeouts:int,validation_failures:int,latencies:list<float>,error_sample:string}
+ */
+function wsCollectChild(array $child): array
+{
+    pcntl_waitpid($child['pid'], $status);
+    $raw = is_file($child['path']) ? file_get_contents($child['path']) : false;
+    if (is_file($child['path'])) {
+        unlink($child['path']);
+    }
+
+    return wsChildRecord($status, $raw);
+}
+
+/**
+ * @param array{messages:int,successful_messages:int,pings:int,errors:int,timeouts:int,validation_failures:int,latencies:list<float>,error_sample:string} $result
+ * @throws RuntimeException
+ * @throws JsonException
+ */
+function wsPublishWorker(string $path, array $result): void
+{
+    if (file_put_contents($path, json_encode($result, JSON_THROW_ON_ERROR)) === false) {
+        throw new RuntimeException('Unable to publish WebSocket child evidence.');
+    }
+}
+
+/**
+ * @return list<array{pid:int,path:string}>|null
+ * @throws RuntimeException
+ * @throws JsonException
+ */
+function wsStartChildren(int $port, int $concurrency, float $duration): ?array
 {
     if (!function_exists('pcntl_fork')) {
         throw new RuntimeException('WebSocket evidence requires pcntl_fork().');
@@ -393,12 +577,27 @@ function wsTrial(int $port, int $concurrency, float $duration): ?array
         }
         if ($pid === 0) {
             $result = wsWorker($port, $duration, $worker);
-            file_put_contents($path, json_encode($result, JSON_THROW_ON_ERROR));
+            wsPublishWorker($path, $result);
 
             return null;
         }
 
         $children[] = ['pid' => $pid, 'path' => $path];
+    }
+
+    return $children;
+}
+
+/**
+ * @return array{messages:int,successful_messages:int,pings:int,errors:int,timeouts:int,validation_failures:int,error_samples:list<string>,duration_seconds:float,messages_per_second:float,latency_ms:array{p50:float,p95:float,p99:float},correctness_passed:bool}|null Null is returned in forked child processes after writing their result.
+ * @throws \RuntimeException
+   * @throws \JsonException
+ */
+function wsTrial(int $port, int $concurrency, float $duration): ?array
+{
+    $children = wsStartChildren($port, $concurrency, $duration);
+    if ($children === null) {
+        return null;
     }
 
     $messages = $successful = $pings = $errors = $timeouts = $validationFailures = 0;
@@ -407,48 +606,18 @@ function wsTrial(int $port, int $concurrency, float $duration): ?array
     $started = microtime(true);
 
     foreach ($children as $child) {
-        pcntl_waitpid($child['pid'], $status);
-        $raw = file_get_contents($child['path']);
-        if (is_file($child['path'])) {
-            unlink($child['path']);
+        $result = wsCollectChild($child);
+        $messages += $result['messages'];
+        $successful += $result['successful_messages'];
+        $pings += $result['pings'];
+        $errors += $result['errors'];
+        $timeouts += $result['timeouts'];
+        $validationFailures += $result['validation_failures'];
+        foreach ($result['latencies'] as $latency) {
+            $latencies[] = $latency;
         }
-        if (
-            !pcntl_wifexited($status)
-            || pcntl_wexitstatus($status) !== 0
-            || !is_string($raw)
-            || $raw === ''
-        ) {
-            ++$errors;
-            $samples[] = 'worker returned no evidence';
-
-            continue;
-        }
-
-        $result = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
-        if (!is_array($result)) {
-            ++$errors;
-            $samples[] = 'worker returned invalid JSON evidence';
-
-            continue;
-        }
-
-        $messages += (int) ($result['messages'] ?? 0);
-        $successful += (int) ($result['successful_messages'] ?? 0);
-        $pings += (int) ($result['pings'] ?? 0);
-        $errors += (int) ($result['errors'] ?? 0);
-        $timeouts += (int) ($result['timeouts'] ?? 0);
-        $validationFailures += (int) ($result['validation_failures'] ?? 0);
-        $workerLatencies = $result['latencies'] ?? [];
-        if (is_array($workerLatencies)) {
-            foreach ($workerLatencies as $latency) {
-                if (is_int($latency) || is_float($latency)) {
-                    $latencies[] = (float) $latency;
-                }
-            }
-        }
-        $sample = (string) ($result['error_sample'] ?? '');
-        if ($sample !== '' && count($samples) < 10) {
-            $samples[] = $sample;
+        if ($result['error_sample'] !== '' && count($samples) < 10) {
+            $samples[] = $result['error_sample'];
         }
     }
 
@@ -464,7 +633,7 @@ function wsTrial(int $port, int $concurrency, float $duration): ?array
         'validation_failures' => $validationFailures,
         'error_samples' => $samples,
         'duration_seconds' => round($elapsed, 6),
-        'messages_per_second' => round($successful / max($elapsed, 0.000001), 3),
+        'messages_per_second' => round((float) $successful / max($elapsed, 0.000001), 3),
         'latency_ms' => [
             'p50' => round(wsPercentile($latencies, 0.50), 3),
             'p95' => round(wsPercentile($latencies, 0.95), 3),
@@ -485,7 +654,7 @@ function wsPercentile(array $values, float $fraction): float
         return 0.0;
     }
 
-    $index = max(0, min(count($values) - 1, (int) ceil($fraction * count($values)) - 1));
+    $index = max(0, min(count($values) - 1, (int) ceil($fraction * (float) count($values)) - 1));
 
     return $values[$index];
 }
@@ -503,7 +672,7 @@ function wsMedian(array $values): float
 
     return $count % 2 === 1
         ? $values[$middle]
-        : ($values[$middle - 1] + $values[$middle]) / 2;
+        : ($values[$middle - 1] + $values[$middle]) / 2.0;
 }
 
 /** @param list<float> $values */
@@ -514,25 +683,29 @@ function wsCoefficientOfVariation(array $values): float
         return 0.0;
     }
 
-    $mean = array_sum($values) / $count;
+    $mean = array_sum($values) / (float) $count;
     if ($mean <= 0.0) {
         return 0.0;
     }
 
     $sum = 0.0;
     foreach ($values as $value) {
-        $sum += ($value - $mean) ** 2;
+        $sum += ($value - $mean) ** 2.0;
     }
 
-    return sqrt($sum / ($count - 1)) / $mean * 100.0;
+    return sqrt($sum / (float) ($count - 1)) / $mean * 100.0;
 }
 
 function wsSlowReader(int $port): bool
 {
-    $socket = null;
+    $owner = new class {
+        /** @var resource|closed-resource|null */
+        public mixed $socket = null;
+    };
 
     try {
         $socket = wsConnect($port);
+        $owner->socket = $socket;
         $payloads = [];
         for ($index = 0; $index < 32; ++$index) {
             $payload = chr($index & 0xff) . str_repeat('s', 32_767);
@@ -549,27 +722,44 @@ function wsSlowReader(int $port): bool
 
         wsPing($socket, 'slow');
         wsClose($socket);
-        $socket = null;
+        $owner->socket = null;
 
         return true;
     } catch (Throwable) {
         return false;
     } finally {
-        if (is_resource($socket)) {
-            fclose($socket);
-        }
+        wsReleaseSocket($owner->socket);
     }
 }
 
-function wsMain(): void
+/**
+ * @return numeric-string
+ * @throws InvalidArgumentException
+ */
+function wsOptionValue(mixed $value): string
 {
-    $options = getopt('', ['port:', 'concurrency::', 'duration::', 'trials::', 'soak-seconds::']);
-    $port = (int) ($options['port'] ?? 0);
-    $concurrency = (int) ($options['concurrency'] ?? 8);
-    $duration = (float) ($options['duration'] ?? 3.0);
-    $trials = (int) ($options['trials'] ?? 5);
-    $soakSeconds = (float) ($options['soak-seconds'] ?? 0.0);
+    if ($value === false) {
+        return '0';
+    }
+    if (!is_string($value) || !is_numeric($value) || !is_finite((float) $value)) {
+        throw new InvalidArgumentException('WebSocket options require one finite numeric value each.');
+    }
 
+    return $value;
+}
+
+/**
+ * @param array<string,mixed> $options
+ * @return array{port:int,concurrency:int,duration:float,trials:int,soak_seconds:float}
+ * @throws InvalidArgumentException
+ */
+function wsOptions(array $options): array
+{
+    $port = (int) wsOptionValue($options['port'] ?? '0');
+    $concurrency = (int) wsOptionValue($options['concurrency'] ?? '8');
+    $duration = (float) wsOptionValue($options['duration'] ?? '3.0');
+    $trials = (int) wsOptionValue($options['trials'] ?? '5');
+    $soakSeconds = (float) wsOptionValue($options['soak-seconds'] ?? '0.0');
     if ($port < 1 || $port > 65_535) {
         throw new InvalidArgumentException('port must be between 1 and 65535');
     }
@@ -580,15 +770,68 @@ function wsMain(): void
         throw new InvalidArgumentException('duration/trials must be positive and soak-seconds non-negative');
     }
 
-    $slowReaderPassed = wsSlowReader($port);
-    /** @var list<array<string, mixed>> $records */
+    return ['port' => $port, 'concurrency' => $concurrency, 'duration' => $duration, 'trials' => $trials, 'soak_seconds' => $soakSeconds];
+}
+
+/**
+ * @return list<array{messages:int,successful_messages:int,pings:int,errors:int,timeouts:int,validation_failures:int,error_samples:list<string>,duration_seconds:float,messages_per_second:float,latency_ms:array{p50:float,p95:float,p99:float},correctness_passed:bool}>|null
+ * @throws RuntimeException
+ * @throws \JsonException
+ */
+function wsTrialSeries(int $port, int $concurrency, float $duration, int $trials): ?array
+{
     $records = [];
     for ($trial = 0; $trial < $trials; ++$trial) {
         $record = wsTrial($port, $concurrency, $duration);
         if ($record === null) {
-            return;
+            return null;
         }
         $records[] = $record;
+    }
+
+    return $records;
+}
+
+/**
+ * @param list<array{messages:int,successful_messages:int,pings:int,errors:int,timeouts:int,validation_failures:int,error_samples:list<string>,duration_seconds:float,messages_per_second:float,latency_ms:array{p50:float,p95:float,p99:float},correctness_passed:bool}> $records
+ * @return list<string>
+ */
+function wsErrorSamples(array $records): array
+{
+    $samples = [];
+    foreach ($records as $record) {
+        foreach ($record['error_samples'] as $sample) {
+            if (count($samples) < 10) {
+                $samples[] = $sample;
+            }
+        }
+    }
+
+    return $samples;
+}
+
+/**
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+   * @throws \JsonException
+ */
+function wsMain(): void
+{
+    $rawOptions = getopt('', ['port:', 'concurrency::', 'duration::', 'trials::', 'soak-seconds::']);
+    if ($rawOptions === false) {
+        throw new InvalidArgumentException('Unable to read WebSocket benchmark options.');
+    }
+    $options = wsOptions($rawOptions);
+    $port = $options['port'];
+    $concurrency = $options['concurrency'];
+    $duration = $options['duration'];
+    $trials = $options['trials'];
+    $soakSeconds = $options['soak_seconds'];
+
+    $slowReaderPassed = wsSlowReader($port);
+    $records = wsTrialSeries($port, $concurrency, $duration, $trials);
+    if ($records === null) {
+        return;
     }
 
     $soak = null;
@@ -599,23 +842,16 @@ function wsMain(): void
         }
     }
 
-    $rates = array_map(static fn(array $record): float => (float) $record['messages_per_second'], $records);
-    $p95 = array_map(static fn(array $record): float => (float) $record['latency_ms']['p95'], $records);
-    $p99 = array_map(static fn(array $record): float => (float) $record['latency_ms']['p99'], $records);
-    $messages = array_sum(array_map(static fn(array $record): int => (int) $record['messages'], $records));
-    $successful = array_sum(array_map(static fn(array $record): int => (int) $record['successful_messages'], $records));
-    $pings = array_sum(array_map(static fn(array $record): int => (int) $record['pings'], $records));
-    $errors = array_sum(array_map(static fn(array $record): int => (int) $record['errors'], $records));
-    $timeouts = array_sum(array_map(static fn(array $record): int => (int) $record['timeouts'], $records));
-    $validationFailures = array_sum(array_map(static fn(array $record): int => (int) $record['validation_failures'], $records));
-    $samples = [];
-    foreach ($records as $record) {
-        foreach ($record['error_samples'] as $sample) {
-            if (count($samples) < 10) {
-                $samples[] = $sample;
-            }
-        }
-    }
+    $rates = array_map(static fn(array $record): float => $record['messages_per_second'], $records);
+    $p95 = array_map(static fn(array $record): float => $record['latency_ms']['p95'], $records);
+    $p99 = array_map(static fn(array $record): float => $record['latency_ms']['p99'], $records);
+    $messages = array_sum(array_map(static fn(array $record): int => $record['messages'], $records));
+    $successful = array_sum(array_map(static fn(array $record): int => $record['successful_messages'], $records));
+    $pings = array_sum(array_map(static fn(array $record): int => $record['pings'], $records));
+    $errors = array_sum(array_map(static fn(array $record): int => $record['errors'], $records));
+    $timeouts = array_sum(array_map(static fn(array $record): int => $record['timeouts'], $records));
+    $validationFailures = array_sum(array_map(static fn(array $record): int => $record['validation_failures'], $records));
+    $samples = wsErrorSamples($records);
 
     $passed = $slowReaderPassed
         && $messages > 0
@@ -660,4 +896,19 @@ function wsMain(): void
     }
 }
 
-wsMain();
+$scriptFilename = $_SERVER['SCRIPT_FILENAME'] ?? null;
+if (is_string($scriptFilename) && realpath($scriptFilename) === __FILE__) {
+    wsMain();
+}
+
+/**
+ * @param resource|closed-resource|null $socket
+ * @param-out null $socket
+ */
+function wsReleaseSocket(mixed &$socket): void
+{
+    if (is_resource($socket)) {
+        fclose($socket);
+    }
+    $socket = null;
+}

@@ -89,6 +89,9 @@ final class Http3OutboundClient
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     private function __construct(
         private readonly LoopInterface $loop,
@@ -117,6 +120,11 @@ final class Http3OutboundClient
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     * @throws \RuntimeException
      */
     public static function connect(
         LoopInterface $loop,
@@ -136,7 +144,11 @@ final class Http3OutboundClient
         return $client;
     }
 
-    /** Abort exactly once and retire every native worker resource. */
+    /**
+     * Abort exactly once and retire every native worker resource.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function close(): void
     {
         $this->finish(new RuntimeException('HTTP/3 exchange was closed before completion.'));
@@ -150,6 +162,9 @@ final class Http3OutboundClient
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
      * @param null|callable(\Infocyph\Runwire\Http\Headers):void $onTrailers
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function enqueue(
         ClientRequest $request,
@@ -184,7 +199,10 @@ final class Http3OutboundClient
         return $this->siblings->enqueue($request, $onHeaders, $onBody, $completion, $onTrailers);
     }
 
-    /** @param array<string,mixed> $result */
+    /**
+     * @param array<string,mixed> $result
+     * @throws \RuntimeException
+     */
     private static function decodeBytes(array $result): string
     {
         $data = $result['data'] ?? null;
@@ -195,7 +213,10 @@ final class Http3OutboundClient
         return $bytes;
     }
 
-    /** @param array<string,mixed> $result */
+    /**
+     * @param array<string,mixed> $result
+     * @throws \RuntimeException
+     */
     private static function streamId(array $result): int
     {
         $stream = $result['stream'] ?? null;
@@ -206,6 +227,16 @@ final class Http3OutboundClient
         return $stream;
     }
 
+    private static function tokenCancelled(?\Infocyph\Runwire\CancellationToken $token): bool
+    {
+        return $token?->isCancelled() === true;
+    }
+
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function acceptPeerAuxiliary(int $type, string $bytes, int $stream, bool $eof): void
     {
         $outcome = $this->auxiliary->accept(
@@ -230,6 +261,12 @@ final class Http3OutboundClient
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function acceptPeerControl(string $bytes, int $stream, bool $eof): void
     {
         $probe = $this->peerStreams->push($stream, $bytes, $eof);
@@ -271,7 +308,10 @@ final class Http3OutboundClient
         $this->poll(fn() => $this->readControl($stream));
     }
 
-    /** @param array<string,mixed> $result */
+    /**
+     * @param array<string,mixed> $result
+     * @throws \RuntimeException
+     */
     private function assertWritten(array $result, int $length): void
     {
         if (($result['written'] ?? null) !== $length) {
@@ -279,7 +319,11 @@ final class Http3OutboundClient
         }
     }
 
-    /** @param callable(array<string,mixed>):void $next */
+    /**
+     * @param callable(array<string,mixed>):void $next
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function command(string $op, int $stream, string $data, bool $fin, callable $next): void
     {
         if ($this->finished) {
@@ -316,6 +360,10 @@ final class Http3OutboundClient
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function finish(?Throwable $error): void
     {
         if ($this->finished) {
@@ -337,6 +385,10 @@ final class Http3OutboundClient
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function finishIfEmpty(): void
     {
         if ($this->rootCompleted) {
@@ -344,7 +396,11 @@ final class Http3OutboundClient
         }
     }
 
-    /** Serialize decoder feedback on the one locally owned critical stream. */
+    /**
+     * Serialize decoder feedback on the one locally owned critical stream.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function flushQpackFeedback(): void
     {
         $this->qpackFeedbackQueue .= $this->codec->takeDecoderInstructions();
@@ -360,7 +416,11 @@ final class Http3OutboundClient
         });
     }
 
-    /** Establish one persistent local QPACK instruction stream before requests. */
+    /**
+     * Establish one persistent local QPACK instruction stream before requests.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function openQpackStream(StreamType $type, callable $completed): void
     {
         $this->command('open_uni', 0, '', false, function (array $opened) use ($type, $completed): void {
@@ -384,6 +444,10 @@ final class Http3OutboundClient
         });
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function readControl(int $stream): void
     {
         $this->command(
@@ -401,6 +465,10 @@ final class Http3OutboundClient
         );
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function readPeerAuxiliary(int $stream, int $type): void
     {
         $this->command('read', $stream, '', false, function (array $result) use ($stream, $type): void {
@@ -408,6 +476,11 @@ final class Http3OutboundClient
         });
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function readResponse(): void
     {
         $response = $this->response;
@@ -436,7 +509,11 @@ final class Http3OutboundClient
         );
     }
 
-    /** Locate the mandatory peer control stream before processing the response. */
+    /**
+     * Locate the mandatory peer control stream before processing the response.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function receiveControl(): void
     {
         $this->command(
@@ -469,6 +546,10 @@ final class Http3OutboundClient
         $this->cancellation = null;
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function sendControl(int $stream): void
     {
         // This private call site already validates the worker handle via streamId().
@@ -491,6 +572,12 @@ final class Http3OutboundClient
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
+     */
     private function sendRequest(int $stream, int $wireStreamId): void
     {
         if ($stream < 1) {
@@ -519,7 +606,12 @@ final class Http3OutboundClient
         );
     }
 
-    /** Pull one bounded producer chunk only after the previous QUIC write completes. */
+    /**
+     * Pull one bounded producer chunk only after the previous QUIC write completes.
+     * @throws \RuntimeException
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function sendUpload(): void
     {
         $body = $this->request->body;
@@ -555,11 +647,15 @@ final class Http3OutboundClient
         });
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function start(string $host, int $port): void
     {
         $token = $this->request->cancellation;
-        if ($token?->isCancelled()) {
-            $this->finish(new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
+        if (self::tokenCancelled($token)) {
+            $this->finish(new CancelledException($token?->reason() ?? CancellationReason::HOST_CANCELLED));
 
             return;
         }
@@ -617,6 +713,8 @@ final class Http3OutboundClient
      * Write a complete frame through partial, bounded native QUIC writes.
      *
      * @param callable():void $completed
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private function writeAll(int $stream, string $bytes, bool $fin, callable $completed): void
     {
@@ -633,6 +731,8 @@ final class Http3OutboundClient
      * writes without dropping framing bytes or advancing the response early.
      *
      * @param callable():void $completed
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private function writeChunk(int $stream, string $bytes, int $offset, bool $fin, callable $completed): void
     {

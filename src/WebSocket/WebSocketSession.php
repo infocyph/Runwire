@@ -73,6 +73,10 @@ final class WebSocketSession
 
     /**
      * @internal WebSocket sessions are created by the HTTP/1 upgrade owner.
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function __construct(
         LoopInterface $loop,
@@ -127,6 +131,9 @@ final class WebSocketSession
 
     /**
      * Begin a standards-compliant close handshake.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function close(int $code = 1000, string $reason = ''): WriteResult
     {
@@ -150,6 +157,9 @@ final class WebSocketSession
 
     /**
      * Ask an upgraded session to stop accepting application work during worker drain.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function drain(): void
     {
@@ -202,6 +212,7 @@ final class WebSocketSession
      * Register a callback for the next write-pressure relief event.
      *
      * @param callable(self): void $callback
+     * @throws \OverflowException
      */
     public function onDrain(callable $callback): self
     {
@@ -228,6 +239,9 @@ final class WebSocketSession
 
     /**
      * Send a WebSocket ping control frame.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function ping(string $payload = ''): WriteResult
     {
@@ -240,6 +254,9 @@ final class WebSocketSession
 
     /**
      * Send one bounded binary message.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function sendBinary(string $payload): WriteResult
     {
@@ -250,6 +267,9 @@ final class WebSocketSession
 
     /**
      * Send one bounded UTF-8 text message.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function sendText(string $payload): WriteResult
     {
@@ -276,6 +296,9 @@ final class WebSocketSession
         return $options;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     */
     private function appendFragment(string $payload): void
     {
         $length = strlen($payload);
@@ -290,6 +313,9 @@ final class WebSocketSession
         $this->fragmentBuffer .= $payload;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function assertOutboundMessage(string $payload, bool $text): void
     {
         if (strlen($payload) > $this->options->maxFramePayloadBytes) {
@@ -317,6 +343,10 @@ final class WebSocketSession
         $this->fragmentOpcode = null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \Throwable
+     */
     private function deliver(int $opcode, string $payload): void
     {
         if ($opcode === 0x1 && $payload !== '' && preg_match('//u', $payload) !== 1) {
@@ -381,20 +411,20 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \Throwable
+     */
     private function handleContinuation(WebSocketFrame $frame): void
     {
         if ($this->fragmentOpcode === null) {
             throw new WebSocketProtocolException(1002, 'Unexpected WebSocket continuation frame.');
         }
 
+        $opcode = $this->fragmentOpcode;
         $this->appendFragment($frame->payload);
         if (!$frame->fin) {
             return;
-        }
-
-        $opcode = $this->fragmentOpcode;
-        if ($opcode === null) {
-            throw new WebSocketProtocolException(1002, 'Unexpected WebSocket continuation frame.');
         }
 
         $payload = $this->fragmentBuffer;
@@ -402,6 +432,10 @@ final class WebSocketSession
         $this->deliver($opcode, $payload);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \Throwable
+     */
     private function handleDataFrame(WebSocketFrame $frame): void
     {
         if ($this->fragmentOpcode !== null) {
@@ -431,6 +465,11 @@ final class WebSocketSession
         $this->closing = true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function handlePeerClose(string $payload): void
     {
         [$code, $reason] = WebSocketWireCodec::parseClosePayload($payload);
@@ -451,6 +490,10 @@ final class WebSocketSession
         $this->connection->closeGracefully();
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function handlePing(string $payload): void
     {
         $result = $this->sendFrame(0xA, $payload, true);
@@ -459,6 +502,11 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function heartbeat(): void
     {
         if ($this->closed || $this->closing) {
@@ -480,6 +528,9 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function notifyDrain(): void
     {
         if ($this->closed) {
@@ -505,6 +556,9 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function protocolFailure(int $code, string $reason): void
     {
         if ($this->closed) {
@@ -526,6 +580,10 @@ final class WebSocketSession
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     private function pump(): void
     {
         $this->pumpScheduled = false;
@@ -551,7 +609,7 @@ final class WebSocketSession
 
                 $this->dispatchFrame($frames[0]);
                 ++$processed;
-                if ($this->closed) {
+                if ($this->isClosed()) {
                     return;
                 }
             }
@@ -582,6 +640,10 @@ final class WebSocketSession
         });
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function sendApplicationFrame(int $opcode, string $payload): WriteResult
     {
         if ($this->closed || $this->closing) {
@@ -591,6 +653,10 @@ final class WebSocketSession
         return $this->sendFrame($opcode, $payload, false);
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function sendClosePayload(string $payload, int $code, string $reason): WriteResult
     {
         $this->closing = true;
@@ -619,6 +685,10 @@ final class WebSocketSession
         return $result;
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function sendFrame(int $opcode, string $payload, bool $allowClosing): WriteResult
     {
         if ($this->closed || (!$allowClosing && $this->closing)) {

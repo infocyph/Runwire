@@ -37,6 +37,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Creates a RoadRunner response writer with an optional HEAD body suppression mode.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly RoadRunnerSessionInterface $session,
@@ -54,7 +55,10 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Finishes the response, optionally writing a final body chunk.
+     * @throws \LogicException
+     * @throws \Throwable
      */
+    #[\Override]
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -91,6 +95,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     /**
      * Reports whether the response has ended.
      */
+    #[\Override]
     public function isEnded(): bool
     {
         return $this->ended;
@@ -99,6 +104,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     /**
      * Reports whether response status and headers have been started.
      */
+    #[\Override]
     public function isStarted(): bool
     {
         return $this->started;
@@ -107,6 +113,7 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
     /**
      * Registers an immediate drain callback for this non-buffering writer.
      */
+    #[\Override]
     public function onDrain(callable $callback): ResponseWriterInterface
     {
         if (!$this->ended) {
@@ -118,7 +125,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Registers a callback invoked when response ownership becomes terminal.
+     * @throws \OverflowException
      */
+    #[\Override]
     public function onTerminal(callable $callback): self
     {
         $this->terminal->observe($this, $callback);
@@ -128,7 +137,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Starts the response with status and optional headers.
+     * @throws \InvalidArgumentException
      */
+    #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         if ($this->ended) {
@@ -150,7 +161,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
 
     /**
      * Writes one response body chunk through the RoadRunner session.
+     * @throws \LogicException
      */
+    #[\Override]
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {
@@ -176,6 +189,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertCompleteLength(): void
     {
         if ($this->suppressesBody() || $this->contentLength === null || $this->bodyBytes === $this->contentLength) {
@@ -190,6 +206,9 @@ final class RoadRunnerResponseWriter implements ResponseWriterInterface
         return $this->started ? new WriteResult(WriteState::ACCEPTED, 0) : $this->start();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finish(string $body): void
     {
         $this->session->respond($this->status, $body, $this->headerMap(), true);

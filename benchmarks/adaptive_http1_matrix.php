@@ -5,20 +5,21 @@ declare(strict_types=1);
 require __DIR__ . '/http1_sustained_bench.php';
 
 /**
- * @param array{counter:array<string,int>,histogram:array<int,int>,slot_completed:array<int,int>,elapsed:float,peak_rss:int,start_ticks:int,end_ticks:int} $run
+ * @param array{counter:array<string,int>,histogram:array<int,int>,slot_completed:array<int,int>,elapsed:float,peak_rss:int,start_ticks:int,end_ticks:int,io_start:array<string,int>,io_end:array<string,int>} $run
  * @return array<string, int|float|bool>
+ * @throws \RuntimeException
  */
 function adaptiveHttp1Phase(array $run): array
 {
     http1SustainedAssertCorrect($run['counter'], 'Adaptive HTTP/1.1 phase');
 
     $requests = $run['counter']['requests_total'];
-    $ticksPerSecond = function_exists('posix_sysconf') && defined('POSIX_SC_CLK_TCK')
-        ? (int) posix_sysconf(POSIX_SC_CLK_TCK)
-        : 100;
-    $ticksPerSecond = max(1, $ticksPerSecond);
+    $ticks = function_exists('posix_sysconf') && defined('POSIX_SC_CLK_TCK')
+        ? posix_sysconf(POSIX_SC_CLK_TCK)
+        : false;
+    $ticksPerSecond = is_int($ticks) && $ticks > 0 ? $ticks : 100;
     $cpu = $run['elapsed'] > 0
-        ? max(0.0, ($run['end_ticks'] - $run['start_ticks']) / $ticksPerSecond / $run['elapsed'] * 100)
+        ? max(0.0, (float) ($run['end_ticks'] - $run['start_ticks']) / (float) $ticksPerSecond / $run['elapsed'] * 100.0)
         : 0.0;
     $p50 = http1SustainedPercentile($run['histogram'], 0.50);
     $p95 = http1SustainedPercentile($run['histogram'], 0.95);
@@ -35,7 +36,7 @@ function adaptiveHttp1Phase(array $run): array
         'requests' => $requests,
         'errors' => 0,
         'duration_seconds' => $run['elapsed'],
-        'throughput_rps' => $run['elapsed'] > 0 ? round($requests / $run['elapsed'], 3) : 0.0,
+        'throughput_rps' => $run['elapsed'] > 0 ? round((float) $requests / $run['elapsed'], 3) : 0.0,
         'p50_ms' => $p50,
         'p95_ms' => $p95,
         'p99_ms' => $p99,
@@ -46,6 +47,9 @@ function adaptiveHttp1Phase(array $run): array
     ];
 }
 
+if (!isset($argc, $argv)) {
+    throw new RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 5) {
     throw new InvalidArgumentException(
         'Usage: php adaptive_http1_matrix.php <port> <server-pid> <auto|fixed> <phase-seconds>',
@@ -63,10 +67,11 @@ if (!in_array($mode, ['auto', 'fixed'], true) || $phaseSeconds < 1.0) {
     throw new InvalidArgumentException('Adaptive HTTP/1.1 mode or phase duration is invalid.');
 }
 
-$transitionSeconds = max(1.0, min(2.0, $phaseSeconds / 2));
+$transitionSeconds = max(1.0, min(2.0, $phaseSeconds / 2.0));
 $highSeconds = max($phaseSeconds, $phaseSeconds + 2.0);
 
-$warmupSeconds = max(1.0, (float) (getenv('RUNWIRE_ADAPTIVE_WARMUP_SECONDS') ?: 1));
+$warmupValue = getenv('RUNWIRE_ADAPTIVE_WARMUP_SECONDS');
+$warmupSeconds = max(1.0, (float) ($warmupValue === false || $warmupValue === '' || $warmupValue === '0' ? '1' : $warmupValue));
 $warmup = http1SustainedRun('127.0.0.1', $port, 8, $warmupSeconds, $serverPid, false);
 http1SustainedAssertCorrect($warmup['counter'], 'Adaptive HTTP/1.1 warm-up');
 
@@ -94,11 +99,13 @@ foreach ($phases as $name => &$phase) {
 }
 unset($phase);
 
+$build = getenv('RUNWIRE_ADAPTIVE_BUILD');
+$environment = getenv('RUNWIRE_ADAPTIVE_ENVIRONMENT');
 $result = [
     'workload' => 'plaintext-2-bytes',
     'payload_bytes' => 2,
-    'runtime_build' => getenv('RUNWIRE_ADAPTIVE_BUILD') ?: 'unrecorded',
-    'environment' => getenv('RUNWIRE_ADAPTIVE_ENVIRONMENT') ?: 'unrecorded',
+    'runtime_build' => $build === false || $build === '' || $build === '0' ? 'unrecorded' : $build,
+    'environment' => $environment === false || $environment === '' || $environment === '0' ? 'unrecorded' : $environment,
     'warmup_seconds' => $warmupSeconds,
     'protocol' => 'http/1.1',
     'mode' => $mode,

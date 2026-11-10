@@ -66,7 +66,7 @@ try {
         || $loopDiagnostics->readWatchers !== 0 || $loopDiagnostics->writeWatchers !== 0
         || $loopDiagnostics->timersActive !== 0) {
         throw new RuntimeException('Native portable filesystem IPC/cancellation/cleanup invariants failed: '
-            . json_encode(['checks' => $checks, 'ticks' => $ticks, 'executor' => $diag]));
+            . json_encode(['checks' => $checks, 'ticks' => $ticks, 'executor' => $diag], JSON_THROW_ON_ERROR));
     }
     fwrite(STDOUT, "Native off-reactor binary filesystem read/write/rename/unlink and heartbeat passed.\n");
 } finally {

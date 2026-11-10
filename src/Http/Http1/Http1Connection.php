@@ -113,14 +113,18 @@ final class Http1Connection
 
     private ?Http1ResponseWriter $writer = null;
 
-    /** @param callable(HttpRequest, ResponseWriterInterface): void $handler */
+    /**
+     * @param callable(HttpRequest, ResponseWriterInterface): void $handler
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
         private readonly Http1Limits $limits,
         callable $handler,
     ) {
-        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
         $this->requestHeadValidator = new RequestHeadValidator();
@@ -152,6 +156,9 @@ final class Http1Connection
 
     /**
      * Stop further keep-alive work and finish the accepted initial exchange.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function drain(): void
     {
@@ -195,6 +202,9 @@ final class Http1Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function advanceFixedBody(int $bytes): void
     {
         $this->remainingBody -= $bytes;
@@ -221,6 +231,10 @@ final class Http1Connection
         }
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function checkBodyDeadline(): void
     {
         if ($this->closed || $this->body === null || $this->body->ended()) {
@@ -268,7 +282,11 @@ final class Http1Connection
         $this->state = ParserState::WAIT_RESPONSE;
     }
 
-    /** @param callable(int): void $after */
+    /**
+     * @param callable(int): void $after
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     */
     private function consumeBodyBytes(int $remaining, callable $after): bool
     {
         if ($this->input->availableBytes() === 0) {
@@ -303,6 +321,10 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     */
     private function consumeChunkCrlf(): bool
     {
         if ($this->input->availableBytes() < 2) {
@@ -316,6 +338,10 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     */
     private function consumeChunkData(): bool
     {
         if ($this->remainingChunk === 0) {
@@ -327,6 +353,11 @@ final class Http1Connection
         return $this->consumeBodyBytes($this->remainingChunk, $this->advanceChunk(...));
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     private function consumeFixedBody(): bool
     {
         if ($this->remainingBody === 0) {
@@ -338,6 +369,9 @@ final class Http1Connection
         return $this->consumeBodyBytes($this->remainingBody, $this->advanceFixedBody(...));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function createBody(): StreamingRequestBody
     {
         return new StreamingRequestBody(
@@ -372,6 +406,10 @@ final class Http1Connection
         );
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \Throwable
+     */
     private function dispatchRequest(): void
     {
         $headers = new Headers($this->headerFields);
@@ -418,13 +456,17 @@ final class Http1Connection
             throw $failure;
         }
 
-        if ($this->body === $body && $body->ended() && !$this->responseEnded) {
+        if ($this->shouldWaitForResponse($body)) {
             $this->waitingResponse = true;
             $this->state = ParserState::WAIT_RESPONSE;
             $this->syncReadPause();
         }
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function fail(int $status): void
     {
         if ($this->closed) {
@@ -457,6 +499,9 @@ final class Http1Connection
         $this->connection->closeGracefully();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishBody(?Headers $trailers = null): void
     {
         $this->cancelTimer($this->bodyTimer);
@@ -479,6 +524,9 @@ final class Http1Connection
         $this->syncReadPause();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishExchange(bool $closeAfter): void
     {
         if ($closeAfter) {
@@ -489,6 +537,9 @@ final class Http1Connection
         $this->resetExchange();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleEof(): void
     {
         if ($this->closed) {
@@ -497,11 +548,15 @@ final class Http1Connection
         if ($this->state !== ParserState::REQUEST_LINE || $this->input->availableBytes() > 0) {
             $this->pump();
         }
-        if (!$this->closed && ($this->state !== ParserState::REQUEST_LINE || $this->input->bufferedBytes() > 0)) {
+        if ($this->incompleteInboundOnEof()) {
             $this->fail(400);
         }
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function handleHeaderTimeout(): void
     {
         $this->headerTimer = null;
@@ -510,6 +565,9 @@ final class Http1Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleResponseEnd(bool $closeAfter): void
     {
         if ($this->closed) {
@@ -529,6 +587,24 @@ final class Http1Connection
         $this->finishExchange($closeAfter);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
+    /**
+     * Check current state after pump callbacks, which may synchronously close
+     * this connection or consume the final buffered request bytes.
+     */
+    private function incompleteInboundOnEof(): bool
+    {
+        return !$this->closed
+            && ($this->state !== ParserState::REQUEST_LINE || $this->input->bufferedBytes() > 0);
+    }
+
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function parseChunkSizeLine(): bool
     {
         $line = $this->input->readLine($this->limits->maxChunkLineBytes, 400);
@@ -554,6 +630,10 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \Throwable
+     */
     private function parseHeaderLine(): bool
     {
         $line = $this->input->readLine($this->limits->maxHeaderLineBytes, 431);
@@ -580,6 +660,11 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function parseRequestLine(): bool
     {
         if ($this->input->availableBytes() === 0) {
@@ -596,6 +681,10 @@ final class Http1Connection
         return true;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \Throwable
+     */
     private function parseTrailerLine(): bool
     {
         $line = $this->input->readLine($this->limits->maxHeaderLineBytes, 431);
@@ -634,6 +723,9 @@ final class Http1Connection
         $this->writer = null;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function pump(): void
     {
         if ($this->closed || $this->pumping || $this->webSocketOwner->active()) {
@@ -660,6 +752,9 @@ final class Http1Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function resetExchange(): void
     {
         if ($this->draining) {
@@ -714,6 +809,11 @@ final class Http1Connection
         });
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function sendContinueIfNeeded(RequestHead $head): void
     {
         if (!$head->expectContinue || (!$head->chunked && $head->contentLength === 0)) {
@@ -723,6 +823,15 @@ final class Http1Connection
         if (!$result->accepted()) {
             throw new ParseFailure(503, 'Unable to queue 100 Continue response.');
         }
+    }
+
+    /**
+     * Re-read state after application callbacks may have finished the response
+     * or advanced the request body while handling a newly dispatched request.
+     */
+    private function shouldWaitForResponse(StreamingRequestBody $body): bool
+    {
+        return $this->body === $body && $body->ended() && !$this->responseEnded;
     }
 
     private function step(): bool

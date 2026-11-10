@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
@@ -9,14 +11,27 @@ use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\TlsOptions;
 
+/**
+ * @return array{string, string, string}
+ * @throws \RuntimeException
+ */
 function runwireTlsFiles(): array
 {
-    $directory = sys_get_temp_dir() . '/runwire-tls-' . getmypid() . '-' . bin2hex(random_bytes(4));
+    $directory = sys_get_temp_dir() . '/runwire-tls-' . \Infocyph\Runwire\Tests\Support\processId() . '-' . bin2hex(random_bytes(4));
     mkdir($directory, 0700, true);
     $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    if ($key === false) {
+        throw new \RuntimeException('Unable to generate Tls Listener Test private key.');
+    }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
+        throw new \RuntimeException('Unable to create Tls Listener Test certificate request.');
+    }
     $certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($certificate)->not->toBeFalse();
+    if ($certificate === false) {
+        throw new \RuntimeException('Unable to sign Tls Listener Test certificate.');
+    }
+    \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($certificate));
     openssl_x509_export($certificate, $certificatePem);
     openssl_pkey_export($key, $keyPem);
     $certificateFile = $directory . '/cert.pem';
@@ -39,6 +54,8 @@ function cleanupRunwireTlsFiles(string $directory, string $certificateFile, stri
     }
 }
 
+require_once __DIR__ . '/Support/TlsFixture.php';
+
 it('bounds stalled TLS handshakes', function (): void {
     [$directory, $certificateFile, $keyFile] = runwireTlsFiles();
     try {
@@ -54,8 +71,10 @@ it('bounds stalled TLS handshakes', function (): void {
             throw new RuntimeException('A stalled plain client must not become a TLS connection.');
         });
         $client = stream_socket_client('tcp://' . $listener->address(), $errno, $error, 1.0);
-        expect($client)->toBeResource();
-        $loop->delay(0.09, static fn () => $loop->stop());
+        \PHPUnit\Framework\Assert::assertIsResource($client);
+        $loop->delay(0.09, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         expect($listener->pendingHandshakes())->toBe(0)->and($listener->rejectedConnections())->toBe(1);
         fclose($client);
@@ -86,7 +105,9 @@ it('negotiates native TLS and ALPN without blocking the server loop', function (
                     $connection->closeGracefully();
                 }
             });
-            $connection->onClose(static fn () => $loop->stop());
+            $connection->onClose(static function () use ($loop): void {
+                $loop->stop();
+            });
         });
 
         $pid = pcntl_fork();
@@ -102,7 +123,7 @@ it('negotiates native TLS and ALPN without blocking the server loop', function (
                 (Closure::fromCallable('exit'))(20);
             }
             $meta = stream_get_meta_data($client);
-            $protocol = is_array($meta['crypto'] ?? null) ? ($meta['crypto']['alpn_protocol'] ?? null) : null;
+            $protocol = \Infocyph\Runwire\Tests\Support\negotiatedAlpn($meta);
             fwrite($client, 'ping');
             stream_set_timeout($client, 2);
             $reply = stream_get_contents($client);
@@ -110,9 +131,12 @@ it('negotiates native TLS and ALPN without blocking the server loop', function (
             (Closure::fromCallable('exit'))($reply === 'pong' && $protocol === 'h2' ? 0 : 21);
         }
 
-        $loop->delay(2.0, static fn () => $loop->stop());
+        $loop->delay(2.0, static function () use ($loop): void {
+    $loop->stop();
+});
         $loop->run();
         pcntl_waitpid($pid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
             ->and($encrypted)->toBeTrue()

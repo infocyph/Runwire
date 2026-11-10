@@ -6,10 +6,8 @@ it('diffs immutable PHP source API signatures deterministically without requirin
     $path = dirname(__DIR__) . '/tools/public-api-diff.php';
     expect(is_file($path))->toBeTrue();
 
-    $first = tempnam(sys_get_temp_dir(), 'runwire-api-a-');
-    $second = tempnam(sys_get_temp_dir(), 'runwire-api-b-');
-    expect($first)->toBeString()
-        ->and($second)->toBeString();
+    $packet = tempnam(sys_get_temp_dir(), 'runwire-api-diff-');
+    \PHPUnit\Framework\Assert::assertIsString($packet);
 
     $base = [
         'schemaVersion' => 1,
@@ -69,16 +67,15 @@ it('diffs immutable PHP source API signatures deterministically without requirin
     ];
 
     try {
-        file_put_contents($first, json_encode($base, JSON_THROW_ON_ERROR));
-        file_put_contents($second, json_encode($current, JSON_THROW_ON_ERROR));
+        file_put_contents($packet, json_encode(['baseline' => $base, 'candidate' => $current], JSON_THROW_ON_ERROR));
         $command = escapeshellarg(PHP_BINARY) . ' '
-            . escapeshellarg($path) . ' '
-            . escapeshellarg($first) . ' ' . escapeshellarg($second);
+            . escapeshellarg($path) . ' < ' . escapeshellarg($packet);
         $lines = [];
         $status = 0;
         exec($command . ' 2>&1', $lines, $status);
         expect($status)->toBe(0, implode("\n", $lines));
         $diff = json_decode(implode("\n", $lines), true, 32, JSON_THROW_ON_ERROR);
+        \PHPUnit\Framework\Assert::assertIsArray($diff);
 
         expect($diff['baselineRevision'])->toBe(str_repeat('a', 40))
             ->and($diff['candidateRevision'])->toBe(str_repeat('b', 40))
@@ -89,6 +86,7 @@ it('diffs immutable PHP source API signatures deterministically without requirin
             ->and($diff['added'])->toContain(['type' => 'added_type', 'symbol' => 'Example\\Added'])
             ->and($diff['breaking'])->toContain(['type' => 'removed_property', 'symbol' => 'Example\\Legacy::$oldFlag'])
             ->and($diff['propertyInventoryCompared'])->toBeFalse();
+        \PHPUnit\Framework\Assert::assertIsArray($diff['changed']);
         expect(array_column($diff['changed'], 'type'))->toContain(
             'method_signature',
             'removed_or_changed_constant',
@@ -101,12 +99,15 @@ it('diffs immutable PHP source API signatures deterministically without requirin
         exec($command . ' 2>&1', $again, $status);
         expect($status)->toBe(0)
             ->and($again)->toBe($lines);
+
+        file_put_contents($packet, '[]');
+        $rejected = [];
+        exec($command . ' 2>&1', $rejected, $status);
+        expect($status)->not->toBe(0)
+            ->and(implode("\n", $rejected))->toContain('JSON document envelope');
     } finally {
-        if (is_string($first) && is_file($first)) {
-            unlink($first);
-        }
-        if (is_string($second) && is_file($second)) {
-            unlink($second);
+        if (is_file($packet)) {
+            unlink($packet);
         }
     }
 });

@@ -16,6 +16,8 @@ final readonly class ApplicationShutdown
 {
     /**
      * @param list<Throwable> $additionalFailures
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
      */
     public static function finish(
         RuntimeApplicationInterface $application,
@@ -41,6 +43,8 @@ final readonly class ApplicationShutdown
 
     /**
      * @param list<Throwable> $shutdownFailures
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
      */
     public static function resolve(?Throwable $primaryFailure, array $shutdownFailures): void
     {

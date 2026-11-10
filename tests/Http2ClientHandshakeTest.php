@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientHandshake;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
@@ -10,8 +12,17 @@ use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
 use Infocyph\Runwire\Http\Http2\PeerSettings;
+use RuntimeException;
 
 it('emits an exact H2 preface and validates independent server SETTINGS before HPACK request encoding', function (): void {
+    runwireOwnedHttp2ClientHandshakeTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientHandshakeTestCase01(): void
+{
     $handshake = new Http2ClientHandshake();
     $initial = $handshake->start();
     expect(str_starts_with($initial, Http2Connection::CLIENT_PREFACE))->toBeTrue()
@@ -43,9 +54,17 @@ it('emits an exact H2 preface and validates independent server SETTINGS before H
         [':authority', 'example.test'],
         [':path', '/first'],
     ]);
-});
+}
 
 it('fails closed on illegal H2 SETTINGS, first-frame, PUSH and GOAWAY state transitions', function (): void {
+    runwireOwnedHttp2ClientHandshakeTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientHandshakeTestCase02(): void
+{
     $notStarted = new Http2ClientHandshake();
     expect(fn() => $notStarted->receive(FrameWriter::settings()))
         ->toThrow(RuntimeException::class, 'not active');
@@ -76,9 +95,17 @@ it('fails closed on illegal H2 SETTINGS, first-frame, PUSH and GOAWAY state tran
     expect($handshake->ready())->toBeFalse();
     expect(fn() => $handshake->firstRequest('GET', 'https', 'example.test', '/'))
         ->toThrow(RuntimeException::class, 'verified');
-});
+}
 
 it('accepts legal connection credit and ignores bounded unknown H2 extension frames after SETTINGS', function (): void {
+    runwireOwnedHttp2ClientHandshakeTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientHandshakeTestCase03(): void
+{
     $h2 = new Http2ClientHandshake();
     $h2->start();
     expect(fn() => $h2->receive(FrameWriter::windowUpdate(0, 32)))
@@ -97,9 +124,17 @@ it('accepts legal connection credit and ignores bounded unknown H2 extension fra
         ->toThrow(RuntimeException::class, 'stream zero');
     expect(fn() => $h2->receive(new Frame(FrameType::WINDOW_UPDATE->value, 0, 1, pack('N', 1))))
         ->toThrow(RuntimeException::class, 'stream zero');
-});
+}
 
 it('maintains connection-level HPACK and monotonic odd stream admission for future H2 multiplexing', function (): void {
+    runwireOwnedHttp2ClientHandshakeTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientHandshakeTestCase04(): void
+{
     $h2 = new Http2ClientHandshake();
     $h2->start();
     $h2->receive(FrameWriter::settings());
@@ -125,9 +160,17 @@ it('maintains connection-level HPACK and monotonic odd stream admission for futu
     $h2->receive(FrameWriter::goAway(3, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR));
     expect(fn() => $h2->requestOnStream(5, 'GET', 'https', 'example.test', '/'))
         ->toThrow(RuntimeException::class, 'verified');
-});
+}
 
 it('records peer GOAWAY last-stream and error-code metadata without leaking debug text', function (): void {
+    runwireOwnedHttp2ClientHandshakeTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp2ClientHandshakeTestCase05(): void
+{
     $h2 = new Http2ClientHandshake();
     expect($h2->peerGoAwayLastStreamId())->toBeNull()
         ->and($h2->peerGoAwayErrorCode())->toBeNull();
@@ -143,4 +186,4 @@ it('records peer GOAWAY last-stream and error-code metadata without leaking debu
     $hostile->receive(FrameWriter::settings());
     expect(fn() => $hostile->receive(new Frame(FrameType::GOAWAY->value, 0, 0, 'short')))
         ->toThrow(RuntimeException::class, 'last stream');
-});
+}

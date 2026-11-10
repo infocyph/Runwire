@@ -2,9 +2,37 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Network\Internal\QuicWorkerCommand;
+use InvalidArgumentException;
+use Throwable;
 
 it('round trips bounded QUIC worker stream commands and raw binary payloads', function (): void {
+    runwireQuicWorkerCommandCase01();
+});
+
+it('rejects oversized or malformed QUIC worker commands before IPC dispatch', function (): void {
+    runwireQuicWorkerCommandCase02();
+});
+
+it('fails closed on malformed, untrusted or oversized worker frames', function (): void {
+    runwireQuicWorkerCommandCase03();
+});
+
+it('accepts the maximum supported bounded QUIC worker upload frame', function (): void {
+    runwireQuicWorkerCommandCase04();
+});
+
+it('accepts idle native QUIC poll only with zero stream, no payload or FIN', function (): void {
+    runwireQuicWorkerCommandCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireQuicWorkerCommandCase01(): void
+{
     $binary = "\x00\x01\xff\n" . random_bytes(64);
     $wire = QuicWorkerCommand::encode(123, 'write', 7, $binary, true);
     expect(QuicWorkerCommand::decode($wire))->toBe([
@@ -18,18 +46,26 @@ it('round trips bounded QUIC worker stream commands and raw binary payloads', fu
         ->toBe('open_bidi');
     expect(QuicWorkerCommand::decode(QuicWorkerCommand::encode(125, 'open_uni'))['op'])
         ->toBe('open_uni');
-});
+}
 
-it('rejects oversized or malformed QUIC worker commands before IPC dispatch', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireQuicWorkerCommandCase02(): void
+{
     expect(fn() => QuicWorkerCommand::encode(0, 'write', 1, 'x'))->toThrow(InvalidArgumentException::class)
         ->and(fn() => QuicWorkerCommand::encode(1, 'arbitrary_php', 1, 'x'))->toThrow(InvalidArgumentException::class)
         ->and(fn() => QuicWorkerCommand::encode(1, 'write', 0, 'x'))->toThrow(InvalidArgumentException::class)
         ->and(fn() => QuicWorkerCommand::encode(1, 'write', 1, str_repeat('x', 65_537)))->toThrow(InvalidArgumentException::class)
         ->and(fn() => QuicWorkerCommand::encode(1, 'close', 7))->toThrow(InvalidArgumentException::class)
         ->and(fn() => QuicWorkerCommand::encode(1, 'read', 5, '', true))->toThrow(InvalidArgumentException::class);
-});
+}
 
-it('fails closed on malformed, untrusted or oversized worker frames', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireQuicWorkerCommandCase03(): void
+{
     $valid = QuicWorkerCommand::encode(5, 'write', 1, 'a');
     $invalid = [
         '',
@@ -50,18 +86,26 @@ it('fails closed on malformed, untrusted or oversized worker frames', function (
         }
         expect($rejected)->toBeTrue();
     }
-});
+}
 
-it('accepts the maximum supported bounded QUIC worker upload frame', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireQuicWorkerCommandCase04(): void
+{
     $payload = str_repeat('a', QuicWorkerCommand::MAX_DATA_BYTES);
     $encoded = QuicWorkerCommand::encode(1, 'write', 2, $payload);
     $decoded = QuicWorkerCommand::decode($encoded);
     expect(strlen($encoded))->toBeLessThan(90_000)
         ->and(strlen($decoded['data']))->toBe(QuicWorkerCommand::MAX_DATA_BYTES)
         ->and($decoded['data'])->toBe($payload);
-});
+}
 
-it('accepts idle native QUIC poll only with zero stream, no payload or FIN', function (): void {
+/**
+ * @throws \Throwable
+ */
+function runwireQuicWorkerCommandCase05(): void
+{
     expect(QuicWorkerCommand::decode(QuicWorkerCommand::encode(8, 'poll')))->toBe([
         'id' => 8,
         'op' => 'poll',
@@ -72,4 +116,4 @@ it('accepts idle native QUIC poll only with zero stream, no payload or FIN', fun
     expect(fn() => QuicWorkerCommand::encode(9, 'poll', 1))->toThrow(InvalidArgumentException::class)
         ->and(fn() => QuicWorkerCommand::encode(10, 'poll', 0, 'x'))->toThrow(InvalidArgumentException::class)
         ->and(fn() => QuicWorkerCommand::encode(11, 'poll', 0, '', true))->toThrow(InvalidArgumentException::class);
-});
+}

@@ -37,6 +37,10 @@ final class Mutex
 
     /**
      * Acquire the mutex for the current coroutine task.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\SynchronizationException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \Throwable
      */
     public function lock(): void
     {
@@ -74,7 +78,13 @@ final class Mutex
         return $this->ownerTaskId;
     }
 
-    /** @param callable(): mixed $callback */
+    /**
+     * @param callable(): mixed $callback
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\SynchronizationException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \Throwable
+     */
     public function synchronized(callable $callback): mixed
     {
         $this->lock();
@@ -88,6 +98,8 @@ final class Mutex
 
     /**
      * Release the mutex from its owning task.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\SynchronizationException
      */
     public function unlock(): void
     {

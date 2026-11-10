@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\BoundedConnectionPool;
 use Infocyph\Runwire\Network\DialEndpoint;
@@ -15,7 +17,7 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
     $pool = new BoundedConnectionPool($loop, 1, 2);
     $idle = new IdleConnectionPool($loop, 1);
     $key = new PoolIsolationKey(DialEndpoint::parse('tcp://127.0.0.1:9001'), 'fork-scope');
-    [$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$reader, $writer] = runwireConnectionPoolForkOwnershipTestSocketPair();
     $pid = pcntl_fork();
     expect($pid)->not->toBe(-1);
 
@@ -23,17 +25,17 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
         fclose($reader);
         $rejected = 0;
         foreach ([
-            static fn() => $pool->acquire($key, static function (): void {}),
-            static fn() => $pool->cancel(1),
-            static fn() => $pool->release(1),
-            static fn() => $pool->close(),
-            static fn() => $pool->activeCount(),
-            static fn() => $pool->idleCount(),
-            static fn() => $pool->waitingCount(),
-            static fn() => $pool->metrics(),
-            static fn() => $idle->take($key),
-            static fn() => $idle->close(),
-            static fn() => $idle->count(),
+            static fn() : int => $pool->acquire($key, static function (): void {}),
+            static fn() : bool => $pool->cancel(1),
+            static fn() : bool => $pool->release(1),
+            static fn() : null => $pool->close(),
+            static fn() : int => $pool->activeCount(),
+            static fn() : int => $pool->idleCount(),
+            static fn() : int => $pool->waitingCount(),
+            static fn() : array => $pool->metrics(),
+            static fn() : ?\Infocyph\Runwire\Network\Connection => $idle->take($key),
+            static fn() : null => $idle->close(),
+            static fn() : int => $idle->count(),
         ] as $operation) {
             try {
                 $operation();
@@ -50,7 +52,11 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
     fclose($writer);
     try {
         $childOutput = stream_get_contents($reader);
-        pcntl_waitpid($pid, $status);
+        $waited = pcntl_waitpid($pid, $status);
+        if ($waited !== $pid) {
+            throw new \RuntimeException('Unable to collect owned connection-pool child status.');
+        }
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
             ->and($childOutput)->toBe('11');
@@ -73,3 +79,17 @@ it('rejects cross-fork connection-pool leases and idle-socket access without dis
         $idle->close();
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireConnectionPoolForkOwnershipTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

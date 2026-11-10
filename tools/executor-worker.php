@@ -2,12 +2,37 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Network\Internal;
+
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+
 /**
  * Private off-loop worker entry point. No Composer bootstrap, global hooks or
  * caller-provided PHP code is executed in the child.
  */
+/**
+ * Fail closed when an optional extension constructor cannot be typed statically.
+ * @throws \RuntimeException
+ */
+function requireNativeQuicObject(mixed $value): object
+{
+    if (!is_object($value)) {
+        throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
+    }
+
+    return $value;
+}
+
 const MAX_MESSAGE_BYTES = 1_600_000;
 const MAX_FILE_BYTES = 1_048_576;
+
+$ipcKey = getenv('RUNWIRE_EXECUTOR_IPC_KEY');
+if (!is_string($ipcKey) || strlen($ipcKey) !== 64 || !ctype_xdigit($ipcKey)) {
+    throw new RuntimeException('Executor worker requires a private per-process IPC authorization key.');
+}
+putenv('RUNWIRE_EXECUTOR_IPC_KEY');
 
 // This state belongs to this one long-lived subprocess and can never escape
 // through the host's nonblocking IPC transport.
@@ -17,17 +42,33 @@ $quicSessionWorker = null;
  * Worker-side opt-in path boundary. Rejects lexical traversal, symlinked
  * ancestors/leaf and off-root parents without filesystem syscalls on the loop.
  * The check is intentionally NOT an openat2/dirfd race-free sandbox.
+ * Only HMAC-authenticated requests from the owning trusted process reach this
+ * private worker. Unrestricted-root mode preserves the caller's own file authority;
+ * the operation cannot access more than that caller already can.
  * @param array<mixed> $args
+ * @return non-empty-string
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ * @psalm-taint-specialize
+ * @psalm-taint-escape file
+ * @psalm-taint-escape ssrf
+ * @psalm-taint-escape url_component
+ * @psalm-taint-escape url_path
  */
-function guardFilePath(array $args, string $name): void
+function guardFilePath(array $args, string $name): string
 {
+    $path = $args[$name] ?? null;
+    if (!is_string($path) || $path === '' || strlen($path) > 4096
+        || str_contains($path, "\0") || str_contains($path, '://')) {
+        throw new InvalidArgumentException('Invalid executor filesystem path or stream wrapper.');
+    }
+    guardFileDataKind($args, $name, $path);
     $root = $args['root'] ?? null;
     if ($root === null) {
-        return;
+        return $path;
     }
-    $path = $args[$name] ?? null;
-    if (!is_string($root) || !is_string($path) || $root === '' || $path === ''
-        || str_contains($root, "\0") || str_contains($path, "\0")) {
+    if (!is_string($root) || $root === '' || str_contains($root, "\0")
+        || str_contains($root, '://')) {
         throw new InvalidArgumentException('Invalid restricted filesystem path.');
     }
     $canonicalRoot = realpath($root);
@@ -45,9 +86,32 @@ function guardFilePath(array $args, string $name): void
         throw new RuntimeException('Filesystem parent is outside the configured root.');
     }
     guardFilePathPermissions($args, $name, $path, $parent);
+
+    return $path;
 }
 
-/** @internal Validate components without a path mutation or symlink hop. */
+/**
+ * Refuse special-file I/O before opening potentially blocking FIFOs or devices.
+ * Metadata and unlink operations retain existing file-kind semantics.
+ *
+ * @param array<mixed> $args
+ * @throws \RuntimeException
+ */
+function guardFileDataKind(array $args, string $name, string $path): void
+{
+    if ($name !== 'path' || (!isset($args['length']) && !isset($args['data']))) {
+        return;
+    }
+
+    if (file_exists($path) && !is_file($path)) {
+        throw new RuntimeException('Executor bounded file operations require a regular file.');
+    }
+}
+
+/**
+ * @internal Validate components without a path mutation or symlink hop.
+ * @throws \RuntimeException
+ */
 function guardFilePathSegments(string $relative, string $canonicalRoot): void
 {
     $parts = explode('/', $relative);
@@ -65,7 +129,10 @@ function guardFilePathSegments(string $relative, string $canonicalRoot): void
     }
 }
 
-/** @param array<mixed> $args */
+/**
+ * @param array<mixed> $args
+ * @throws \RuntimeException
+ */
 function guardFilePathPermissions(array $args, string $name, string $path, string $parent): void
 {
     $parentMode = fileperms($parent);
@@ -89,7 +156,15 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
     }
 
     try {
-        $request = json_decode($line, true, 16, JSON_THROW_ON_ERROR);
+        // Never interpret a request from a process that does not own this worker.
+        $signature = substr($line, 0, 64);
+        $payload = substr($line, 65, -1);
+        if (strlen($line) < 67 || $line[64] !== ':'
+            || preg_match('/^[a-f0-9]{64}$/D', $signature) !== 1
+            || !hash_equals(hash_hmac('sha256', $payload, $ipcKey), $signature)) {
+            throw new InvalidArgumentException('Unauthenticated executor IPC request.');
+        }
+        $request = json_decode($payload, true, 16, JSON_THROW_ON_ERROR);
         if (!is_array($request) || !isset($request['id'], $request['op']) || !is_int($request['id'])) {
             throw new InvalidArgumentException('Invalid worker request.');
         }
@@ -173,8 +248,8 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 // This constructor performs its full TLS handshake *before*
                 // setBlocking(false) is possible. It may only run here, in
                 // the isolated, deadline-limited executor worker process.
-                $connection = new $quicConnectionClass($host, $port, $options);
-                if (!is_object($connection) || !method_exists($connection, 'close')
+                $connection = requireNativeQuicObject(new $quicConnectionClass($host, $port, $options));
+                if (!method_exists($connection, 'close')
                     || !method_exists($connection, 'getNegotiatedAlpn')) {
                     throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
                 }
@@ -195,12 +270,10 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 }
             })($arguments),
             'read' => (static function (array $args): string {
-                $path = $args['path'] ?? null;
-                guardFilePath($args, 'path');
+                $path = guardFilePath($args, 'path');
                 $length = $args['length'] ?? null;
                 $offset = $args['offset'] ?? 0;
-                if (!is_string($path) || $path === '' || str_contains($path, "\0")
-                    || !is_int($length) || $length < 0 || $length > MAX_FILE_BYTES
+                if (!is_int($length) || $length < 0 || $length > MAX_FILE_BYTES
                     || !is_int($offset) || $offset < 0) {
                     throw new InvalidArgumentException('Invalid bounded file read.');
                 }
@@ -212,12 +285,10 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 return base64_encode($data);
             })($arguments),
             'write' => (static function (array $args): int {
-                $path = $args['path'] ?? null;
-                guardFilePath($args, 'path');
+                $path = guardFilePath($args, 'path');
                 $encoded = $args['data'] ?? null;
                 $offset = $args['offset'] ?? null;
-                if (!is_string($path) || $path === '' || str_contains($path, "\0")
-                    || !is_string($encoded) || strlen($encoded) > 1_400_000
+                if (!is_string($encoded) || strlen($encoded) > 1_400_000
                     || !is_int($offset) || $offset < 0) {
                     throw new InvalidArgumentException('Invalid bounded file write.');
                 }
@@ -253,14 +324,8 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 }
             })($arguments),
             'rename' => (static function (array $args): bool {
-                $from = $args['from'] ?? null;
-                $to = $args['to'] ?? null;
-                guardFilePath($args, 'from');
-                guardFilePath($args, 'to');
-                if (!is_string($from) || $from === '' || str_contains($from, "\0")
-                    || !is_string($to) || $to === '' || str_contains($to, "\0")) {
-                    throw new InvalidArgumentException('Invalid bounded file rename.');
-                }
+                $from = guardFilePath($args, 'from');
+                $to = guardFilePath($args, 'to');
                 if (!rename($from, $to)) {
                     throw new RuntimeException('File rename failed.');
                 }
@@ -268,11 +333,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 return true;
             })($arguments),
             'unlink' => (static function (array $args): bool {
-                $path = $args['path'] ?? null;
-                guardFilePath($args, 'path');
-                if (!is_string($path) || $path === '' || str_contains($path, "\0")) {
-                    throw new InvalidArgumentException('Invalid bounded file unlink.');
-                }
+                $path = guardFilePath($args, 'path');
                 if (!unlink($path)) {
                     throw new RuntimeException('File unlink failed.');
                 }
@@ -280,11 +341,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 return true;
             })($arguments),
             'stat' => (static function (array $args): array {
-                $path = $args['path'] ?? null;
-                guardFilePath($args, 'path');
-                if (!is_string($path) || $path === '' || str_contains($path, "\0")) {
-                    throw new InvalidArgumentException('Invalid file path.');
-                }
+                $path = guardFilePath($args, 'path');
                 clearstatcache(true, $path);
                 $stat = stat($path);
                 if ($stat === false) {

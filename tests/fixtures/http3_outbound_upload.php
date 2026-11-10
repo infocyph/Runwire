@@ -13,7 +13,11 @@ use Infocyph\Runwire\Network\QuicClientOptions;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-if ($argc !== 3 || filter_var($argv[1], FILTER_VALIDATE_INT) === false) {
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
+$port = filter_var($argv[1] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+if ($argc !== 3 || !is_int($port)) {
     throw new InvalidArgumentException('Expected independent QUIC port and trusted CA.');
 }
 
@@ -25,11 +29,13 @@ $body = new class implements ClientBodySourceInterface {
         $this->remaining = str_repeat('upload-data-', 2730) . 'end';
     }
 
+    #[\Override]
     public function eof(): bool
     {
         return $this->remaining === '';
     }
 
+    #[\Override]
     public function read(int $maxBytes = PHP_INT_MAX): string
     {
         $chunk = substr($this->remaining, 0, min($maxBytes, 1024));
@@ -38,7 +44,11 @@ $body = new class implements ClientBodySourceInterface {
         return $chunk;
     }
 
-    public function trailers(): ?Headers
+    /**
+     * @throws \InvalidArgumentException
+     */
+    #[\Override]
+    public function trailers(): Headers
     {
         return Headers::fromArray(['x-upload-finished' => 'yes']);
     }
@@ -53,7 +63,7 @@ $client = Http3OutboundClient::connect(
     $loop,
     new ClientRequest(
         'POST',
-        'https://localhost:' . $argv[1] . '/upload',
+        'https://localhost:' . $port . '/upload',
         body: $body,
         protocol: new ClientProtocolPolicy(
             preferred: ProtocolVersion::HTTP_3,

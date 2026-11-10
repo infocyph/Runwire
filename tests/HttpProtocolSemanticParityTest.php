@@ -50,7 +50,14 @@ function semanticParityHandler(array &$snapshot): Closure
     };
 }
 
-/** @param array<string, mixed> $snapshot */
+/**
+ * @param array<string, mixed> $snapshot
+ * @throws \RuntimeException
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function semanticParityHttp1(array &$snapshot): void
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -78,7 +85,14 @@ function semanticParityHttp1(array &$snapshot): void
     fclose($client);
 }
 
-/** @param array<string, mixed> $snapshot */
+/**
+ * @param array<string, mixed> $snapshot
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
+ */
 function semanticParityHttp2(array &$snapshot): void
 {
     $encoder = new HpackEncoder();
@@ -100,6 +114,9 @@ function semanticParityHttp2(array &$snapshot): void
     runwireH2Exchange($wire, semanticParityHandler($snapshot));
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function semanticParityHttp3Writer(int $streamId, string $method): ResponseWriterInterface
 {
     if ($streamId < 0 || $method === '') {
@@ -115,7 +132,13 @@ function semanticParityHttp3Writer(int $streamId, string $method): ResponseWrite
     );
 }
 
-/** @param array<string, mixed> $snapshot */
+/**
+ * @param array<string, mixed> $snapshot
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \Throwable
+ * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+ */
 function semanticParityHttp3(array &$snapshot): void
 {
     $session = new Http3Session(

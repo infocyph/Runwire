@@ -22,6 +22,7 @@ final readonly class PrivilegeDropper
 
     /**
      * Apply the requested worker UID/GID transition and verify the resulting identity.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function apply(?int $uid, ?int $gid): void
     {
@@ -44,6 +45,9 @@ final readonly class PrivilegeDropper
         $this->verifyIdentity($uid, $targetGid);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function applyPrimaryGid(int $currentGid, ?int $targetGid): void
     {
         if ($targetGid === null || $currentGid === $targetGid) {
@@ -55,6 +59,9 @@ final readonly class PrivilegeDropper
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function applyUid(int $currentUid, ?int $targetUid): void
     {
         if ($targetUid === null || $currentUid === $targetUid) {
@@ -66,6 +73,9 @@ final readonly class PrivilegeDropper
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function assertTransitionAllowed(int $currentUid): void
     {
         if ($currentUid !== 0) {
@@ -73,6 +83,9 @@ final readonly class PrivilegeDropper
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function initializeSupplementaryGroups(?int $uid, ?string $username, ?int $targetGid): void
     {
         if ($uid === null) {
@@ -92,7 +105,10 @@ final readonly class PrivilegeDropper
         return $uidMatches && $gidMatches;
     }
 
-    /** @return array{name: non-empty-string, gid: int} */
+    /**
+     * @return array{name: non-empty-string, gid: int}
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function resolvedPasswd(int $uid): array
     {
         $passwd = $this->system->passwd($uid);
@@ -109,7 +125,10 @@ final readonly class PrivilegeDropper
         return ['name' => $name, 'gid' => $gid];
     }
 
-    /** @return array{0: ?string, 1: ?int} */
+    /**
+     * @return array{0: ?string, 1: ?int}
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function resolveTargetIdentity(?int $uid, ?int $gid): array
     {
         if ($uid === null) {
@@ -121,6 +140,9 @@ final readonly class PrivilegeDropper
         return [$passwd['name'], $gid ?? $passwd['gid']];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function verifyIdentity(?int $uid, ?int $gid): void
     {
         if ($uid !== null && $this->system->effectiveUid() !== $uid) {

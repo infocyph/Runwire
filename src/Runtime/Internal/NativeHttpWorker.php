@@ -33,6 +33,10 @@ final class NativeHttpWorker
 
     /**
      * Attach an HTTP worker to an existing loop without taking loop ownership.
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
      */
     public static function attach(
         LoopInterface $loop,
@@ -183,6 +187,10 @@ final class NativeHttpWorker
 
     /**
      * Runs the bound HTTP listener until worker shutdown and drains active sessions.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public static function run(
         WorkerContext $context,
@@ -227,6 +235,10 @@ final class NativeHttpWorker
      * @param Closure(HttpRequest, ResponseWriterInterface): void $handler
      * @param array<int, NativeHttpConnection> $sessions
      * @param array<int, Connection> $connections
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private static function attachConnection(
         Connection $connection,
@@ -304,6 +316,8 @@ final class NativeHttpWorker
      * @param Closure(): void $drainApplication
      * @param array<int, NativeHttpConnection> $sessions
      * @param array<int, Connection> $connections
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private static function beginDrain(
         Closure $drainApplication,
@@ -340,6 +354,8 @@ final class NativeHttpWorker
     /**
      * @param array<int, Connection> $connections
      * @param-out null $stopWatcher
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private static function closeWorker(
         LoopInterface $loop,
@@ -419,7 +435,10 @@ final class NativeHttpWorker
         $application->drain($context->shutdownReason());
     }
 
-    /** @param array<int, Connection> $connections */
+    /**
+     * @param array<int, Connection> $connections
+     * @throws \Throwable
+     */
     private static function forceClose(array $connections, LoopInterface $loop, WorkerStopState $state): void
     {
         foreach ($connections as $connection) {

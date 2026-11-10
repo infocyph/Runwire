@@ -22,6 +22,7 @@ final readonly class AdaptiveConnectionStrategy
 
     /**
      * Create the worker-scoped HTTP/1.1 connection strategy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         ?AdaptiveLoadController $controller = null,

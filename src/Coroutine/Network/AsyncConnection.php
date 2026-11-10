@@ -51,6 +51,9 @@ final class AsyncConnection
 
     /**
      * Bind coroutine waits to the supplied connection.
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function __construct(private readonly Connection $connection, private readonly CoroutineScope $scope)
     {
@@ -100,6 +103,7 @@ final class AsyncConnection
     /**
      * Adopt an explicitly pool-owned connection into a new coroutine scope.
      * Failure aborts the stream rather than leaving an unobserved owner.
+     * @throws \Throwable
      */
     public static function adopt(Connection $connection, CoroutineScope $scope): self
     {
@@ -116,6 +120,8 @@ final class AsyncConnection
 
     /**
      * Abort the underlying connection immediately.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
@@ -124,7 +130,20 @@ final class AsyncConnection
     }
 
     /**
+     * @internal Return remaining capacity in the borrowed transport's send queue.
+     * @throws \LogicException
+     */
+    public function availableWriteBytes(): int
+    {
+        $this->assertUsable();
+
+        return $this->connection->availableWriteBytes();
+    }
+
+    /**
      * Gracefully close the connection and wait for its close reason.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function close(): CloseReason
     {
@@ -167,6 +186,7 @@ final class AsyncConnection
 
     /**
      * Detach coroutine callback ownership without closing the underlying connection.
+     * @throws \LogicException
      */
     public function dispose(): void
     {
@@ -200,6 +220,8 @@ final class AsyncConnection
 
     /**
      * Wait until write pressure drains or the connection closes.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function drain(): ?CloseReason
     {
@@ -234,6 +256,10 @@ final class AsyncConnection
 
     /**
      * Receive up to the requested number of bytes.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function receive(int $maxBytes = PHP_INT_MAX): string
     {
@@ -293,6 +319,10 @@ final class AsyncConnection
     /**
      * Transfer an idle connection to a new owner and detach this coroutine adapter.
      * Only the returned core connection may be used after handoff.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function transferTo(CancellationToken $owner, ?RequestDeadline $deadline = null): Connection
     {
@@ -318,6 +348,9 @@ final class AsyncConnection
 
     /**
      * Write data through the underlying connection.
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function write(string $data): WriteResult
     {
@@ -326,6 +359,9 @@ final class AsyncConnection
         return $this->connection->write($data);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertUsable(): void
     {
         if ($this->disposed) {
@@ -333,6 +369,9 @@ final class AsyncConnection
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function detachCallbacks(): void
     {
         if (!$this->attached) {
@@ -343,6 +382,9 @@ final class AsyncConnection
         $this->connection->releaseCallbacks($this);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function handleClose(Connection $connection, CloseReason $reason): void
     {
         $this->releaseCloseObserver();
@@ -364,6 +406,10 @@ final class AsyncConnection
         unset($connection);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function handleData(Connection $connection): void
     {
         if ($this->receiveDeferred === null) {
@@ -376,12 +422,19 @@ final class AsyncConnection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function handleDrain(Connection $connection): void
     {
         unset($connection);
         $this->resolveDrain(null);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function handleEof(Connection $connection): void
     {
         $remaining = $connection->read();
@@ -428,6 +481,9 @@ final class AsyncConnection
         $this->scopeShutdownId = null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function resolveDrain(?CloseReason $reason): void
     {
         $deferred = $this->drainDeferred;
@@ -439,6 +495,9 @@ final class AsyncConnection
         $deferred->resolve($reason);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\FutureCompletedException
+     */
     private function resolveReceive(string $data): void
     {
         $deferred = $this->receiveDeferred;

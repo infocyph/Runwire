@@ -54,16 +54,21 @@ it('bounds a large deferred queue to the current tick without admitting callback
 it('skips a deferred callback cancelled by a prior callback within the same tick', function (): void {
     $loop = new SelectLoop();
     $seen = [];
-    $cancelled = null;
+    /** @var \ArrayObject<string,?int> $cancelled */
+    $cancelled = new \ArrayObject(['id' => null]);
 
-    $loop->defer(function () use ($loop, &$cancelled, &$seen): void {
+    $loop->defer(function () use ($loop, $cancelled, &$seen): void {
         $seen[] = 'first';
-        expect($loop->cancel($cancelled))->toBeTrue();
+        $watcherId = $cancelled['id'];
+        if (!is_int($watcherId)) {
+            throw new \RuntimeException('Deferred cancellation watcher has not been registered.');
+        }
+        expect($loop->cancel($watcherId))->toBeTrue();
     });
     $loop->defer(static function () use (&$seen): void {
         $seen[] = 'second';
     });
-    $cancelled = $loop->defer(static function () use (&$seen): void {
+    $cancelled['id'] = $loop->defer(static function () use (&$seen): void {
         $seen[] = 'cancelled';
     });
 
@@ -264,7 +269,7 @@ it('can stop while idle watchers remain registered', function (): void {
     fclose($reader);
     fclose($writer);
 
-    expect(true)->toBeTrue();
+    expect($loop->diagnostics()->readWatchers)->toBe(1);
 });
 
 it('rejects duplicate directional watchers on one stream', function (): void {
@@ -337,7 +342,7 @@ it('restores loop state after callback failure so the instance can run again', f
 it('fails fast on permanent select failures while retaining recoverable cases', function (): void {
     $policy = new ReflectionMethod(SelectLoop::class, 'assertRecoverableSelectFailure');
 
-    expect(static fn () => $policy->invoke(null, null, 0))
+    expect(static fn () : mixed => $policy->invoke(null, null, 0))
         ->toThrow(RuntimeException::class, 'stream_select() failed permanently');
 
     expect($policy->invoke(
@@ -348,3 +353,21 @@ it('fails fast on permanent select failures while retaining recoverable cases', 
         ->and($policy->invoke(null, null, 1))->toBeNull();
 });
 
+it('prunes a writable watcher after its underlying resource is closed', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
+
+    $loop = new SelectLoop();
+    $called = false;
+    $loop->onWritable($pair[0], function () use (&$called): void {
+        $called = true;
+    });
+    fclose($pair[0]);
+    fclose($pair[1]);
+
+    $loop->run();
+
+    expect($called)->toBeFalse()
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+});

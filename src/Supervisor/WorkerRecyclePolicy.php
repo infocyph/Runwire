@@ -17,6 +17,7 @@ final readonly class WorkerRecyclePolicy
 
     /**
      * Create a worker recycling policy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxRequests = 0,
@@ -55,6 +56,9 @@ final readonly class WorkerRecyclePolicy
         return $this->maxRequests > 0 || $this->maxLifetimeSeconds > 0 || $this->maxMemoryBytes > 0;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function validateJitter(): void
     {
         if ($this->maxRequests === 0 && $this->jitterRequests !== 0) {

@@ -53,6 +53,8 @@ final class CoroutineScope
 
     /**
      * Creates a reusable barrier bound to this scope's scheduler.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function barrier(int $parties): Barrier
     {
@@ -81,6 +83,8 @@ final class CoroutineScope
 
     /**
      * Creates a channel bound to this scope's scheduler.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function channel(int $capacity = 0): Channel
     {
@@ -89,7 +93,10 @@ final class CoroutineScope
         return new Channel($this->scheduler, $capacity, $this->scheduler->maxWaitersPerPrimitive());
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \Throwable
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -122,6 +129,8 @@ final class CoroutineScope
 
     /**
      * Creates a deferred result bound to this scope's scheduler.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function deferred(): Deferred
     {
@@ -130,7 +139,15 @@ final class CoroutineScope
         return $this->scheduler->deferred();
     }
 
-    /** @internal @param callable(self): mixed $callback */
+    /**
+     * @template TResult
+     * @return TResult
+     * @internal
+     * @param callable(self): TResult $callback
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \Throwable
+     * @param-immediately-invoked-callable $callback
+     */
     public function execute(callable $callback): mixed
     {
         $closure = $callback(...);
@@ -172,7 +189,14 @@ final class CoroutineScope
         return [$this->primaryFailure, ...$this->secondaryFailures];
     }
 
-    /** @param callable(self): mixed $callback */
+    /**
+     * @template TResult
+     * @return TResult
+     * @param callable(self): TResult $callback
+     * @throws \LogicException
+     * @throws \Throwable
+     * @param-immediately-invoked-callable $callback
+     */
     public function group(
         callable $callback,
         TaskGroupFailureMode $failureMode = TaskGroupFailureMode::FAIL_FAST,
@@ -185,7 +209,7 @@ final class CoroutineScope
 
         try {
             $task = $this->spawnOwned(
-                static fn(): mixed => $group->execute($closure),
+                static fn() => $group->execute($closure),
                 $source,
             );
 
@@ -197,6 +221,8 @@ final class CoroutineScope
 
     /**
      * Reports whether the current task has a value for the given task-local key.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function hasLocal(TaskLocal $key): bool
     {
@@ -205,7 +231,11 @@ final class CoroutineScope
         return $this->scheduler->hasTaskLocal($key);
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \Infocyph\Runwire\Coroutine\Exception\TaskGroupException
+     * @throws \Throwable
+     */
     public function join(bool $propagateFailure = true, bool $cleanup = false): void
     {
         $tasks = $this->children;
@@ -234,6 +264,8 @@ final class CoroutineScope
 
     /**
      * Returns the current task-local value for the given key.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function local(TaskLocal $key): mixed
     {
@@ -244,6 +276,8 @@ final class CoroutineScope
 
     /**
      * Creates a mutex bound to this scope's scheduler.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function mutex(): Mutex
     {
@@ -258,6 +292,9 @@ final class CoroutineScope
      *
      * @internal
      * @param Closure():void $callback
+     * @throws \OverflowException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function registerShutdown(Closure $callback): int
     {
@@ -274,6 +311,8 @@ final class CoroutineScope
 
     /**
      * Removes the current task-local value for the given key.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function removeLocal(TaskLocal $key): bool
     {
@@ -290,6 +329,8 @@ final class CoroutineScope
 
     /**
      * Creates a semaphore bound to this scope's scheduler.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function semaphore(int $permits): Semaphore
     {
@@ -300,6 +341,8 @@ final class CoroutineScope
 
     /**
      * Sets the current task-local value for the given key.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function setLocal(TaskLocal $key, mixed $value): void
     {
@@ -309,6 +352,9 @@ final class CoroutineScope
 
     /**
      * Suspends the current task for at least the requested duration.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function sleep(float $seconds): void
     {
@@ -316,7 +362,13 @@ final class CoroutineScope
         $this->scheduler->sleep($seconds);
     }
 
-    /** @param callable(): mixed $callback */
+    /**
+     * @template TResult
+     * @return Task<TResult>
+     * @param callable(): TResult $callback
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function spawn(callable $callback): Task
     {
         $this->assertOpen();
@@ -330,21 +382,36 @@ final class CoroutineScope
         unset($this->shutdownCallbacks[$id]);
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function waitReadable(mixed $stream): void
     {
         $this->assertOpen();
         $this->scheduler->suspendReadable($stream);
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function waitWritable(mixed $stream): void
     {
         $this->assertOpen();
         $this->scheduler->suspendWritable($stream);
     }
 
-    /** @param callable(self): mixed $callback */
+    /**
+     * @template TResult
+     * @return TResult
+     * @param callable(self): TResult $callback
+     * @throws \LogicException
+     * @throws \Throwable
+     * @param-immediately-invoked-callable $callback
+     */
     public function withDeadline(
         RequestDeadline $deadline,
         callable $callback,
@@ -355,6 +422,8 @@ final class CoroutineScope
 
     /**
      * Cooperatively yields execution to other runnable tasks.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function yieldNow(): void
     {
@@ -362,6 +431,10 @@ final class CoroutineScope
         $this->scheduler->yieldNow();
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function assertOpen(): void
     {
         if ($this->closed) {
@@ -372,6 +445,10 @@ final class CoroutineScope
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function awaitTask(Task $task, bool $cleanup): void
     {
         if ($cleanup) {
@@ -433,6 +510,9 @@ final class CoroutineScope
         unset($this->children[$task->id()]);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     */
     private function handleJoinedCancellation(CancelledException $error, bool $cleanup): void
     {
         if (!$cleanup && $this->cancellation()->isCancelled()) {
@@ -440,6 +520,9 @@ final class CoroutineScope
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleJoinedFailure(Task $task, Throwable $error, bool $cleanup): void
     {
         if ($task->state() !== TaskState::FAILED) {
@@ -459,6 +542,10 @@ final class CoroutineScope
         $this->cancelSiblings($task->id());
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \Throwable
+     */
     private function joinTask(Task $task, bool $cleanup): void
     {
         if ($task->isComplete() && $task->observed()) {
@@ -542,7 +629,12 @@ final class CoroutineScope
         $this->secondaryFailures[] = $error;
     }
 
-    /** @param callable(): mixed $callback */
+    /**
+     * @template TResult
+     * @return Task<TResult>
+     * @param callable(): TResult $callback
+     * @throws \Throwable
+     */
     private function spawnOwned(callable $callback, CancellationSource $source): Task
     {
         try {

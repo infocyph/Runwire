@@ -28,16 +28,19 @@ final class TestIdentitySystem implements IdentitySystemInterface
         public int $gid = 0,
     ) {}
 
+    #[\Override]
     public function effectiveUid(): int
     {
         return $this->uid;
     }
 
+    #[\Override]
     public function effectiveGid(): int
     {
         return $this->gid;
     }
 
+    #[\Override]
     public function passwd(int $uid): array|false
     {
         $this->calls[] = 'passwd:' . $uid;
@@ -45,6 +48,7 @@ final class TestIdentitySystem implements IdentitySystemInterface
         return $this->passwdEntry;
     }
 
+    #[\Override]
     public function initGroups(string $username, int $gid): bool
     {
         $this->calls[] = sprintf('initgroups:%s:%d', $username, $gid);
@@ -52,6 +56,7 @@ final class TestIdentitySystem implements IdentitySystemInterface
         return $this->initGroupsResult;
     }
 
+    #[\Override]
     public function setGid(int $gid): bool
     {
         $this->calls[] = 'setgid:' . $gid;
@@ -62,6 +67,7 @@ final class TestIdentitySystem implements IdentitySystemInterface
         return $this->setGidResult;
     }
 
+    #[\Override]
     public function setUid(int $uid): bool
     {
         $this->calls[] = 'setuid:' . $uid;

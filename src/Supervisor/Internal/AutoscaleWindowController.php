@@ -26,7 +26,10 @@ final class AutoscaleWindowController
 
     private int $pendingWindows = 0;
 
-    /** Configure sustained pressure and monotonic sample validation. */
+    /**
+     * Configure sustained pressure and monotonic sample validation.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly AutoscalePolicy $policy,
         private readonly AutoscaleDecisionEngine $engine = new AutoscaleDecisionEngine(),
@@ -49,7 +52,10 @@ final class AutoscaleWindowController
         return $this->lastChangeAt;
     }
 
-    /** Propose a worker target from monotonic metrics, never spawning children. */
+    /**
+     * Propose a worker target from monotonic metrics, never spawning children.
+     * @throws \InvalidArgumentException
+     */
     public function observe(
         int $currentWorkers,
         float $cpuRatio,
@@ -105,6 +111,9 @@ final class AutoscaleWindowController
         return $this->pendingWindows;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function assertMonotonicSample(float $observedAtSeconds): void
     {
         if (!is_finite($observedAtSeconds) || $observedAtSeconds < 0

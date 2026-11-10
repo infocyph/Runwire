@@ -11,6 +11,14 @@ it('keeps inherited published 2.1.2 Connection callbacks and write as public met
     $connection = new ReflectionClass(Connection::class);
     $close = $connection->getMethod('onClose');
     $write = $connection->getMethod('write');
+    $closeParameterType = $close->getParameters()[0]->getType();
+    $writeParameterType = $write->getParameters()[0]->getType();
+    $closeReturnType = $close->getReturnType();
+    $writeReturnType = $write->getReturnType();
+    if (!$closeParameterType instanceof ReflectionNamedType || !$writeParameterType instanceof ReflectionNamedType
+        || !$closeReturnType instanceof ReflectionNamedType || !$writeReturnType instanceof ReflectionNamedType) {
+        throw new RuntimeException('Published Connection signatures must use named parameter and return types.');
+    }
 
     expect($connection->hasMethod('onClose'))->toBeTrue()
         ->and($connection->hasMethod('write'))->toBeTrue()
@@ -18,10 +26,10 @@ it('keeps inherited published 2.1.2 Connection callbacks and write as public met
         ->and($write->isPublic())->toBeTrue()
         ->and($close->getNumberOfRequiredParameters())->toBe(1)
         ->and($write->getNumberOfRequiredParameters())->toBe(1)
-        ->and($close->getParameters()[0]->getType()?->getName())->toBe('callable')
-        ->and($write->getParameters()[0]->getType()?->getName())->toBe('string')
-        ->and($close->getReturnType()?->getName())->toBe('self')
-        ->and($write->getReturnType()?->getName())->toBe(WriteResult::class)
+        ->and($closeParameterType->getName())->toBe('callable')
+        ->and($writeParameterType->getName())->toBe('string')
+        ->and($closeReturnType->getName())->toBe('self')
+        ->and($writeReturnType->getName())->toBe(WriteResult::class)
         ->and($connection->getTraitNames())->toContain(
             ConnectionCloseObserverTrait::class,
             ConnectionLifecycleOperationsTrait::class,
@@ -31,13 +39,16 @@ it('keeps inherited published 2.1.2 Connection callbacks and write as public met
 it('pins every reviewed source-only migration anomaly to approved immutable fingerprints', function (): void {
     $path = dirname(__DIR__) . '/qa/release-baseline/u16-reviewed-api-delta.json';
     $json = file_get_contents($path);
-    expect($json)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($json);
     $policy = json_decode($json, true, 16, JSON_THROW_ON_ERROR);
+    \PHPUnit\Framework\Assert::assertIsArray($policy);
     expect($policy['schemaVersion'])->toBe(1)
         ->and($policy['publishedRevision'])->toBe('7e9bf20ad0737a187dfed77b723791b141b36378')
         ->and($policy['sourceMethodRelocations'])->toHaveCount(2)
         ->and($policy['reviewedSignatureChanges'])->toHaveCount(6);
+    \PHPUnit\Framework\Assert::assertIsArray($policy['reviewedSignatureChanges']);
     foreach ($policy['reviewedSignatureChanges'] as $change) {
+        \PHPUnit\Framework\Assert::assertIsArray($change);
         expect($change['symbol'])->toBeString()
             ->and($change['beforeSha256'])->toMatch('/^[a-f0-9]{64}$/')
             ->and($change['afterSha256'])->toMatch('/^[a-f0-9]{64}$/')

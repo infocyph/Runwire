@@ -24,7 +24,13 @@ final class FramedConnection
 
     private bool $pumpScheduled = false;
 
-    /** @param callable(string, self): void $onFrame */
+    /**
+     * @param callable(string, self): void $onFrame
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
@@ -49,6 +55,7 @@ final class FramedConnection
 
     /**
      * Aborts the underlying transport with the supplied close reason.
+     * @throws \Throwable
      */
     public function abort(CloseReason $reason = CloseReason::LOCAL_ABORT): void
     {
@@ -57,6 +64,7 @@ final class FramedConnection
 
     /**
      * Begins graceful closure of the underlying transport.
+     * @throws \Throwable
      */
     public function closeGracefully(): void
     {
@@ -71,7 +79,10 @@ final class FramedConnection
         return $this->codec;
     }
 
-    /** @param callable(self): void $callback */
+    /**
+     * @param callable(self): void $callback
+     * @throws \LogicException
+     */
     public function onDrain(callable $callback): self
     {
         $consumer = Closure::fromCallable($callback);
@@ -84,6 +95,8 @@ final class FramedConnection
 
     /**
      * Encodes and writes one application frame.
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function send(string $frame): WriteResult
     {
@@ -98,6 +111,9 @@ final class FramedConnection
         return $this->connection;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function decodeAndDispatch(string $bytes): void
     {
         try {
@@ -121,7 +137,10 @@ final class FramedConnection
         }
     }
 
-    /** @param list<string> $frames */
+    /**
+     * @param list<string> $frames
+     * @throws \Throwable
+     */
     private function dispatch(array $frames): void
     {
         if ($this->pumping) {
@@ -149,6 +168,20 @@ final class FramedConnection
         }
     }
 
+    /**
+     * Deferred callbacks run after the transport may have closed or changed
+     * ownership; validate the current state at dispatch time.
+     * @throws \Throwable
+     */
+    private function dispatchScheduledFrames(): void
+    {
+        if ($this->connection->state() === ConnectionState::CLOSED) {
+            return;
+        }
+
+        $this->decodeAndDispatch('');
+    }
+
     private function scheduleIfMoreMayBeReady(): void
     {
         if ($this->pumpScheduled || $this->connection->state() === ConnectionState::CLOSED) {
@@ -157,10 +190,7 @@ final class FramedConnection
         $this->pumpScheduled = true;
         $this->loop->defer(function (): void {
             $this->pumpScheduled = false;
-            if ($this->connection->state() === ConnectionState::CLOSED) {
-                return;
-            }
-            $this->decodeAndDispatch('');
+            $this->dispatchScheduledFrames();
         });
     }
 }

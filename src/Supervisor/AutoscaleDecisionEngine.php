@@ -15,6 +15,7 @@ final readonly class AutoscaleDecisionEngine
      * Compute a bounded target from one validated observation window.
      *
      * @return int Desired workers, not a command to the live supervisor.
+     * @throws \InvalidArgumentException
      */
     public function target(
         AutoscalePolicy $policy,

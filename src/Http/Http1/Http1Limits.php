@@ -15,6 +15,7 @@ final readonly class Http1Limits
 {
     /**
      * Create and validate HTTP/1.1 connection limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxRequestLineBytes = 8_192,

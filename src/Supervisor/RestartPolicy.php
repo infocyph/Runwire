@@ -13,6 +13,7 @@ final readonly class RestartPolicy
 {
     /**
      * Create a worker restart policy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxRestarts = 10,
@@ -50,7 +51,7 @@ final readonly class RestartPolicy
 
         return min(
             $this->maxBackoffSeconds,
-            $this->initialBackoffSeconds * (2 ** $exponent),
+            $this->initialBackoffSeconds * (2.0 ** (float) $exponent),
         );
     }
 }

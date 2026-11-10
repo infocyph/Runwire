@@ -23,7 +23,7 @@ function releaseCompareFixture(string $build, float $successfulRps = 1_000.0, fl
         'workers' => 1,
         'concurrency' => 16,
         'median_successful_rps' => $successfulRps,
-        'median_successful_rpm' => $successfulRps * 60,
+        'median_successful_rpm' => $successfulRps * 60.0,
         'rps_cv_percent' => $cv,
         'median_p99_ms' => 2.0,
         'peak_rss_bytes' => 120_000_000,
@@ -31,7 +31,33 @@ function releaseCompareFixture(string $build, float $successfulRps = 1_000.0, fl
     ];
 }
 
-/** @return array{exit: int, report: array<string, mixed>, stderr: string} */
+/**
+ * @return array<string,mixed>
+ * @throws RuntimeException
+ */
+function releaseCompareReport(string $json): array
+{
+    $decoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('Benchmark comparator must return a JSON object.');
+    }
+    $report = [];
+    foreach ($decoded as $name => $value) {
+        if (!is_string($name)) {
+            throw new RuntimeException('Benchmark comparator requires named fields.');
+        }
+        $report[$name] = $value;
+    }
+
+    return $report;
+}
+
+/**
+ * @param array<string,mixed> $baseline
+ * @param array<string,mixed> $candidate
+ * @return array{exit: int, report: array<string, mixed>, stderr: string}
+ * @throws \RuntimeException
+ */
 function releaseCompareRun(array $baseline, array $candidate): array
 {
     $baselinePath = tempnam(sys_get_temp_dir(), 'runwire-baseline-');
@@ -64,7 +90,7 @@ function releaseCompareRun(array $baseline, array $candidate): array
 
         return [
             'exit' => $exit,
-            'report' => json_decode($stdout, true, flags: JSON_THROW_ON_ERROR),
+            'report' => releaseCompareReport($stdout),
             'stderr' => $stderr,
         ];
     } finally {

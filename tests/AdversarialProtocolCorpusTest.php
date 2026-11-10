@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\Http1ClientResponseParser;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType as H2FrameType;
 use Infocyph\Runwire\Http\Http2\Frame as H2Frame;
@@ -14,16 +16,27 @@ use Infocyph\Runwire\Http\Http3\Enum\FrameType as H3FrameType;
 use Infocyph\Runwire\Http\Http3\Frame as H3Frame;
 use Infocyph\Runwire\Http\Http3\FrameParser as H3Parser;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
-use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\Http3\Qpack\DynamicTable as QpackTable;
 use Infocyph\Runwire\Http\Http3\Qpack\FieldSectionDecoder;
+use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Network\Internal\QuicWorkerCommand;
+use InvalidArgumentException;
+use RuntimeException;
+
 
 /**
  * Reproducible bounds corpus; each hostile decoder has a fully independent
  * healthy peer to demonstrate that malformed framing never poisons siblings.
  */
 it('rejects 128 oversized H2 frame declarations while separate peers continue streaming', function (): void {
+    runwireOwnedAdversarialProtocolCorpusTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdversarialProtocolCorpusTestCase01(): void
+{
     for ($index = 0; $index < 128; ++$index) {
         $declared = 16_385 + $index;
         $header = chr(($declared >> 16) & 255)
@@ -43,9 +56,17 @@ it('rejects 128 oversized H2 frame declarations while separate peers continue st
             ->and($frames[0]->streamId)->toBe(3)
             ->and($healthy->bufferedBytes())->toBe(0);
     }
-});
+}
 
 it('rejects 128 oversized H3 frame declarations before bodies and preserves sibling decoding', function (): void {
+    runwireOwnedAdversarialProtocolCorpusTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdversarialProtocolCorpusTestCase02(): void
+{
     for ($index = 0; $index < 128; ++$index) {
         $hostile = new H3Parser(32);
         $wire = VarIntCodec::encode(H3FrameType::DATA->value) . VarIntCodec::encode(33 + $index);
@@ -61,9 +82,17 @@ it('rejects 128 oversized H3 frame declarations before bodies and preserves sibl
             ->and($frames[0]->payload)->toBe('survivor')
             ->and($healthy->bufferedBytes())->toBe(0);
     }
-});
+}
 
 it('isolates malformed HPACK representations from a healthy decoder and rejects dynamic updates after headers', function (): void {
+    runwireOwnedAdversarialProtocolCorpusTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdversarialProtocolCorpusTestCase03(): void
+{
     for ($index = 0; $index < 32; ++$index) {
         $hostile = new HpackDecoder(maxDynamicTableBytes: 0, maxHeaderListBytes: 64);
         expect(fn() => $hostile->decode("\x80"))->toThrow(HpackException::class);
@@ -73,9 +102,17 @@ it('isolates malformed HPACK representations from a healthy decoder and rejects 
         expect($sibling->decode("\x82"))->toBe([[':method', 'GET']])
             ->and($sibling->dynamicTableBytes())->toBe(0);
     }
-});
+}
 
 it('keeps well-formed H1 sibling responses alive across malformed peer framing corpus', function (): void {
+    runwireOwnedAdversarialProtocolCorpusTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdversarialProtocolCorpusTestCase04(): void
+{
     for ($index = 1; $index <= 32; ++$index) {
         $hostile = new Http1ClientResponseParser();
         $wire = "HTTP/1.1 200 OK\r\nContent-Length: " . $index
@@ -100,9 +137,17 @@ it('keeps well-formed H1 sibling responses alive across malformed peer framing c
             ->and($headers)->toBe(1)
             ->and(strlen($body))->toBe(1);
     }
-});
+}
 
 it('rejects 64 oversized QPACK field sections without affecting another peer decoder', function (): void {
+    runwireOwnedAdversarialProtocolCorpusTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdversarialProtocolCorpusTestCase05(): void
+{
     for ($index = 0; $index < 64; ++$index) {
         $malicious = new FieldSectionDecoder(new QpackTable(0), 64);
         expect(fn() => $malicious->decode(str_repeat('x', 65 + $index)))
@@ -110,9 +155,17 @@ it('rejects 64 oversized QPACK field sections without affecting another peer dec
         $healthy = new FieldSectionDecoder(new QpackTable(0), 64);
         expect($healthy->decode("\x00\x00")->fields)->toBe([]);
     }
-});
+}
 
 it('keeps 64 bounded QUIC worker command decoders independent of invalid IPC frames', function (): void {
+    runwireOwnedAdversarialProtocolCorpusTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedAdversarialProtocolCorpusTestCase06(): void
+{
     for ($index = 0; $index < 64; ++$index) {
         $invalid = str_repeat('!', 90_001 + $index) . "\n";
         expect(fn() => QuicWorkerCommand::decode($invalid))->toThrow(InvalidArgumentException::class);
@@ -122,4 +175,4 @@ it('keeps 64 bounded QUIC worker command decoders independent of invalid IPC fra
             ->and($decoded['data'])->toBe("\x00binary")
             ->and($decoded['stream'])->toBe(4);
     }
-});
+}

@@ -66,6 +66,7 @@ final class AdmissionController
 
     /**
      * Writes a protocol-appropriate 503 response for rejected work.
+     * @throws \InvalidArgumentException
      */
     public function writeOverloadResponse(HttpRequest $request, ResponseWriterInterface $writer): void
     {

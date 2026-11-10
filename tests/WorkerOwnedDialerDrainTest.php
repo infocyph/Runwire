@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
@@ -14,7 +16,7 @@ it('rejects inherited outbound dial state but keeps the original process owner v
     $executor = new ProcessExecutor($loop, 1, 2);
     $dialer = new Dialer($loop);
     $happy = new HappyEyeballsDialer($loop, $dialer, new AsyncDnsResolver($executor));
-    [$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$reader, $writer] = runwireWorkerOwnedDialerDrainTestSocketPair();
     $pid = pcntl_fork();
     expect($pid)->not->toBe(-1);
 
@@ -22,12 +24,12 @@ it('rejects inherited outbound dial state but keeps the original process owner v
         fclose($reader);
         $rejected = 0;
         foreach ([
-            static fn() => $dialer->cancel(42),
-            static fn() => $dialer->pendingCount(),
-            static fn() => $dialer->close(),
-            static fn() => $happy->cancel(42),
-            static fn() => $happy->pendingCount(),
-            static fn() => $happy->close(),
+            static fn() : bool => $dialer->cancel(42),
+            static fn() : int => $dialer->pendingCount(),
+            static fn() : null => $dialer->close(),
+            static fn() : bool => $happy->cancel(42),
+            static fn() : int => $happy->pendingCount(),
+            static fn() : null => $happy->close(),
         ] as $operation) {
             try {
                 $operation();
@@ -45,6 +47,7 @@ it('rejects inherited outbound dial state but keeps the original process owner v
     try {
         $child = stream_get_contents($reader);
         pcntl_waitpid($pid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
             ->and($child)->toBe('6')
@@ -60,9 +63,9 @@ it('rejects inherited outbound dial state but keeps the original process owner v
 
 it('closes real pending dial sockets through worker ownership once', function (): void {
     $server = stream_socket_server('tcp://127.0.0.1:0', $code, $error);
-    expect($server)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($server);
     $address = stream_socket_get_name($server, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
 
     $loop = new SelectLoop();
     $dialer = new Dialer($loop);
@@ -88,3 +91,17 @@ it('closes real pending dial sockets through worker ownership once', function ()
         $dialer->close();
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireWorkerOwnedDialerDrainTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

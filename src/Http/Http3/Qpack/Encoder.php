@@ -30,6 +30,8 @@ final class Encoder
 
     /**
      * Create a QPACK encoder constrained by peer settings and local field limits.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function __construct(
         int $peerMaxTableCapacity,
@@ -54,7 +56,10 @@ final class Encoder
         }
     }
 
-    /** @param list<array{0: string, 1: string}> $fields */
+    /**
+     * @param list<array{0: string, 1: string}> $fields
+     * @throws \Throwable
+     */
     public function encode(array $fields, int $streamId): EncodedFieldSection
     {
         $this->validateFields($fields);
@@ -106,6 +111,8 @@ final class Encoder
 
     /**
      * Apply peer QPACK decoder-stream feedback.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
      */
     public function pushDecoderInstructions(string $bytes): void
     {
@@ -134,6 +141,9 @@ final class Encoder
         return in_array($name, ['authorization', 'cookie', 'set-cookie'], true);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function acknowledge(int $streamId): void
     {
         $sections = $this->outstanding[$streamId] ?? [];
@@ -154,6 +164,9 @@ final class Encoder
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function cancel(int $streamId): void
     {
         foreach ($this->outstanding[$streamId] ?? [] as $section) {
@@ -163,6 +176,9 @@ final class Encoder
         unset($this->outstanding[$streamId]);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function canReference(int $absoluteIndex, bool $sectionBlocking): bool
     {
         $required = CheckedInteger::add(
@@ -178,7 +194,10 @@ final class Encoder
         return $sectionBlocking || $this->blockedSections < $this->peerMaxBlockedStreams;
     }
 
-    /** @param array<int, int> $references */
+    /**
+     * @param array<int, int> $references
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function encodeDynamicReference(
         int $absoluteIndex,
         int $base,
@@ -208,7 +227,12 @@ final class Encoder
             : IntegerCodec::encode($absoluteIndex - $base, 4, 0x10);
     }
 
-    /** @param array<int, int> $references */
+    /**
+     * @param array<int, int> $references
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function encodeField(
         string $name,
         string $value,
@@ -255,6 +279,9 @@ final class Encoder
         return $this->literal($name, $value);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function increment(int $increment): void
     {
         if ($increment <= 0 || $increment > $this->table->insertCount() - $this->knownReceivedCount) {
@@ -267,6 +294,9 @@ final class Encoder
         $this->knownReceivedCount += $increment;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function insert(string $name, string $value): ?int
     {
         $staticName = StaticTable::findName($name);
@@ -282,6 +312,10 @@ final class Encoder
         return $index;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function literal(string $name, string $value): string
     {
         $sensitive = self::sensitive($name);
@@ -302,6 +336,11 @@ final class Encoder
         ) . StringCodec::encode($value, 7, 0x00, 0x80);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     private function prefix(int $requiredInsertCount, int $base): string
     {
         if ($requiredInsertCount === 0) {
@@ -330,7 +369,10 @@ final class Encoder
             : $prefix . IntegerCodec::encode($requiredInsertCount - $base - 1, 7, 0x80);
     }
 
-    /** @param array<int, int> $references */
+    /**
+     * @param array<int, int> $references
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function releaseReferences(array $references): void
     {
         foreach ($references as $absoluteIndex) {
@@ -338,6 +380,9 @@ final class Encoder
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function releaseSection(SectionReference $section): void
     {
         $this->releaseReferences($section->entries);
@@ -355,7 +400,10 @@ final class Encoder
         return $sectionBlocking || $this->blockedSections < $this->peerMaxBlockedStreams;
     }
 
-    /** @param list<array{0: string, 1: string}> $fields */
+    /**
+     * @param list<array{0: string, 1: string}> $fields
+     * @throws \InvalidArgumentException
+     */
     private function validateFields(array $fields): void
     {
         $bytes = 0;

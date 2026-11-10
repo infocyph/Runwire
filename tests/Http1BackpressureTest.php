@@ -10,12 +10,19 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
 
+/**
+ * @return array{resource, resource}
+ * @throws \Throwable
+ */
 function runwireHttpBackpressurePair(): array
 {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    if (!isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
 
-    return $pair;
+    return [$pair[0], $pair[1]];
 }
 
 it('pauses request intake at the body watermark and resumes after consumption', function (): void {
@@ -33,14 +40,20 @@ it('pauses request intake at the body watermark and resumes after consumption', 
 
     new Http1Connection($loop, $connection, $limits, static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$seen, $loop): void {
         $loop->delay(0.02, static function () use ($request, &$seen, $writer): void {
-            $request->body->onData(static function ($body) use (&$seen): void { $seen .= $body->read(); });
-            $request->body->onEnd(static fn () => $writer->end('ok'));
+            $request->body->onData(static function ($body) use (&$seen): void {
+                $seen .= $body->read();
+            });
+            $request->body->onEnd(static function () use ($writer): void {
+                $writer->end('ok');
+            });
         });
     });
 
     $payload = str_repeat('b', 1_024);
     fwrite($client, "POST /pressure HTTP/1.1\r\nHost: x\r\nContent-Length: 1024\r\nConnection: close\r\n\r\n" . $payload);
-    $loop->delay(1.0, static fn () => $loop->stop());
+    $loop->delay(1.0, static function () use ($loop): void {
+        $loop->stop();
+    });
     $loop->run();
     fclose($client);
 
@@ -53,7 +66,9 @@ it('applies absolute header and body-idle deadlines', function (): void {
     $headerConnection = new Connection($headerLoop, $headerServer);
     new Http1Connection($headerLoop, $headerConnection, new Http1Limits(headerTimeoutSeconds: 0.03), static function (): void {});
     fwrite($headerClient, 'GET /slow HTTP/1.1');
-    $headerLoop->delay(0.08, static fn () => $headerLoop->stop());
+    $headerLoop->delay(0.08, static function () use ($headerLoop): void {
+        $headerLoop->stop();
+    });
     $headerLoop->run();
     stream_set_blocking($headerClient, false);
     $headerResponse = stream_get_contents($headerClient);
@@ -63,10 +78,14 @@ it('applies absolute header and body-idle deadlines', function (): void {
     $bodyLoop = new SelectLoop();
     $bodyConnection = new Connection($bodyLoop, $bodyServer);
     new Http1Connection($bodyLoop, $bodyConnection, new Http1Limits(bodyIdleTimeoutSeconds: 0.03), static function (HttpRequest $request): void {
-        $request->body->onData(static fn ($body) => $body->read());
+        $request->body->onData(static function ($body): void {
+            $body->read();
+        });
     });
     fwrite($bodyClient, "POST /slow HTTP/1.1\r\nHost: x\r\nContent-Length: 10\r\n\r\nabc");
-    $bodyLoop->delay(0.08, static fn () => $bodyLoop->stop());
+    $bodyLoop->delay(0.08, static function () use ($bodyLoop): void {
+        $bodyLoop->stop();
+    });
     $bodyLoop->run();
     stream_set_blocking($bodyClient, false);
     $bodyResponse = stream_get_contents($bodyClient);
@@ -91,18 +110,21 @@ it('exposes response pressure relief through the version-neutral writer', functi
         maxSendBufferBytes: 65_536,
         maxWriteBytesPerTick: 1,
     ));
-    $drained = false;
+    $drainState = new class {
+        public bool $drained = false;
+    };
 
-    new Http1Connection($loop, $connection, new Http1Limits(maxResponseChunkBytes: 4_096), static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$drained, $loop): void {
+    new Http1Connection($loop, $connection, new Http1Limits(maxResponseChunkBytes: 4_096), static function (HttpRequest $request, ResponseWriterInterface $writer) use ($drainState, $loop): void {
         expect($request->target)->toBe('/pressure');
         $writer->start();
         for ($index = 0; $index < 20; ++$index) {
             $result = $writer->write(str_repeat('z', 4_096));
             if ($result->pressured()) {
-                $writer->onDrain(static function () use (&$drained, $loop): void {
-                    $drained = true;
+                $writer->onDrain(static function () use ($drainState, $loop): void {
+                    $drainState->drained = true;
                     $loop->stop();
                 });
+
                 return;
             }
             if (!$result->accepted()) {
@@ -117,10 +139,12 @@ it('exposes response pressure relief through the version-neutral writer', functi
             $chunk = fread($stream, 65_536);
         } while ($chunk !== '' && $chunk !== false);
     });
-    $loop->delay(1.0, static fn () => $loop->stop());
+    $loop->delay(1.0, static function () use ($loop): void {
+        $loop->stop();
+    });
     $loop->run();
     $connection->abort();
     fclose($client);
 
-    expect($drained)->toBeTrue();
+    expect($drainState->drained)->toBeTrue();
 });

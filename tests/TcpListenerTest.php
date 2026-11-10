@@ -22,16 +22,17 @@ it('accepts TCP connections and exposes peer/local metadata', function (): void 
     });
 
     $client = stream_socket_client('tcp://' . $listener->address(), $errno, $error, 1.0);
-    expect($client)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($client);
     fwrite($client, 'hello');
-    $loop->delay(1.0, static fn () => $loop->stop());
+    $loop->delay(1.0, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
-
     expect(stream_get_contents($client))->toBe('echo:hello')
         ->and($listener->activeConnections())->toBe(0)
-        ->and($listener->acceptedConnections())->toBe(1)
-        ->and($peerAddress)->toBeString()
-        ->and($localAddress)->toBe($listener->address());
+        ->and($listener->acceptedConnections())->toBe(1);
+    \PHPUnit\Framework\Assert::assertIsString($peerAddress);
+    expect($localAddress)->toBe($listener->address());
 
     fclose($client);
     $listener->close();
@@ -43,17 +44,22 @@ it('pauses at the connection ceiling and resumes when capacity returns', functio
     $accepted = [];
     $listener->start($loop, static function (Connection $connection) use (&$accepted): void {
         $accepted[] = $connection;
-        $connection->onData(static fn (Connection $connection): string => $connection->read());
+        $connection->onData(static function (Connection $connection): void {
+            $connection->read();
+        });
     });
 
     $client1 = stream_socket_client('tcp://' . $listener->address(), $errno1, $error1, 1.0);
     $client2 = stream_socket_client('tcp://' . $listener->address(), $errno2, $error2, 1.0);
-    expect($client1)->toBeResource()->and($client2)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($client1);
+    \PHPUnit\Framework\Assert::assertIsResource($client2);
 
     $loop->delay(0.03, static function () use (&$accepted): void {
         if (isset($accepted[0])) { $accepted[0]->abort(); }
     });
-    $loop->delay(0.08, static fn () => $loop->stop());
+    $loop->delay(0.08, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
 
     expect($accepted)->toHaveCount(2)->and($listener->activeConnections())->toBe(1);

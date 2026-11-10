@@ -42,7 +42,10 @@ final class StreamRelay
 
     private int $toRightBytes = 0;
 
-    /** Validate exclusive endpoints and bounded per-tick forwarding budgets. */
+    /**
+     * Validate exclusive endpoints and bounded per-tick forwarding budgets.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $left,
@@ -58,7 +61,10 @@ final class StreamRelay
         }
     }
 
-    /** Abort both connections and release their reactor handles exactly once. */
+    /**
+     * Abort both connections and release their reactor handles exactly once.
+     * @throws \Throwable
+     */
     public function close(): void
     {
         if ($this->closed) {
@@ -81,7 +87,11 @@ final class StreamRelay
         return $this->closed;
     }
 
-    /** Take ownership of both established connections and begin forwarding. */
+    /**
+     * Take ownership of both established connections and begin forwarding.
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     public function start(): void
     {
         if ($this->started || $this->closed) {
@@ -140,17 +150,22 @@ final class StreamRelay
         return ['toLeft' => $this->toLeftBytes, 'toRight' => $this->toRightBytes];
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function armLifecycle(): bool
     {
-        if ($this->cancellation?->isCancelled()) {
+        $token = $this->cancellation;
+        if ($token !== null && $token->isCancelled()) {
             $this->close();
 
             return false;
         }
 
+        $tokenDeadline = $token?->deadline();
         $timeout = min(
             $this->deadline?->remainingSeconds() ?? INF,
-            $this->cancellation?->deadline()->remainingSeconds() ?? INF,
+            $tokenDeadline?->remainingSeconds() ?? INF,
         );
         if ($timeout <= 0) {
             $this->close();
@@ -163,7 +178,7 @@ final class StreamRelay
             });
         }
 
-        $subscription = $this->cancellation?->onCancel(function (): void {
+        $subscription = $token?->onCancel(function (): void {
             $this->close();
         });
         if ($this->closed) {
@@ -176,6 +191,10 @@ final class StreamRelay
         return true;
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function completeDirection(bool $fromLeft): void
     {
         if ($this->closed || ($fromLeft ? $this->leftEofForwarded : $this->rightEofForwarded)) {
@@ -197,6 +216,9 @@ final class StreamRelay
         $this->finishIfFullyDrained();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishIfFullyDrained(): void
     {
         if ($this->left->peerReadClosed() && $this->right->peerReadClosed()
@@ -206,6 +228,10 @@ final class StreamRelay
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function forward(bool $fromLeft): void
     {
         if ($this->closed || ($fromLeft ? $this->forwardingLeft : $this->forwardingRight)) {
@@ -228,6 +254,10 @@ final class StreamRelay
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function manageReadPressure(Connection $source, Connection $destination, bool $fromLeft): void
     {
         if ($source->peerReadClosed() && $source->receivedBytes() === 0) {
@@ -247,6 +277,11 @@ final class StreamRelay
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function moveChunk(Connection $source, Connection $destination, bool $fromLeft, int $remaining): int
     {
         $available = min($destination->availableWriteBytes(), $remaining, $this->chunkBytes);
@@ -272,6 +307,10 @@ final class StreamRelay
         return $length;
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function onEof(bool $fromLeft): void
     {
         if ($this->closed) {
@@ -287,6 +326,10 @@ final class StreamRelay
         $this->completeDirection($fromLeft);
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function resume(bool $fromLeft): void
     {
         if ($this->closed) {
@@ -297,6 +340,10 @@ final class StreamRelay
         $this->forward($fromLeft);
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function transfer(bool $fromLeft): void
     {
         $source = $fromLeft ? $this->left : $this->right;

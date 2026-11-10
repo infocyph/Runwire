@@ -25,6 +25,8 @@ final readonly class WorkerGroup
      * Create a worker group definition.
      *
      * @param callable(WorkerContext): void $bootstrap
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function __construct(
         public string $name,
@@ -61,7 +63,6 @@ final readonly class WorkerGroup
 
         $privilegeDropPolicy->assertSupported();
 
-        /** @var Closure(WorkerContext): void $closure */
         $closure = Closure::fromCallable($bootstrap);
         $this->bootstrap = $closure;
         $this->reloadable = $reloadable ?? $role->defaultReloadable();
@@ -71,6 +72,8 @@ final readonly class WorkerGroup
      * Create a worker group from a callback factory.
      *
      * @param callable(WorkerContext): void $factory
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public static function callbacks(
         string $name,
@@ -102,7 +105,11 @@ final readonly class WorkerGroup
         );
     }
 
-    /** Return the same immutable worker group contract with a new live slot count. */
+    /**
+     * Return the same immutable worker group contract with a new live slot count.
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     public function withCount(int $count): self
     {
         return new self(

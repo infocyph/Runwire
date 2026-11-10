@@ -16,7 +16,9 @@ it('receives and replies to UDP datagrams', function (): void {
     $listener->start($loop, static function (Datagram $datagram, DatagramListener $listener) use (&$received, $loop): void {
         $received = $datagram;
         expect($listener->sendTo('pong', $datagram->peerAddress)->sent())->toBeTrue();
-        $loop->defer(static fn () => $loop->stop());
+        $loop->defer(static function () use ($loop): void {
+    $loop->stop();
+});
     });
 
     $client = stream_socket_client('udp://' . $listener->address(), $errno, $error, 1.0);
@@ -24,15 +26,17 @@ it('receives and replies to UDP datagrams', function (): void {
         throw new RuntimeException(sprintf('Unable to create UDP client: %s (%d).', $error, $errno));
     }
     fwrite($client, 'ping');
-    $loop->delay(0.5, static fn () => $loop->stop());
+    $loop->delay(0.5, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_timeout($client, 1);
     $reply = fread($client, 4);
     fclose($client);
     $listener->close();
+    \PHPUnit\Framework\Assert::assertInstanceOf(Datagram::class, $received);
 
-    expect($received)->toBeInstanceOf(Datagram::class)
-        ->and($received?->payload)->toBe('ping')
+    expect($received->payload)->toBe('ping')
         ->and($reply)->toBe('pong');
 });
 
@@ -63,7 +67,9 @@ it('allows a receive callback to close the listener without reusing the closed r
     }
 
     fwrite($client, 'close');
-    $loop->delay(0.5, static fn () => $loop->stop());
+    $loop->delay(0.5, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     fclose($client);
 

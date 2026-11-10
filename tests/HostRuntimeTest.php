@@ -24,6 +24,9 @@ use Infocyph\Runwire\Runtime\RuntimeSelector;
 use Infocyph\Runwire\RuntimeOptions;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * @throws \OverflowException
+ */
 function hostRuntimeRequest(string $target = '/host'): HttpRequest
 {
     return new HttpRequest(
@@ -35,6 +38,10 @@ function hostRuntimeRequest(string $target = '/host'): HttpRequest
     );
 }
 
+/**
+ * @param list<string> $chunks
+ * @throws \InvalidArgumentException
+ */
 function hostRuntimeWriter(array &$chunks): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
@@ -195,11 +202,12 @@ it('preserves a primary host failure when application shutdown also fails', func
     } catch (ApplicationShutdownException $error) {
         $failure = $error;
     }
+    \PHPUnit\Framework\Assert::assertInstanceOf(ApplicationShutdownException::class, $failure);
 
-    expect($failure)->toBeInstanceOf(ApplicationShutdownException::class)
-        ->and($failure?->primaryFailure?->getMessage())->toBe('handler failed')
-        ->and($failure?->shutdownFailures)->toHaveCount(1)
-        ->and($failure?->shutdownFailures[0]->getMessage())->toBe('shutdown failed');
+    \PHPUnit\Framework\Assert::assertNotNull($failure->primaryFailure);
+    expect($failure->primaryFailure->getMessage())->toBe('handler failed')
+        ->and($failure->shutdownFailures)->toHaveCount(1)
+        ->and($failure->shutdownFailures[0]->getMessage())->toBe('shutdown failed');
 });
 
 it('runs FrankenPHP classic mode as one request', function (): void {

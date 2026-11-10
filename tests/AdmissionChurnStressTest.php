@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Executor\ProcessExecutor;
@@ -9,13 +11,16 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use OverflowException;
+use Throwable;
+
 
 it('enforces numeric TCP dial admission under 12 repeated full-capacity cancellation waves', function (): void {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $error);
-    expect($listener)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($listener);
     stream_set_blocking($listener, false);
     $address = stream_socket_get_name($listener, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
 
     $loop = new SelectLoop();
     $dialer = new Dialer($loop, 8);
@@ -67,8 +72,8 @@ it('enforces numeric TCP dial admission under 12 repeated full-capacity cancella
             ->and($callbacks)->toHaveCount(96)
             ->and($dialer->pendingCount())->toBe(0);
         foreach ($callbacks as [$connection, $error]) {
-            expect($connection)->toBeNull()
-                ->and($error)->toBeInstanceOf(CancelledException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $error);
+            expect($connection)->toBeNull();
         }
         foreach ($sources as $source) {
             expect($source->token()->subscriptionCount())->toBe(0);
@@ -113,8 +118,8 @@ it('prevents executor queue overflow and callback duplication during cancellatio
         expect($results)->toHaveCount(36)
             ->and($executor->diagnostics()['cancelled'])->toBe(36);
         foreach ($results as [$value, $error]) {
-            expect($value)->toBeNull()
-                ->and($error)->toBeInstanceOf(CancelledException::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $error);
+            expect($value)->toBeNull();
         }
     } finally {
         $executor->close();

@@ -9,6 +9,9 @@ use Infocyph\Runwire\Http\Client\Http1ClientRequestWriter;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function runwireHttp1ClientPolicy(): ClientProtocolPolicy
 {
     return new ClientProtocolPolicy(
@@ -30,11 +33,13 @@ it('streams chunked binary uploads and validates final trailers', function (): v
     $source = new class implements ClientBodySourceInterface {
         private string $remaining = "ab\0cd";
 
+        #[\Override]
         public function eof(): bool
         {
             return $this->remaining === '';
         }
 
+        #[\Override]
         public function read(int $maxBytes = PHP_INT_MAX): string
         {
             $result = substr($this->remaining, 0, $maxBytes);
@@ -43,7 +48,11 @@ it('streams chunked binary uploads and validates final trailers', function (): v
             return $result;
         }
 
-        public function trailers(): ?Headers
+        /**
+         * @throws \InvalidArgumentException
+         */
+        #[\Override]
+        public function trailers(): Headers
         {
             return Headers::fromArray(['x-end' => 'yes']);
         }

@@ -48,6 +48,8 @@ final class NativeHttp3Attachment
 
     /**
      * Starts polling and returns the lifecycle handle for this attachment.
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
      */
     public function start(float $pollInterval): NativeWorkerHandle
     {
@@ -70,6 +72,9 @@ final class NativeHttp3Attachment
         );
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function beginDrain(): void
     {
         $this->context->consumeStopWake();
@@ -118,6 +123,10 @@ final class NativeHttp3Attachment
         $this->stopWatcher = null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
+     */
     private function close(): void
     {
         $this->shutdown();
@@ -138,6 +147,9 @@ final class NativeHttp3Attachment
         return $this->state->isStopping() && $this->worker->drainComplete();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function expireDrain(): void
     {
         if (!$this->worker->drainComplete()) {
@@ -157,6 +169,9 @@ final class NativeHttp3Attachment
         $this->cancelDrainTimer();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function forceStop(): void
     {
         $this->context->requestStop();
@@ -173,6 +188,13 @@ final class NativeHttp3Attachment
         ($this->observeTransport)();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \UnexpectedValueException
+     * @throws \Throwable
+     */
     private function poll(): void
     {
         $this->worker->tick(0.0);
@@ -182,11 +204,18 @@ final class NativeHttp3Attachment
         $this->finishDrain();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function requestStop(): void
     {
         $this->context->requestStop();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
+     */
     private function shutdown(?Throwable $primaryFailure = null): void
     {
         $failures = [];

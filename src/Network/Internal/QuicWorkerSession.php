@@ -70,6 +70,8 @@ final class QuicWorkerSession
      *
      * @param array<array-key, mixed> $args
      * @return array<string, mixed>
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function execute(array $args): array
     {
@@ -113,9 +115,23 @@ final class QuicWorkerSession
     }
 
     /**
+     * Validate an optional native extension return value without naming an absent class.
+     * @throws \RuntimeException
+     */
+    private static function requireNativeConnection(mixed $value): object
+    {
+        if (!is_object($value)) {
+            throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
+        }
+
+        return $value;
+    }
+
+    /**
      * Import one peer-created QUIC stream without transferring native ownership.
      *
      * @return array{pending:bool}|array{stream:int, bidirectional:bool, incoming:bool}
+     * @throws \RuntimeException
      */
     private function acceptStream(): array
     {
@@ -158,6 +174,7 @@ final class QuicWorkerSession
     /**
      * @param array<array-key, mixed> $protocols
      * @return list<string>
+     * @throws \InvalidArgumentException
      */
     private function assertAlpn(array $protocols): array
     {
@@ -178,6 +195,9 @@ final class QuicWorkerSession
         return $validated;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function assertEndpoint(string $host, int $port, int $limit): void
     {
         if ($host === '' || strlen($host) > 253 || preg_match('/[\x00-\x20\x7f]/', $host) === 1
@@ -189,6 +209,7 @@ final class QuicWorkerSession
     /**
      * @param array<array-key, mixed> $options
      * @return list<string>
+     * @throws \InvalidArgumentException
      */
     private function assertTlsOptions(array $options): array
     {
@@ -225,6 +246,9 @@ final class QuicWorkerSession
     /**
      * @param array<array-key, mixed> $args
      * @return array{epoch:int, alpn:string, verified:bool}
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     private function connect(array $args): array
     {
@@ -242,23 +266,24 @@ final class QuicWorkerSession
         $this->assertEndpoint($host, $port, $limit);
         $verifiedProtocols = $this->assertTlsOptions($options);
 
-        $nativeClass = 'Quic' . '\Connection';
+        $nativeClass = 'Quic' . '\\Connection';
         if (!class_exists($nativeClass)) {
             throw new RuntimeException('Optional native ext-quic is unavailable for persistent sessions.');
         }
 
         // Native constructor may block: this function executes exclusively in
         // the bounded external worker process, NEVER the Runwire I/O loop.
-        $connection = new $nativeClass($host, $port, $options);
-        if (!is_object($connection)
-            || !method_exists($connection, 'close')
-            || !method_exists($connection, 'setBlocking')
-            || !method_exists($connection, 'getNegotiatedAlpn')
-            || !method_exists($connection, 'getVerifyResult')
-            || !method_exists($connection, 'handleEvents')
-            || !method_exists($connection, 'openStream')) {
+        $connection = self::requireNativeConnection(new $nativeClass($host, $port, $options));
+        $requiredMethods = ['close', 'setBlocking', 'getNegotiatedAlpn', 'getVerifyResult', 'handleEvents', 'openStream'];
+        if (array_any($requiredMethods, static fn(string $method): bool => !method_exists($connection, $method))) {
             throw new RuntimeException('Native QUIC backend returned an invalid session handle.');
         }
+        // The runtime capability check above is authoritative. These assertions
+        // make its per-method guarantees visible to static analyzers.
+        assert(method_exists($connection, 'close'));
+        assert(method_exists($connection, 'setBlocking'));
+        assert(method_exists($connection, 'getNegotiatedAlpn'));
+        assert(method_exists($connection, 'getVerifyResult'));
 
         try {
             $alpn = $connection->getNegotiatedAlpn();
@@ -297,7 +322,8 @@ final class QuicWorkerSession
     /**
      * Open a locally initiated QUIC stream, returning a worker-local handle.
      *
-     * @return array{stream:int, bidirectional:bool}
+     * @return array{stream:int, bidirectional:bool, wire_stream_id?:int}
+     * @throws \RuntimeException
      */
     private function openStream(bool $bidirectional): array
     {
@@ -369,6 +395,8 @@ final class QuicWorkerSession
     /**
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{data:string, eof:bool}
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     private function readStream(array $command): array
     {
@@ -403,6 +431,7 @@ final class QuicWorkerSession
     /**
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{reset:bool}
+     * @throws \RuntimeException
      */
     private function resetStream(array $command): array
     {
@@ -441,7 +470,10 @@ final class QuicWorkerSession
         return ['profiling' => true];
     }
 
-    /** Return an established worker-local stream or fail closed. */
+    /**
+     * Return an established worker-local stream or fail closed.
+     * @throws \RuntimeException
+     */
     private function stream(int $id): object
     {
         $entry = $this->streams[$id] ?? null;
@@ -455,6 +487,8 @@ final class QuicWorkerSession
     /**
      * @param array{id:int, op:string, stream:int, data:string, fin:bool} $command
      * @return array{written:int}
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
      */
     private function writeStream(array $command): array
     {

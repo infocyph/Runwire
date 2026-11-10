@@ -15,6 +15,7 @@ final readonly class AdmissionPolicy
 
     /**
      * Creates an admission policy; zero disables count limits while queued bytes remain bounded.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxActiveRequests = 256,

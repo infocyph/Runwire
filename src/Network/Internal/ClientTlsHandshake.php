@@ -18,7 +18,7 @@ final class ClientTlsHandshake
 
     private ?TlsHandshakeReadiness $readiness = null;
 
-    /** @var resource|null */
+    /** @var resource|closed-resource|null */
     private mixed $stream;
 
     /**
@@ -39,9 +39,9 @@ final class ClientTlsHandshake
     /**
      * Start the handshake without blocking or taking socket-close ownership.
      *
-     * @param resource $stream
      * @param callable(?string):void $onSuccess
      * @param callable(Throwable):void $onFailure
+     * @throws \InvalidArgumentException
      */
     public static function start(
         LoopInterface $loop,
@@ -73,6 +73,24 @@ final class ClientTlsHandshake
         $this->finish();
     }
 
+    /**
+     * Apply native stream configuration without assuming the optional extension succeeded.
+     * @param resource $stream
+     */
+    private static function configureContextOption(mixed $stream, string $key, mixed $value): bool
+    {
+        return stream_context_set_option($stream, 'ssl', $key, $value);
+    }
+
+    /** Report the warning recorded by the extension's error handler, if any. */
+    private static function warningOrDefault(?string $warning): string
+    {
+        return $warning ?? 'TLS peer verification or handshake failed.';
+    }
+
+    /**
+     * The TLS warning handler may replace the nullable warning during crypto negotiation.
+     */
     private function attempt(): void
     {
         $stream = $this->stream;
@@ -103,18 +121,24 @@ final class ClientTlsHandshake
             return;
         }
         if ($result === false) {
-            $this->fail(new RuntimeException($warning ?? 'TLS peer verification or handshake failed.'));
+            $this->fail(new RuntimeException(self::warningOrDefault($warning)));
 
             return;
         }
 
         $meta = stream_get_meta_data($stream);
         $crypto = $meta['crypto'] ?? null;
-        $alpn = is_array($crypto) ? ($crypto['alpn_protocol'] ?? null) : null;
+        $alpn = null;
+        if (is_array($crypto) && array_key_exists('alpn_protocol', $crypto)) {
+            $alpn = $crypto['alpn_protocol'];
+        }
         $this->finish();
         ($this->onSuccess)(is_string($alpn) ? $alpn : null);
     }
 
+    /**
+     * The SSL context setter can fail for an extension-provided resource.
+     */
     private function begin(): void
     {
         $stream = $this->stream;
@@ -125,7 +149,7 @@ final class ClientTlsHandshake
         try {
             $options = $this->policy->context();
             foreach ($options as $key => $value) {
-                if (!stream_context_set_option($stream, 'ssl', $key, $value)) {
+                if (!self::configureContextOption($stream, $key, $value)) {
                     throw new RuntimeException('Unable to configure verified outbound TLS stream.');
                 }
             }

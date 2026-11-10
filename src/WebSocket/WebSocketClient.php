@@ -24,6 +24,9 @@ final readonly class WebSocketClient
      *
      * @param callable(?WebSocketSession, ?Throwable):void $completion
      * @param list<string> $subprotocols
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public static function connect(
         LoopInterface $loop,
@@ -78,6 +81,7 @@ final readonly class WebSocketClient
 
     /**
      * @param array{wire:string,key:string,secure:bool,host:string,port:int} $request
+     * @throws \InvalidArgumentException
      */
     private static function verifiedDialOptions(array $request, DialOptions $options): DialOptions
     {

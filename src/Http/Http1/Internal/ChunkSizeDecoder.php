@@ -11,6 +11,7 @@ final class ChunkSizeDecoder
 {
     /**
      * Decode a chunk-size line while enforcing the remaining body limit.
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
      */
     public function decode(string $line, int $maxBodyBytes, int $bodyReceived): int
     {
@@ -30,6 +31,9 @@ final class ChunkSizeDecoder
         return $this->hexToInt($sizeText, $maxBodyBytes - $bodyReceived);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function hexToInt(string $hex, int $remainingBodyBytes): int
     {
         $value = 0;

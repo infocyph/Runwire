@@ -151,7 +151,18 @@ jobs:
 
       - name: Install test dependencies
         shell: bash
-        run: composer install --no-interaction --prefer-dist
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist --no-progress; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo 'Composer dependency download failed after three attempts.' >&2
+              exit 1
+            fi
+            sleep "$((attempt * 5))"
+          done
 
       - name: Prove accelerated descriptor capacity and HTTP/1 worker budgeting
         shell: bash

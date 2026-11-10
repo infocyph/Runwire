@@ -17,6 +17,7 @@ final class RequestHeadValidator
 {
     /**
      * Validate request headers and return normalized framing metadata.
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
      */
     public function validate(
         Headers $headers,
@@ -58,6 +59,9 @@ final class RequestHeadValidator
         );
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function absoluteAuthority(string $target): ?string
     {
         if (preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:\/\/([^\/?#]*)/D', $target, $matches) !== 1) {
@@ -77,7 +81,10 @@ final class RequestHeadValidator
             : null;
     }
 
-    /** @return list<int> */
+    /**
+     * @return list<int>
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function contentLengths(Headers $headers): array
     {
         $lengths = [];
@@ -94,6 +101,9 @@ final class RequestHeadValidator
         return $lengths;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function parseContentLength(string $value): int
     {
         try {
@@ -124,6 +134,9 @@ final class RequestHeadValidator
         return $tokens;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http1\Internal\ParseFailure
+     */
     private function validateHost(Headers $headers, string $method, string $target): void
     {
         $host = $headers->all('host');

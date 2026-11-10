@@ -30,7 +30,10 @@ final class CancellationSource
 
     private ?CancellationSubscription $parentSubscription = null;
 
-    /** Creates a cancellation source using the supplied deadline or an unlimited deadline. */
+    /**
+     * Creates a cancellation source using the supplied deadline or an unlimited deadline.
+     * @throws \LogicException
+     */
     public function __construct(?RequestDeadline $deadline = null)
     {
         $this->state = new CancellationState($deadline ?? RequestDeadline::unlimited());
@@ -44,7 +47,11 @@ final class CancellationSource
         });
     }
 
-    /** Creates a source linked to a parent token and the earliest applicable deadline. */
+    /**
+     * Creates a source linked to a parent token and the earliest applicable deadline.
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public static function linked(
         CancellationToken $parent,
         ?RequestDeadline $deadline = null,
@@ -74,7 +81,11 @@ final class CancellationSource
         return $this->state->cancel($reason, $this->token);
     }
 
-    /** Creates a structured child source linked without consuming the public observer budget. */
+    /**
+     * Creates a structured child source linked without consuming the public observer budget.
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public function child(?RequestDeadline $deadline = null): self
     {
         $child = new self(self::earliestDeadline(
@@ -111,6 +122,8 @@ final class CancellationSource
      * Binds the effective deadline and immediately refreshes cancellation state.
      *
      * @internal
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
      */
     public function setDeadline(RequestDeadline $deadline): void
     {
@@ -124,6 +137,9 @@ final class CancellationSource
         return $this->token;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function earliestDeadline(RequestDeadline $parent, RequestDeadline $requested): RequestDeadline
     {
         $parentAt = $parent->monotonicNanoseconds;
@@ -191,6 +207,9 @@ final class CancellationSource
         }
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function registerChild(self $child): int
     {
         $this->pruneChildren();

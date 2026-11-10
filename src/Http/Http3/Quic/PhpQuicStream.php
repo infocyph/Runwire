@@ -36,6 +36,7 @@ final readonly class PhpQuicStream
 
     /**
      * Wrap and validate a native QUIC stream object.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private object $stream)
     {
@@ -80,6 +81,7 @@ final readonly class PhpQuicStream
 
     /**
      * Return the non-negative QUIC stream identifier.
+     * @throws \UnexpectedValueException
      */
     public function id(): int
     {
@@ -101,6 +103,7 @@ final readonly class PhpQuicStream
 
     /**
      * Read up to the requested number of bytes from the stream.
+     * @throws \InvalidArgumentException
      */
     public function read(int $length): ?string
     {
@@ -113,6 +116,7 @@ final readonly class PhpQuicStream
 
     /**
      * Reset the stream with an application error code.
+     * @throws \InvalidArgumentException
      */
     public function reset(int $errorCode): void
     {
@@ -125,6 +129,7 @@ final readonly class PhpQuicStream
 
     /**
      * Return the peer reset code when the stream was reset.
+     * @throws \UnexpectedValueException
      */
     public function resetCode(): ?int
     {
@@ -138,6 +143,7 @@ final readonly class PhpQuicStream
 
     /**
      * Write bytes to the stream and return the accepted byte count.
+     * @throws \UnexpectedValueException
      */
     public function write(string $bytes, bool $fin = false): int
     {
@@ -149,6 +155,9 @@ final readonly class PhpQuicStream
         return $written;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function callback(object $object, string $method): Closure
     {
         $callable = [$object, $method];

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicApi;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicConnection;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicListener;
@@ -26,7 +28,7 @@ function fakePhpQuicFacadeStream(int $id, bool $bidirectional): object
             return $this->id;
         }
 
-        public function getResetCode(): ?int
+        public function getResetCode(): null
         {
             return null;
         }
@@ -55,12 +57,12 @@ function fakePhpQuicFacadeStream(int $id, bool $bidirectional): object
 }
 
 it('reports php-quic availability from runtime symbols instead of a hard dependency', function (): void {
-    $poll = implode('\\', ['Quic', 'poll']);
+    $poll = 'Quic\\poll';
     $expected = extension_loaded('quic')
         && class_exists('Quic\\Listener')
         && class_exists('Quic\\Connection')
         && class_exists('Quic\\Stream')
-        && function_exists($poll)
+        && \Infocyph\Runwire\Tests\Support\functionAvailable($poll)
         && defined('Quic\\POLL_READ')
         && defined('Quic\\POLL_WRITE')
         && defined('Quic\\POLL_ACCEPT_CONNECTION')
@@ -101,7 +103,7 @@ it('wraps accepted and locally opened php-quic streams and enforces non-blocking
             $this->closed[] = [$errorCode, $reason, $rapid];
         }
 
-        public function getNegotiatedAlpn(): ?string
+        public function getNegotiatedAlpn(): string
         {
             return 'h3';
         }
@@ -138,14 +140,14 @@ it('wraps listener acceptance and immediately makes accepted connections non-blo
 
         public ?bool $openedBidirectional = null;
 
-        public function acceptStream(): ?object
+        public function acceptStream(): null
         {
             return null;
         }
 
         public function close(int $errorCode = 0, string $reason = '', bool $rapid = false): void {}
 
-        public function getNegotiatedAlpn(): ?string
+        public function getNegotiatedAlpn(): string
         {
             return 'h3';
         }
@@ -195,9 +197,9 @@ it('wraps listener acceptance and immediately makes accepted connections non-blo
     $listener = new PhpQuicListener($raw);
     $listener->setNonBlocking();
     $accepted = $listener->accept();
+    \PHPUnit\Framework\Assert::assertInstanceOf(PhpQuicConnection::class, $accepted);
 
     expect($raw->blocking)->toBeFalse()
-        ->and($accepted)->toBeInstanceOf(PhpQuicConnection::class)
         ->and($connection->blocking)->toBeFalse()
         ->and($listener->accept())->toBeNull();
 

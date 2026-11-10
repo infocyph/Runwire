@@ -50,6 +50,7 @@ final class Http1ConnectedExchange
      * @param callable(int, \Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection, ?Throwable):void $onComplete
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LoopInterface $loop,
@@ -72,13 +73,21 @@ final class Http1ConnectedExchange
         $this->parser = new Http1ClientResponseParser(strcasecmp($request->method, 'HEAD') === 0);
     }
 
-    /** Abort this logical request without returning a reusable connection. */
+    /**
+     * Abort this logical request without returning a reusable connection.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function close(): void
     {
         $this->finish(new RuntimeException('HTTP/1.1 exchange was closed before completion.'));
     }
 
-    /** Resume an incremental request body source after it has produced new data. */
+    /**
+     * Resume an incremental request body source after it has produced new data.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function resumeUpload(): void
     {
         if ($this->started && !$this->settled) {
@@ -86,7 +95,12 @@ final class Http1ConnectedExchange
         }
     }
 
-    /** Exclusively attach the connection and begin bounded request forwarding. */
+    /**
+     * Exclusively attach the connection and begin bounded request forwarding.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function start(): void
     {
         if ($this->started || $this->settled || !$this->connection->isPoolIdleSafe()) {
@@ -118,10 +132,14 @@ final class Http1ConnectedExchange
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \RuntimeException
+     */
     private function armDeadline(): void
     {
         $token = $this->request->cancellation;
-        if ($token?->isCancelled()) {
+        if ($token !== null && $token->isCancelled()) {
             throw new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED);
         }
         $timeout = min(
@@ -141,6 +159,10 @@ final class Http1ConnectedExchange
         });
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function consume(): void
     {
         if ($this->settled) {
@@ -149,7 +171,7 @@ final class Http1ConnectedExchange
 
         try {
             $remaining = 65_536;
-            while ($remaining > 0 && $this->connection->receivedBytes() > 0 && !$this->settled) {
+            while ($remaining > 0 && $this->connection->receivedBytes() > 0 && !$this->isSettled()) {
                 $bytes = $this->connection->read(min($remaining, 8_192));
                 $remaining -= strlen($bytes);
                 $this->parser->push(
@@ -161,7 +183,7 @@ final class Http1ConnectedExchange
                     },
                 );
             }
-            if (!$this->settled && $this->connection->receivedBytes() > 0) {
+            if (!$this->isSettled() && $this->connection->receivedBytes() > 0) {
                 $this->loop->defer(function (): void {
                     $this->consume();
                 });
@@ -171,6 +193,10 @@ final class Http1ConnectedExchange
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function endOfInput(): void
     {
         if ($this->settled) {
@@ -186,6 +212,10 @@ final class Http1ConnectedExchange
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function finish(?Throwable $error): void
     {
         if ($this->settled) {
@@ -215,6 +245,15 @@ final class Http1ConnectedExchange
         ($this->completion)($canReuse ? $this->connection : null, $error);
     }
 
+    private function isSettled(): bool
+    {
+        return $this->settled;
+    }
+
+    /**
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function pump(): void
     {
         if ($this->settled || $this->writer->done()) {
@@ -239,6 +278,11 @@ final class Http1ConnectedExchange
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function sendFrame(): bool
     {
         if ($this->settled || $this->writer->done()) {

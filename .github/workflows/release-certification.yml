@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: "Exact 40-character Runwire 3.0 candidate commit SHA (never default to main)"
+        description: "Exact 40-character Runwire 3.x maintenance candidate SHA (never default to main)"
         required: true
         type: string
   pull_request:
@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 env:
-  BASELINE_SHA: 7e9bf20ad0737a187dfed77b723791b141b36378
+  BASELINE_SHA: 054737bc6a8d4025a8d05fabb8ad390f66ee47ae
   CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha }}
 
 jobs:
@@ -89,7 +89,7 @@ jobs:
           }
           printf 'Frozen 3.0 candidate: %s\n' "$actual"
 
-      - name: Checkout published 2.1.2 baseline at immutable SHA
+      - name: Checkout published 3.0 baseline at immutable SHA
         uses: actions/checkout@v7
         with:
           ref: ${{ env.BASELINE_SHA }}
@@ -257,7 +257,7 @@ jobs:
             sleep 0.02
           done
 
-          export RUNWIRE_RUNTIME_VERSION="3.0.0-candidate"
+          export RUNWIRE_RUNTIME_VERSION="3.0.x-candidate"
           export RUNWIRE_RUNTIME_BUILD="$RUNWIRE_CANDIDATE_BUILD"
           export RUNWIRE_PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
           export RUNWIRE_INSTRUMENTATION="release-certification-soak"

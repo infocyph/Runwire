@@ -13,6 +13,7 @@ final readonly class FpmOptions
 {
     /**
      * Create validated FPM runtime limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxRequestBodyBytes = 16_777_216,
@@ -22,6 +23,9 @@ final readonly class FpmOptions
         self::validateLimit($maxResponseBytes, 'FPM response');
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateLimit(int $bytes, string $name): void
     {
         if ($bytes < 1 || $bytes > 1_073_741_824) {

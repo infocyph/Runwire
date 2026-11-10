@@ -2,31 +2,48 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
-use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Runtime\Enum\CancellationReason;
-use Infocyph\Runwire\WebSocket\Internal\WebSocketClientHandshake;
-use Infocyph\Runwire\WebSocket\Internal\WebSocketClientUpgrade;
-use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
+use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use Infocyph\Runwire\WebSocket\Internal\WebSocketClientHandshake;
+use Infocyph\Runwire\WebSocket\Internal\WebSocketClientUpgrade;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketClient;
+use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+
 
 it('upgrades a real outbound TCP socket against an independent peer and delivers coalesced data', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase01(): void
+{
     $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $reason);
-    expect($server)->not->toBeFalse();
+    \PHPUnit\Framework\Assert::assertIsResource($server);
     stream_set_blocking($server, false);
     $address = stream_socket_get_name($server, false);
-    expect($address)->toBeString();
-    $port = (int) substr(strrchr($address, ':'), 1);
+    \PHPUnit\Framework\Assert::assertIsString($address);
+    if (($separator = strrpos($address, ':')) === false) {
+        throw new RuntimeException('Independent WebSocket listener returned no valid TCP port.');
+    }
+    $port = (int) substr($address, $separator + 1);
 
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 4);
@@ -44,24 +61,7 @@ it('upgrades a real outbound TCP socket against an independent peer and delivers
             return;
         }
         stream_set_blocking($peer, false);
-        $peerWatcher = $loop->onReadable($peer, function ($stream) use (&$wire): void {
-            $chunk = fread($stream, 8_192);
-            if (!is_string($chunk) || $chunk === '') {
-                return;
-            }
-            $wire .= $chunk;
-            if (!str_contains($wire, "\r\n\r\n")) {
-                return;
-            }
-            preg_match('/^Sec-WebSocket-Key: (.+)$/mi', $wire, $parts);
-            $key = trim($parts[1] ?? '');
-            $accept = base64_encode(sha1($key . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
-            $reply = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-                . "Sec-WebSocket-Accept: " . $accept . "\r\nSec-WebSocket-Protocol: chat\r\n\r\n"
-                . WebSocketWireCodec::frame(0x1, 'from-peer');
-            fwrite($stream, $reply);
-            $wire = '';
-        });
+        $peerWatcher = $loop->onReadable($peer, runwireOutboundWebSocketPeerReader($wire));
     });
     $watchdog = $loop->delay(1.0, static function () use ($loop): void {
         $loop->stop();
@@ -75,10 +75,10 @@ it('upgrades a real outbound TCP socket against an independent peer and delivers
             function (?WebSocketSession $session, ?Throwable $error) use (&$seen, &$sessions, &$callbacks, $loop): void {
                 ++$callbacks;
                 expect($error)->toBeNull();
-                expect($session)->toBeInstanceOf(WebSocketSession::class);
+                \PHPUnit\Framework\Assert::assertInstanceOf(WebSocketSession::class, $session);
                 $sessions[] = $session;
-                $session->onMessage(function (WebSocketSession $session, $message) use (&$seen, $loop): void {
-                    expect($session)->toBeInstanceOf(WebSocketSession::class);
+                $session->onMessage(function (WebSocketSession $owner, $message) use (&$seen, $loop, $session): void {
+                    \PHPUnit\Framework\Assert::assertSame($session, $owner);
                     $seen[] = $message->data;
                     $loop->stop();
                 });
@@ -106,12 +106,21 @@ it('upgrades a real outbound TCP socket against an independent peer and delivers
         }
         fclose($server);
     }
-});
+}
 
 it('rejects oversized upgrade response headers without unbounded buffering', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase02(): void
+{
     $loop = new SelectLoop();
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     stream_set_blocking($peer, false);
     $connection = new \Infocyph\Runwire\Network\Connection($loop, $socket);
@@ -136,11 +145,20 @@ it('rejects oversized upgrade response headers without unbounded buffering', fun
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('settles an outbound WebSocket upgrade exactly once on token cancellation', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase03(): void
+{
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket);
@@ -177,11 +195,20 @@ it('settles an outbound WebSocket upgrade exactly once on token cancellation', f
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('rejects an upgrade when the independent peer closes before HTTP 101', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase04(): void
+{
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket);
@@ -218,9 +245,17 @@ it('rejects an upgrade when the independent peer closes before HTTP 101', functi
             fclose($peer);
         }
     }
-});
+}
 
 it('refuses TLS downgrade and mismatched TLS or ALPN before opening a socket', function (): void {
+    runwireOwnedWebSocketOutboundClientTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketOutboundClientTestCase05(): void
+{
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 2);
     $dialer = new Dialer($loop);
@@ -243,4 +278,31 @@ it('refuses TLS downgrade and mismatched TLS or ALPN before opening a socket', f
         $dialer->close();
         $executor->close();
     }
-});
+}
+
+
+/**
+ * @return \Closure(mixed):void
+ */
+function runwireOutboundWebSocketPeerReader(string &$wire): \Closure
+{
+    return function ($stream) use (&$wire): void {
+        \PHPUnit\Framework\Assert::assertIsResource($stream);
+        $chunk = fread($stream, 8_192);
+        if (!is_string($chunk) || $chunk === '') {
+            return;
+        }
+        $wire .= $chunk;
+        if (!str_contains($wire, "\r\n\r\n")) {
+            return;
+        }
+        preg_match('/^Sec-WebSocket-Key: (.+)$/mi', $wire, $parts);
+        $key = trim($parts[1] ?? '');
+        $accept = base64_encode(sha1($key . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
+        $reply = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            . "Sec-WebSocket-Accept: " . $accept . "\r\nSec-WebSocket-Protocol: chat\r\n\r\n"
+            . WebSocketWireCodec::frame(0x1, 'from-peer');
+        fwrite($stream, $reply);
+        $wire = '';
+    };
+}

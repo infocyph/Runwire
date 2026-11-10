@@ -36,6 +36,8 @@ final readonly class StreamServer
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
      * @param callable(WorkerContext): callable|null $workerHandlerFactory
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function __construct(
         public string $name,
@@ -58,18 +60,15 @@ final readonly class StreamServer
         self::validateTimeouts($workerReadyTimeoutSeconds, $workerShutdownTimeoutSeconds);
         self::validateTransport($transport, $tls, $unix);
 
-        /** @var Closure(): FrameCodecInterface $codecClosure */
         $codecClosure = Closure::fromCallable($codecFactory);
         $this->codecFactory = $codecClosure;
 
-        /** @var Closure(string, FramedConnection): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
 
         if ($workerHandlerFactory === null) {
             $this->workerHandlerFactory = null;
         } else {
-            /** @var Closure(WorkerContext): callable $factoryClosure */
             $factoryClosure = Closure::fromCallable($workerHandlerFactory);
             $this->workerHandlerFactory = $factoryClosure;
         }
@@ -80,6 +79,8 @@ final readonly class StreamServer
      *
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function tcp(string $address, callable $codecFactory, callable $handler, string $name = 'stream'): self
     {
@@ -91,6 +92,8 @@ final readonly class StreamServer
      *
      * @param callable(): FrameCodecInterface $codecFactory
      * @param callable(string, FramedConnection): void $handler
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public static function unix(string $path, callable $codecFactory, callable $handler, string $name = 'stream'): self
     {
@@ -124,6 +127,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with a different per-tick frame limit.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withMaxFramesPerTick(int $maxFramesPerTick): self
     {
@@ -148,6 +153,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with the supplied TLS configuration.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withTls(?TlsOptions $tls): self
     {
@@ -172,6 +179,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with Unix-domain listener options.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withUnixOptions(UnixListenerOptions $options): self
     {
@@ -196,6 +205,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with a different per-worker connection limit.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withWorkerConnectionLimit(int $limit): self
     {
@@ -222,6 +233,8 @@ final readonly class StreamServer
      * Return a copy whose handler is built separately for each worker.
      *
      * @param callable(WorkerContext): callable $factory
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withWorkerHandlerFactory(callable $factory): self
     {
@@ -246,6 +259,8 @@ final readonly class StreamServer
 
     /**
      * Return a copy with a different worker count.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function withWorkers(int $workers): self
     {
@@ -268,6 +283,9 @@ final readonly class StreamServer
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateCore(
         string $name,
         string $address,
@@ -290,6 +308,9 @@ final readonly class StreamServer
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateName(string $name): void
     {
         if ($name === '' || strlen($name) > 96 || preg_match('/^[A-Za-z0-9._-]+$/D', $name) !== 1) {
@@ -297,6 +318,9 @@ final readonly class StreamServer
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateTimeouts(float $ready, float $shutdown): void
     {
         foreach ([$ready, $shutdown] as $seconds) {
@@ -306,6 +330,9 @@ final readonly class StreamServer
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private static function validateTransport(
         StreamTransport $transport,
         ?TlsOptions $tls,

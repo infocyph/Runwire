@@ -17,6 +17,9 @@ use Infocyph\Runwire\Runtime\RequestResetterInterface;
 use Infocyph\Runwire\RuntimeContext;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 
+/**
+ * @throws \OverflowException
+ */
 function lifecycleRequest(string $target = '/lifecycle'): HttpRequest
 {
     return new HttpRequest(
@@ -28,55 +31,67 @@ function lifecycleRequest(string $target = '/lifecycle'): HttpRequest
     );
 }
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function lifecycleWriter(?callable $end = null): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
-        static function (int $status, Headers $headers): void {},
-        static function (string $chunk): void {},
+        static function (): void {},
+        static function (): void {},
         $end ?? static function (): void {},
         1_024,
     );
 }
 
 it('runs boot warmup handle reset drain and shutdown in lifecycle order', function (): void {
+    $expectedRuntime = RuntimeContext::standalone();
+    /** @var ArrayObject<int|string, mixed> $events */
     $events = new ArrayObject();
     $hooks = new ApplicationLifecycleHooks(
-        boot: static function (RuntimeContext $context) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class);
-            $events[] = 'boot';
+        boot: static function (mixed $context) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+            $events->append('boot');
         },
-        warmup: static function (RuntimeContext $context) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class);
-            $events[] = 'warmup';
+        warmup: static function (mixed $context) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+            $events->append('warmup');
         },
-        drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class)
-                ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
-            $events[] = 'drain';
+        drain: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+            expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+            $events->append('drain');
         },
-        shutdown: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class)
-                ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
-            $events[] = 'shutdown';
+        shutdown: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+            expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+            $events->append('shutdown');
         },
         resetters: [new class($events) implements RequestResetterInterface {
+            /** @param ArrayObject<int|string, mixed> $events */
             public function __construct(private readonly ArrayObject $events) {}
 
+            /** @throws \LogicException */
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
-                $this->events[] = 'reset:' . $context->attribute('marker');
+                $marker = $context->attribute('marker');
+                if (!is_string($marker)) {
+                    throw new LogicException('Request reset did not preserve the marker attribute.');
+                }
+                $this->events->append('reset:' . $marker);
             }
         }],
     );
     $request = lifecycleRequest();
     $lifecycle = new ApplicationLifecycle(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use ($events): void {
-            $events[] = 'handle';
+            $events->append('handle');
             $request->context->setAttribute('marker', 'request');
             $writer->end();
         },
-        RuntimeContext::standalone(),
+        $expectedRuntime,
         hooks: $hooks,
     );
 
@@ -100,36 +115,49 @@ it('runs boot warmup handle reset drain and shutdown in lifecycle order', functi
 });
 
 it('runs every resetter and aggregates reset failures after a handler failure', function (): void {
+    /** @var ArrayObject<int|string, mixed> $state */
     $state = new ArrayObject();
     $handlerFailure = new RuntimeException('handler failed');
     $hooks = new ApplicationLifecycleHooks(resetters: [
         new class($state) implements RequestResetterInterface {
+            /** @param ArrayObject<int|string, mixed> $state */
             public function __construct(private readonly ArrayObject $state) {}
 
+            /**
+             * @throws \RuntimeException
+             */
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
-                $this->state[] = 'first';
+                $this->state->append('first');
                 throw new RuntimeException('first reset failed');
             }
         },
         new class($state) implements RequestResetterInterface {
+            /** @param ArrayObject<int|string, mixed> $state */
             public function __construct(private readonly ArrayObject $state) {}
 
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
-                $this->state[] = 'second';
+                $this->state->append('second');
                 $context->removeAttribute('dirty');
             }
         },
         new class($state) implements RequestResetterInterface {
+            /** @param ArrayObject<int|string, mixed> $state */
             public function __construct(private readonly ArrayObject $state) {}
 
+            /**
+             * @throws \RuntimeException
+             */
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
-                $this->state[] = 'third';
+                $this->state->append('third');
                 throw new RuntimeException('third reset failed');
             }
         },
@@ -164,16 +192,24 @@ it('runs every resetter and aggregates reset failures after a handler failure', 
 });
 
 it('resets request state when automatic response completion fails', function (): void {
+    /** @var ArrayObject<int|string, mixed> $state */
     $state = new ArrayObject(['resets' => 0]);
     $request = lifecycleRequest('/response-failure');
     $hooks = new ApplicationLifecycleHooks(resetters: [
         new class($state) implements RequestResetterInterface {
+            /** @param ArrayObject<int|string, mixed> $state */
             public function __construct(private readonly ArrayObject $state) {}
 
+            /** @throws \LogicException */
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
-                $this->state['resets'] = $this->state['resets'] + 1;
+                $resets = $this->state['resets'] ?? null;
+                if (!is_int($resets)) {
+                    throw new LogicException('Invalid reset-counter fixture state.');
+                }
+                $this->state['resets'] = $resets + 1;
             }
         },
     ]);
@@ -197,33 +233,40 @@ it('resets request state when automatic response completion fails', function ():
 });
 
 it('lets active work finish after drain and rejects new work', function (): void {
+    $expectedRuntime = RuntimeContext::standalone();
+    /** @var ArrayObject<int|string, mixed> $events */
     $events = new ArrayObject();
     $lifecycle = null;
     $hooks = new ApplicationLifecycleHooks(
-        drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-            expect($context)->toBeInstanceOf(RuntimeContext::class)
-                ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
-            $events[] = 'drain';
+        drain: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+            \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+            expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+            $events->append('drain');
         },
         resetters: [new class($events) implements RequestResetterInterface {
+            /** @param ArrayObject<int|string, mixed> $events */
             public function __construct(private readonly ArrayObject $events) {}
 
+            #[\Override]
             public function reset(RequestContext $context): void
             {
                 expect($context->completed())->toBeFalse();
-                $this->events[] = 'reset';
+                $this->events->append('reset');
             }
         }],
     );
     $lifecycle = new ApplicationLifecycle(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$lifecycle, $events): void {
-            $events[] = 'handle-before-drain';
+            $events->append('handle-before-drain');
+            if (!$lifecycle instanceof ApplicationLifecycle) {
+                throw new LogicException('Active lifecycle fixture was not initialized.');
+            }
             $lifecycle->drain();
             expect($request->context->cancelled())->toBeFalse();
-            $events[] = 'handle-after-drain';
+            $events->append('handle-after-drain');
             $writer->end();
         },
-        RuntimeContext::standalone(),
+        $expectedRuntime,
         hooks: $hooks,
     );
 
@@ -240,21 +283,23 @@ it('lets active work finish after drain and rejects new work', function (): void
 });
 
 it('propagates an explicit worker shutdown reason to drain and shutdown hooks', function (): void {
+    $expectedRuntime = RuntimeContext::standalone();
+    /** @var ArrayObject<int|string, mixed> $reasons */
     $reasons = new ArrayObject();
     $lifecycle = new ApplicationLifecycle(
         static function (HttpRequest $request, ResponseWriterInterface $writer): void {
             expect($request->context->completed())->toBeFalse();
             $writer->end();
         },
-        RuntimeContext::standalone(),
+        $expectedRuntime,
         hooks: new ApplicationLifecycleHooks(
-            drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($reasons): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
-                $reasons[] = 'drain:' . $reason->value;
+            drain: static function (mixed $context, ShutdownReason $reason) use ($reasons, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+                $reasons->append('drain:' . $reason->value);
             },
-            shutdown: static function (RuntimeContext $context, ShutdownReason $reason) use ($reasons): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
-                $reasons[] = 'shutdown:' . $reason->value;
+            shutdown: static function (mixed $context, ShutdownReason $reason) use ($reasons, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+                $reasons->append('shutdown:' . $reason->value);
             },
         ),
     );
@@ -270,33 +315,35 @@ it('propagates an explicit worker shutdown reason to drain and shutdown hooks', 
 });
 
 it('runs shutdown cleanup after warmup failure without accepting request work', function (): void {
+    $expectedRuntime = RuntimeContext::standalone();
+    /** @var ArrayObject<int|string, mixed> $events */
     $events = new ArrayObject();
     $lifecycle = new ApplicationLifecycle(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use ($events): void {
             expect($request->context->completed())->toBeFalse();
             expect($writer->isEnded())->toBeFalse();
-            $events[] = 'handle';
+            $events->append('handle');
         },
-        RuntimeContext::standalone(),
+        $expectedRuntime,
         hooks: new ApplicationLifecycleHooks(
-            boot: static function (RuntimeContext $context) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
-                $events[] = 'boot';
+            boot: static function (mixed $context) use ($events, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+                $events->append('boot');
             },
-            warmup: static function (RuntimeContext $context) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class);
-                $events[] = 'warmup';
+            warmup: static function (mixed $context) use ($events, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+                $events->append('warmup');
                 throw new RuntimeException('warmup failed');
             },
-            drain: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class)
-                    ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
-                $events[] = 'drain';
+            drain: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+                expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+                $events->append('drain');
             },
-            shutdown: static function (RuntimeContext $context, ShutdownReason $reason) use ($events): void {
-                expect($context)->toBeInstanceOf(RuntimeContext::class)
-                    ->and($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
-                $events[] = 'shutdown';
+            shutdown: static function (mixed $context, ShutdownReason $reason) use ($events, $expectedRuntime): void {
+                \PHPUnit\Framework\Assert::assertSame($expectedRuntime, $context);
+                expect($reason)->toBe(ShutdownReason::SUPERVISOR_STOP);
+                $events->append('shutdown');
             },
         ),
     );
@@ -308,22 +355,23 @@ it('runs shutdown cleanup after warmup failure without accepting request work', 
 });
 
 it('runs and retains every failing shutdown operation', function (): void {
+    /** @var ArrayObject<int|string, mixed> $events */
     $events = new ArrayObject();
     $lifecycle = new ApplicationLifecycle(
         static function (): void {},
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(
             drain: static function () use ($events): void {
-                $events[] = 'drain';
+                $events->append('drain');
                 throw new RuntimeException('drain failed');
             },
             shutdown: static function () use ($events): void {
-                $events[] = 'shutdown';
+                $events->append('shutdown');
                 throw new RuntimeException('shutdown hook failed');
             },
         ),
         legacyShutdown: static function () use ($events): void {
-            $events[] = 'legacy';
+            $events->append('legacy');
             throw new RuntimeException('legacy shutdown failed');
         },
     );
@@ -336,26 +384,29 @@ it('runs and retains every failing shutdown operation', function (): void {
         $failure = $error;
     }
 
-    expect(iterator_to_array($events))->toBe(['drain', 'shutdown', 'legacy'])
-        ->and($failure)->toBeInstanceOf(ApplicationShutdownException::class)
-        ->and($failure?->shutdownFailures)->toHaveCount(3)
+    expect(iterator_to_array($events))->toBe(['drain', 'shutdown', 'legacy']);
+    \PHPUnit\Framework\Assert::assertInstanceOf(ApplicationShutdownException::class, $failure);
+    expect($failure->shutdownFailures)->toHaveCount(3)
         ->and(array_map(
             static fn(Throwable $error): string => $error->getMessage(),
-            $failure?->shutdownFailures ?? [],
+            $failure->shutdownFailures,
         ))->toBe(['drain failed', 'shutdown hook failed', 'legacy shutdown failed']);
 });
 
 
 it('holds admission and cleanup until asynchronous response ownership becomes terminal', function (): void {
-    $captured = null;
+    $capture = new class {
+        public ?ResponseWriterInterface $writer = null;
+    };
     $handled = [];
+    /** @var ArrayObject<int|string, mixed> $state */
     $state = new ArrayObject(['resets' => 0]);
     $runtime = RuntimeContext::standalone();
     $lifecycle = new ApplicationLifecycle(
-        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$captured, &$handled): void {
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($capture, &$handled): void {
             $handled[] = $request->target;
             if ($request->target === '/async') {
-                $captured = $writer;
+                $capture->writer = $writer;
 
                 return;
             }
@@ -365,12 +416,19 @@ it('holds admission and cleanup until asynchronous response ownership becomes te
         $runtime,
         hooks: new ApplicationLifecycleHooks(resetters: [
             new class($state) implements RequestResetterInterface {
-                public function __construct(private readonly ArrayObject $state) {}
+                /** @param ArrayObject<int|string, mixed> $state */
+            public function __construct(private readonly ArrayObject $state) {}
 
+                /** @throws \LogicException */
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     unset($context);
-                    $this->state['resets'] = $this->state['resets'] + 1;
+                    $resets = $this->state['resets'] ?? null;
+                    if (!is_int($resets)) {
+                        throw new LogicException('Invalid reset-counter fixture state.');
+                    }
+                    $this->state['resets'] = $resets + 1;
                 }
             },
         ]),
@@ -394,9 +452,13 @@ it('holds admission and cleanup until asynchronous response ownership becomes te
 
     expect($handled)->toBe(['/async'])
         ->and($rejected)->toBe([503])
-        ->and($captured)->toBeInstanceOf(ResponseWriterInterface::class);
+        ->and($capture->writer)->toBeInstanceOf(ResponseWriterInterface::class);
 
-    $captured?->end();
+    $pendingWriter = $capture->writer;
+    if (!$pendingWriter instanceof ResponseWriterInterface) {
+        throw new LogicException('Asynchronous handler did not retain response ownership.');
+    }
+    $pendingWriter->end();
 
     expect($first->context->completed())->toBeTrue()
         ->and($state['resets'])->toBe(1);
@@ -417,6 +479,10 @@ it('latches an unhealthy lifecycle after reset isolation fails and rejects reuse
             new class($failure) implements RequestResetterInterface {
                 public function __construct(private readonly RuntimeException $failure) {}
 
+                /**
+                 * @throws \RuntimeException
+                 */
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     unset($context);
@@ -436,19 +502,25 @@ it('latches an unhealthy lifecycle after reset isolation fails and rejects reuse
 });
 
 it('latches asynchronous reset failure when a delayed response later terminates', function (): void {
-    $captured = null;
+    $capture = new class {
+        public ?ResponseWriterInterface $writer = null;
+    };
     $failure = new RuntimeException('late reset failed');
     $request = lifecycleRequest('/late');
     $lifecycle = new ApplicationLifecycle(
-        static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$captured): void {
-            unset($request);
-            $captured = $writer;
+        static function (HttpRequest $request, ResponseWriterInterface $writer) use ($capture): void {
+            expect($request->target)->toBe('/late');
+            $capture->writer = $writer;
         },
         RuntimeContext::standalone(),
         hooks: new ApplicationLifecycleHooks(resetters: [
             new class($failure) implements RequestResetterInterface {
                 public function __construct(private readonly RuntimeException $failure) {}
 
+                /**
+                 * @throws \RuntimeException
+                 */
+                #[\Override]
                 public function reset(RequestContext $context): void
                 {
                     unset($context);
@@ -463,8 +535,12 @@ it('latches asynchronous reset failure when a delayed response later terminates'
 
     expect($request->context->completed())->toBeFalse()
         ->and($lifecycle->healthy())->toBeTrue()
-        ->and($captured)->toBeInstanceOf(ResponseWriterInterface::class)
-        ->and(fn () => $captured?->end())->toThrow(RequestLifecycleException::class)
+        ->and($capture->writer)->toBeInstanceOf(ResponseWriterInterface::class);
+    $pendingWriter = $capture->writer;
+    if (!$pendingWriter instanceof ResponseWriterInterface) {
+        throw new LogicException('Delayed response was not captured by the handler.');
+    }
+    expect(fn () => $pendingWriter->end())->toThrow(RequestLifecycleException::class)
         ->and($request->context->completed())->toBeTrue()
         ->and($lifecycle->healthy())->toBeFalse()
         ->and($lifecycle->healthFailure())->toBe($failure);

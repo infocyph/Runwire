@@ -43,7 +43,7 @@ it('rejects HTTP/2-only reserved settings in HTTP/3', function (): void {
 
     try {
         SettingsCodec::decode($payload);
-        test()->fail('Reserved HTTP/3 setting should fail.');
+        \PHPUnit\Framework\Assert::fail('Reserved HTTP/3 setting should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::SETTINGS_ERROR);
     }
@@ -54,7 +54,7 @@ it('requires SETTINGS as the first control-stream frame', function (): void {
 
     try {
         $stream->push((new Frame(FrameType::GOAWAY->value, "\x00"))->encode());
-        test()->fail('Missing SETTINGS should fail.');
+        \PHPUnit\Framework\Assert::fail('Missing SETTINGS should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::MISSING_SETTINGS);
     }
@@ -67,7 +67,7 @@ it('rejects repeated SETTINGS and request frames on the control stream', functio
 
     try {
         $stream->push($settingsFrame);
-        test()->fail('Repeated SETTINGS should fail.');
+        \PHPUnit\Framework\Assert::fail('Repeated SETTINGS should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::FRAME_UNEXPECTED);
     }
@@ -77,7 +77,7 @@ it('rejects repeated SETTINGS and request frames on the control stream', functio
 
     try {
         $stream->push((new Frame(FrameType::DATA->value, 'x'))->encode());
-        test()->fail('DATA on the control stream should fail.');
+        \PHPUnit\Framework\Assert::fail('DATA on the control stream should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::FRAME_UNEXPECTED);
     }

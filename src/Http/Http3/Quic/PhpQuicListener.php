@@ -25,6 +25,7 @@ final readonly class PhpQuicListener
 
     /**
      * Wrap a native QUIC listener object.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private object $listener)
     {
@@ -34,7 +35,14 @@ final readonly class PhpQuicListener
         $this->setBlockingCallback = self::callback($this->listener, 'setBlocking');
     }
 
-    /** @param array<string, mixed> $options */
+    /**
+     * Keep the native extension object guard for dynamic constructor contracts shared with PHPStan.
+     *
+     * @param array<string, mixed> $options
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     public static function bind(string $host, int $port, array $options): self
     {
         self::validateBindOptions($host, $port, $options);
@@ -54,11 +62,7 @@ final readonly class PhpQuicListener
                 $exception,
             );
         }
-        if (!is_object($listener)) {
-            throw new ListenerException('Quic\\Listener construction returned an invalid listener.');
-        }
-
-        $wrapped = new self($listener);
+        $wrapped = new self(self::requireNativeObject($listener));
         $wrapped->setNonBlocking();
 
         return $wrapped;
@@ -66,6 +70,8 @@ final readonly class PhpQuicListener
 
     /**
      * Accept the next available QUIC connection.
+     * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     public function accept(): ?PhpQuicConnection
     {
@@ -117,6 +123,9 @@ final readonly class PhpQuicListener
         ($this->setBlockingCallback)(false);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function callback(object $object, string $method): Closure
     {
         $callable = [$object, $method];
@@ -137,6 +146,19 @@ final readonly class PhpQuicListener
         return $object->{$method}(...);
     }
 
+    /**
+     * Fail closed when an optional native constructor lacks an analyzable return type.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
+    private static function requireNativeObject(mixed $value): object
+    {
+        if (!is_object($value)) {
+            throw new ListenerException('Native QUIC listener constructor returned an invalid value.');
+        }
+
+        return $value;
+    }
+
     private static function supportsH3(mixed $alpn): bool
     {
         if (is_string($alpn)) {
@@ -149,7 +171,10 @@ final readonly class PhpQuicListener
         return array_any($alpn, fn(mixed $protocol): bool => $protocol === 'h3');
     }
 
-    /** @param array<string, mixed> $options */
+    /**
+     * @param array<string, mixed> $options
+     * @throws \InvalidArgumentException
+     */
     private static function validateBindOptions(string $host, int $port, array $options): void
     {
         if ($host === '') {

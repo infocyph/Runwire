@@ -19,13 +19,19 @@ final class DatagramClient
 
     private function __construct(private readonly DatagramListener $socket) {}
 
-    /** Bind an unconnected UDP client, accepting any remote peer via sendTo(). */
+    /**
+     * Bind an unconnected UDP client, accepting any remote peer via sendTo().
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     public static function bind(string $address, ?DatagramOptions $options = null): self
     {
         return new self(DatagramListener::bind($address, $options));
     }
 
-    /** Open a connected UDP client at an explicitly numeric destination. */
+    /**
+     * Open a connected UDP client at an explicitly numeric destination.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     public static function connect(string $remote, ?DatagramOptions $options = null): self
     {
         return new self(DatagramListener::connect($remote, $options));
@@ -71,6 +77,8 @@ final class DatagramClient
      *
      * @param callable(Datagram,self):void $onDatagram
      * @param callable(self):void $onTimeout
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function receiveOnce(
         LoopInterface $loop,
@@ -98,7 +106,10 @@ final class DatagramClient
         return $this->socket->rejectedDatagrams();
     }
 
-    /** Send one datagram to the connected destination. */
+    /**
+     * Send one datagram to the connected destination.
+     * @throws \LogicException
+     */
     public function send(string $payload): DatagramWriteResult
     {
         return $this->socket->send($payload);
@@ -110,7 +121,10 @@ final class DatagramClient
         return $this->socket->sendTo($payload, $peer);
     }
 
-    /** Register one bounded receive callback on the shared datagram engine. */
+    /**
+     * Register one bounded receive callback on the shared datagram engine.
+     * @throws \LogicException
+     */
     public function start(LoopInterface $loop, callable $completion): void
     {
         $this->socket->start($loop, function (Datagram $datagram) use ($completion): void {

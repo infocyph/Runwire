@@ -16,7 +16,11 @@ use Throwable;
 /** @internal Exclusive post-CONNECT original-target TLS handshake ownership. */
 final class VerifiedTargetTlsUpgrade
 {
-    /** Refuse upgrades unless the cleartext tunnel is exclusively quiescent. */
+    /**
+     * Refuse upgrades unless the cleartext tunnel is exclusively quiescent.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public static function assertAllowed(Connection $connection, mixed $stream): void
     {
         if ($connection->isEncrypted()) {
@@ -38,7 +42,7 @@ final class VerifiedTargetTlsUpgrade
      * The old cleartext Connection has already retired all watchers and given
      * this worker unique ownership of its socket.
      *
-     * @param resource $stream
+     * @param resource|closed-resource $stream
      * @param callable(?Connection, ?Throwable):void $completion
      */
     public static function start(
@@ -51,6 +55,11 @@ final class VerifiedTargetTlsUpgrade
         callable $completion,
     ): void {
         $notify = Closure::fromCallable($completion);
+        if (!is_resource($stream)) {
+            self::failed($stream, $notify, new LogicException('Original target TLS stream is no longer open.'));
+
+            return;
+        }
 
         try {
             ClientTlsHandshake::start(
@@ -66,6 +75,11 @@ final class VerifiedTargetTlsUpgrade
                     $tcpNoDelayOverride,
                     $notify,
                 ): void {
+                    if (!self::isLiveStream($stream)) {
+                        self::failed($stream, $notify, new LogicException('Original target TLS stream closed during handshake.'));
+
+                        return;
+                    }
                     self::verified($loop, $stream, $policy, $limits, $tcpTransport, $tcpNoDelayOverride, $notify, $alpn);
                 },
                 function (Throwable $error) use ($stream, $notify): void {
@@ -78,7 +92,6 @@ final class VerifiedTargetTlsUpgrade
     }
 
     /**
-     * @param resource $stream
      * @param Closure(?Connection, ?Throwable):void $notify
      */
     private static function failed(mixed $stream, Closure $notify, Throwable $error): void
@@ -88,6 +101,11 @@ final class VerifiedTargetTlsUpgrade
         }
 
         $notify(null, $error);
+    }
+
+    private static function isLiveStream(mixed $stream): bool
+    {
+        return is_resource($stream);
     }
 
     /**

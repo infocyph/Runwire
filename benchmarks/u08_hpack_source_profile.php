@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/source_profile_class_file.php';
+
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
@@ -21,8 +23,7 @@ use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 $arguments = $_SERVER['argv'] ?? null;
 if (!is_array($arguments) || count($arguments) < 3 || count($arguments) > 4
     || !is_string($arguments[1] ?? null)
-    || !is_string($arguments[2] ?? null)
-    || (isset($arguments[3]) && !is_string($arguments[3]))) {
+    || !is_string($arguments[2] ?? null)) {
     throw new InvalidArgumentException('Expected source directory, immutable SHA and optional iterations.');
 }
 $source = realpath($arguments[1]);
@@ -41,6 +42,12 @@ spl_autoload_register(static function (string $class) use ($source): void {
     }
     $file = $source . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
+        runwireSourceProfileValidateClassFile($source, $class, $file);
+        /** @psalm-taint-escape include */
+        $file = realpath($file);
+        if ($file === false) {
+            throw new RuntimeException('Validated source class is no longer available.');
+        }
         require_once $file;
     }
 });
@@ -87,8 +94,10 @@ $jobs = [
 /**
  * @param callable(int):int $operation
  * @return array{iterations:int,trials:int,median_nanoseconds_per_op:float,cv_percent:float}
+ * @throws \RuntimeException
  */
-$measure = static function (callable $operation) use ($iterations): array {
+function runwireHpackMicroprofileMeasure(callable $operation, int $iterations): array
+{
     $checksum = 0;
     for ($i = 0; $i < 64; ++$i) {
         $checksum += $operation($i);
@@ -103,26 +112,26 @@ $measure = static function (callable $operation) use ($iterations): array {
         if (!is_int($duration) || $duration <= 0 || $checksum <= 0) {
             throw new RuntimeException('HPACK microprofile produced invalid results.');
         }
-        $samples[] = $duration / $iterations;
+        $samples[] = (float) $duration / (float) $iterations;
     }
     sort($samples, SORT_NUMERIC);
-    $average = array_sum($samples) / count($samples);
+    $average = array_sum($samples) / (float) count($samples);
     $variance = array_sum(array_map(
-        static fn(float $ns): float => ($ns - $average) ** 2,
+        static fn(float $ns): float => ($ns - $average) ** 2.0,
         $samples,
-    )) / count($samples);
+    )) / (float) count($samples);
 
     return [
         'iterations' => $iterations,
         'trials' => count($samples),
         'median_nanoseconds_per_op' => round($samples[2], 2),
-        'cv_percent' => round(100 * sqrt($variance) / $average, 3),
+        'cv_percent' => round(100.0 * sqrt($variance) / $average, 3),
     ];
-};
+}
 
 $results = [];
 foreach ($jobs as $name => $job) {
-    $results[$name] = $measure($job);
+    $results[$name] = runwireHpackMicroprofileMeasure($job, $iterations);
 }
 $encoder = new Encoder(512);
 $decoder = new Decoder(512);
@@ -144,7 +153,7 @@ $write = static function (int $index) use ($encoder, $decoder): int {
 
     return strlen($frame);
 };
-$results['header_frame_write_churn'] = $measure($write);
+$results['header_frame_write_churn'] = runwireHpackMicroprofileMeasure($write, $iterations);
 $output = json_encode([
     'schemaVersion' => 1,
     'sourceRevision' => $revision,

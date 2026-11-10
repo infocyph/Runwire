@@ -35,7 +35,11 @@ final class CachedDnsResolver implements DnsResolverInterface
     /** @var array<int,array{host:string,callback:Closure,subscription:?CancellationSubscription,timer:?int,deferred:?int}> */
     private array $waiters = [];
 
-    /** Configure a bounded owner-local TTL cache without changing shared resolver ownership. */
+    /**
+     * Configure a bounded owner-local TTL cache without changing shared resolver ownership.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly DnsResolverInterface $upstream,
@@ -58,7 +62,11 @@ final class CachedDnsResolver implements DnsResolverInterface
         $this->pid = $pid;
     }
 
-    /** Cancel exactly one caller; preserve unrelated coalesced waiters. */
+    /**
+     * Cancel exactly one caller; preserve unrelated coalesced waiters.
+     * @throws \LogicException
+     */
+    #[\Override]
     public function cancel(int $id): bool
     {
         $this->assertOwner();
@@ -70,7 +78,11 @@ final class CachedDnsResolver implements DnsResolverInterface
         return true;
     }
 
-    /** Cancel pending callers and drop cache entries without closing the shared upstream. */
+    /**
+     * Cancel pending callers and drop cache entries without closing the shared upstream.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function close(): void
     {
         $this->assertOwner();
@@ -83,7 +95,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         );
     }
 
-    /** @return array{cached:int, pendingHosts:int, waiters:int} */
+    /**
+     * @return array{cached:int, pendingHosts:int, waiters:int}
+     * @throws \LogicException
+     */
     public function diagnostics(): array
     {
         $this->assertOwner();
@@ -91,7 +106,14 @@ final class CachedDnsResolver implements DnsResolverInterface
         return ['cached' => count($this->cache), 'pendingHosts' => count($this->pending), 'waiters' => count($this->waiters)];
     }
 
-    /** @param callable(list<string>,?Throwable):void $completion */
+    /**
+     * @param callable(list<string>,?Throwable):void $completion
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \Throwable
+     */
+    #[\Override]
     public function resolve(
         string $hostname,
         callable $completion,
@@ -117,6 +139,11 @@ final class CachedDnsResolver implements DnsResolverInterface
         return $id;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function assertLookup(string $hostname): string
     {
         $this->assertOwner();
@@ -133,6 +160,9 @@ final class CachedDnsResolver implements DnsResolverInterface
         return strtolower($hostname);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertOwner(): void
     {
         if (getmypid() !== $this->pid) {
@@ -164,7 +194,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         $this->deliver($id, $entry['addresses'], $entry['negative']);
     }
 
-    /** @param list<string> $addresses */
+    /**
+     * @param list<string> $addresses
+     * @throws \Throwable
+     */
     private function completeHost(string $host, int $lookup, array $addresses, ?Throwable $error): void
     {
         $group = $this->pending[$host] ?? null;
@@ -186,7 +219,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         );
     }
 
-    /** @param array{addresses:list<string>,expires:float,negative:bool}|null $entry */
+    /**
+     * @param array{addresses:list<string>,expires:float,negative:bool}|null $entry
+     * @throws \Throwable
+     */
     private function dispatch(string $host, int $id, ?array $entry): void
     {
         if ($entry !== null) {
@@ -222,11 +258,12 @@ final class CachedDnsResolver implements DnsResolverInterface
 
     private function rejectCancelledCaller(int $id, ?CancellationToken $token, ?RequestDeadline $deadline): bool
     {
-        if (!$token?->isCancelled() && !$deadline?->expired()) {
+        $deadlineExceeded = $deadline?->expired() === true;
+        if (!$deadlineExceeded && !$token?->isCancelled()) {
             return false;
         }
-        $reason = $deadline?->expired() ? CancellationReason::DEADLINE_EXCEEDED
-            : ($token?->reason() ?? CancellationReason::HOST_CANCELLED);
+        $reason = $deadlineExceeded ? CancellationReason::DEADLINE_EXCEEDED
+            : ($token->reason() ?? CancellationReason::HOST_CANCELLED);
         $this->settle($id, [], new CancelledException($reason));
 
         return true;
@@ -281,6 +318,7 @@ final class CachedDnsResolver implements DnsResolverInterface
     /**
      * @param list<int> $ids
      * @param list<string> $addresses
+     * @throws \Throwable
      */
     private function settleGroup(array $ids, array $addresses, ?Throwable $error): void
     {
@@ -297,6 +335,10 @@ final class CachedDnsResolver implements DnsResolverInterface
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function watchCaller(int $id, ?CancellationToken $token, ?RequestDeadline $deadline): void
     {
         $remaining = $deadline?->remainingSeconds();

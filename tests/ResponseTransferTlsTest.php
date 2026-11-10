@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Closure;
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
@@ -20,14 +22,28 @@ use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
 
+/**
+ * @return array{string,string,string}
+ * @throws \RuntimeException
+ */
 function responseTransferTlsFiles(): array
 {
-    $directory = sys_get_temp_dir() . '/runwire-transfer-tls-' . getmypid() . '-' . bin2hex(random_bytes(4));
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new \RuntimeException('Unable to determine TLS transfer test PID.');
+    }
+    $directory = sys_get_temp_dir() . '/runwire-transfer-tls-' . $pid . '-' . bin2hex(random_bytes(4));
     mkdir($directory, 0700, true);
     $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    if ($key === false) {
+        throw new \RuntimeException('Unable to generate Response Transfer Tls Test private key.');
+    }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
+        throw new \RuntimeException('Unable to create Response Transfer Tls Test certificate request.');
+    }
     $certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    if ($key === false || $csr === false || $certificate === false) {
+    if ($certificate === false) {
         throw new RuntimeException('Unable to create response-transfer TLS fixture.');
     }
 
@@ -192,6 +208,7 @@ it('streams through real TLS HTTP1 backpressure to a slow reader', function (): 
         });
         $loop->run();
         pcntl_waitpid($pid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
 
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0);

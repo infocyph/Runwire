@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
@@ -12,13 +14,15 @@ use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
+use Throwable;
+
 
 it('connects a real independent numeric TCP peer and streams H1 response with no hidden fallback', function (): void {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $code, $error);
-    expect($listener)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($listener);
     stream_set_blocking($listener, false);
     $address = stream_socket_get_name($listener, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
 
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 1);
@@ -72,10 +76,10 @@ it('connects a real independent numeric TCP peer and streams H1 response with no
             },
         );
         $loop->run();
+        \PHPUnit\Framework\Assert::assertInstanceOf(Connection::class, $reusable);
         expect($status)->toBe(200)
             ->and($body)->toBe('ready!!')
             ->and($failure)->toBeNull()
-            ->and($reusable)->toBeInstanceOf(Connection::class)
             ->and($reusable->isPoolIdleSafe())->toBeTrue();
     } finally {
         $loop->cancel($acceptWatcher);

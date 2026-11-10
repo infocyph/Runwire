@@ -77,6 +77,7 @@ final class Runtime
 
     /**
      * Creates a runtime using the supplied or default options.
+     * @throws \InvalidArgumentException
      */
     public static function create(?RuntimeOptions $options = null): self
     {
@@ -89,6 +90,7 @@ final class Runtime
 
     /**
      * Configures the native supervisor control endpoint before startup.
+     * @throws \LogicException
      */
     public function control(ControlOptions $options): self
     {
@@ -103,6 +105,7 @@ final class Runtime
 
     /**
      * Registers a native HTTP, stream, or datagram server.
+     * @throws \LogicException
      */
     public function listen(Server|StreamServer|DatagramServer $server): self
     {
@@ -118,7 +121,10 @@ final class Runtime
         return $this;
     }
 
-    /** @param callable(SupervisorEvent): void $listener */
+    /**
+     * @param callable(SupervisorEvent): void $listener
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     public function onEvent(callable $listener): self
     {
         if ($this->portableRuntime !== null) {
@@ -136,6 +142,8 @@ final class Runtime
 
     /**
      * Requests recycling of a server worker slot and its HTTP/3 peer when configured.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function recycle(string $serverName, int $slot): bool
     {
@@ -163,6 +171,7 @@ final class Runtime
 
     /**
      * Requests a graceful native worker reload.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public function reload(): void
     {
@@ -177,6 +186,10 @@ final class Runtime
 
     /**
      * Runs the configured native listener topology using prefork or portable single-process mode.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function run(): void
     {
@@ -233,6 +246,10 @@ final class Runtime
      * @param callable(\Infocyph\Runwire\Http\HttpRequest, \Infocyph\Runwire\Http\ResponseWriterInterface): void $handler
      * @param callable(): void|null $requestCleanup
      * @param callable(): void|null $shutdown
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function serve(callable $handler, ?callable $requestCleanup = null, ?callable $shutdown = null): void
     {
@@ -250,6 +267,10 @@ final class Runtime
 
     /**
      * Runs an application factory through the selected host-owned runtime driver.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function serveApplication(RuntimeApplicationFactoryInterface $factory): void
     {
@@ -278,6 +299,7 @@ final class Runtime
 
     /**
      * Configures development file watching before native runtime startup.
+     * @throws \LogicException
      */
     public function watch(DevelopmentWatchPolicy $policy): self
     {
@@ -290,6 +312,9 @@ final class Runtime
         return $this;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private static function closeBound(
         BoundServer|BoundStreamServer|BoundDatagramServer $target,
         bool $master,
@@ -327,6 +352,9 @@ final class Runtime
         return $prefix . ':' . $server->name;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function workerListenerOptions(
         ListenerOptions $options,
         int $workerLimit,
@@ -341,6 +369,9 @@ final class Runtime
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function workerUnixOptions(StreamServer $server, AdmissionPolicy $admission): UnixListenerOptions
     {
         $options = $server->unix ?? new UnixListenerOptions(listener: $server->listener);
@@ -353,6 +384,9 @@ final class Runtime
         );
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private function assertPortableNativeConfiguration(): void
     {
         if ($this->controlOptions !== null) {
@@ -372,7 +406,10 @@ final class Runtime
         }
     }
 
-    /** @return array<string, BoundServer|BoundStreamServer|BoundDatagramServer> */
+    /**
+     * @return array<string, BoundServer|BoundStreamServer|BoundDatagramServer>
+     * @throws \Throwable
+     */
     private function bindServers(): array
     {
         $bound = [];
@@ -434,7 +471,11 @@ final class Runtime
         return new BoundStreamServer($server, $listener);
     }
 
-    /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
+    /**
+     * @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function buildSupervisor(array $bound): Supervisor
     {
         $supervisor = new Supervisor(reloadPolicy: $this->options->reload);
@@ -463,6 +504,9 @@ final class Runtime
         return $supervisor;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function configureSupervisor(Supervisor $supervisor): void
     {
         if ($this->controlOptions !== null) {
@@ -476,6 +520,9 @@ final class Runtime
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function hostRuntimeContext(): RuntimeContext
     {
         $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
@@ -494,6 +541,9 @@ final class Runtime
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function nativeRuntimeContext(WorkerContext $context): RuntimeContext
     {
         $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
@@ -508,6 +558,11 @@ final class Runtime
         );
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function prepareHostRuntime(): RuntimeContext
     {
         if ($this->started) {
@@ -534,7 +589,11 @@ final class Runtime
         return $this->hostRuntimeContext();
     }
 
-    /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
+    /**
+     * @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function registerHttp3Group(Supervisor $supervisor, array $bound, BoundServer $target): void
     {
         $definition = $target->definition;
@@ -566,6 +625,9 @@ final class Runtime
         ));
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function resolvedWorkerCount(int $configured): int
     {
         $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
@@ -573,7 +635,11 @@ final class Runtime
         return $selection->capabilities->resources->resolveWorkerCount($configured);
     }
 
-    /** @param callable(RuntimeContext): RuntimeApplicationInterface $factory */
+    /**
+     * @param callable(RuntimeContext): RuntimeApplicationInterface $factory
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     private function runHostApplication(callable $factory, RuntimeContext $context): void
     {
         $selection = $this->selection ?? throw new LogicException('Runtime selection is unavailable before startup.');
@@ -594,7 +660,10 @@ final class Runtime
         }
     }
 
-    /** @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound */
+    /**
+     * @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound
+     * @throws \LogicException
+     */
     private function runNativeWorker(WorkerContext $context, array $bound, BoundServer|BoundStreamServer|BoundDatagramServer $target): void
     {
         foreach ($bound as $candidate) {

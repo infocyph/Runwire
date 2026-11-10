@@ -21,6 +21,8 @@ final readonly class Http1ClientResponseHeadParser
 {
     /**
      * @return array{code:int, headers:Headers, http11:bool, close:bool, chunked:bool, length:?int}
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public static function parse(string $wireHead, int $maxBodyBytes): array
     {
@@ -47,6 +49,8 @@ final readonly class Http1ClientResponseHeadParser
      * Parse a complete trailer section, or report that more wire bytes are needed.
      *
      * @return array{trailers:Headers, used:int}|null
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public static function parseTrailers(string $buffer, int $maxHeaderBytes): ?array
     {
@@ -80,6 +84,8 @@ final readonly class Http1ClientResponseHeadParser
 
     /** @param list<string> $lines
      * @return list<HeaderField>
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private static function fields(array $lines, bool $trailers): array
     {
@@ -98,7 +104,10 @@ final readonly class Http1ClientResponseHeadParser
         return $fields;
     }
 
-    /** @return array{bool, ?int} */
+    /**
+     * @return array{bool, ?int}
+     * @throws \RuntimeException
+     */
     private static function framing(Headers $headers, int $maxBodyBytes): array
     {
         $transfer = $headers->all('transfer-encoding');
@@ -118,6 +127,10 @@ final readonly class Http1ClientResponseHeadParser
         return [$chunked, $length];
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
     private static function parseField(string $line): HeaderField
     {
         if ($line === '' || str_starts_with($line, ' ') || str_starts_with($line, "\t")) {

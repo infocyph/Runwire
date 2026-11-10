@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
@@ -11,6 +13,10 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+
 
 it('rejects origin isolation and opportunistic H2/H3 pooling before dialing', function (): void {
     $loop = new SelectLoop();
@@ -39,9 +45,13 @@ it('rejects origin isolation and opportunistic H2/H3 pooling before dialing', fu
 
 it('reuses the same real keep-alive H1 socket for two requests and frees all leases', function (): void {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
-    expect($listener)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($listener);
     stream_set_blocking($listener, false);
-    $origin = 'http://' . stream_socket_get_name($listener, false);
+    $listenerAddress = stream_socket_get_name($listener, false);
+    if (!is_string($listenerAddress)) {
+        throw new RuntimeException('Unable to read pooled HTTP/1 origin listener address.');
+    }
+    $origin = 'http://' . $listenerAddress;
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 1);
     $numeric = new Dialer($loop);
@@ -82,7 +92,9 @@ it('reuses the same real keep-alive H1 socket for two requests and frees all lea
             },
         );
     };
-    $watchdog = $loop->delay(2.0, static fn() => $loop->stop());
+    $watchdog = $loop->delay(2.0, static function () use ($loop): void {
+    $loop->stop();
+});
     $sentSecond = false;
     $poll = $loop->repeat(0.02, static function () use (&$done, $start, &$sentSecond): void {
         if (!$sentSecond && count($done) === 1) {
@@ -153,7 +165,14 @@ it('immediately cancels a queued same-origin lease without waiting for pool time
     }
 });
 
-/** @return array{SelectLoop,ProcessExecutor,Dialer,HappyEyeballsDialer,\Infocyph\Runwire\Network\TcpListener,PooledHttp1Session,ClientProtocolPolicy,string} */
+/**
+ * @return array{SelectLoop,ProcessExecutor,Dialer,HappyEyeballsDialer,\Infocyph\Runwire\Network\TcpListener,PooledHttp1Session,ClientProtocolPolicy,string}
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \Infocyph\Runwire\Exception\ListenerException
+ * @throws \LogicException
+ */
 function pooledH1AdmissionFixture(): array
 {
     $loop = new SelectLoop();
@@ -175,7 +194,9 @@ it('expires a queued H1 request at its earliest request or inherited deadline', 
     $deadline = \Infocyph\Runwire\RequestDeadline::afterSeconds(0.02, hrtime(true));
     $parent = new \Infocyph\Runwire\CancellationSource($inherited ? $deadline : null);
     $completed = [];
-    $watchdog = $loop->delay(0.5, static fn() => $loop->stop());
+    $watchdog = $loop->delay(0.5, static function () use ($loop): void {
+    $loop->stop();
+});
     try {
         $first = $session->send(new ClientRequest('GET', $origin . '/held', protocol: $policy),
             static function (): void {}, static function (): void {}, static function (): void {},
@@ -188,9 +209,9 @@ it('expires a queued H1 request at its earliest request or inherited deadline', 
         });
         expect($session->metrics()['waiting'])->toBe(1);
         $loop->run();
-        expect($completed)->toHaveCount(1)
-            ->and($completed[0])->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class)
-            ->and($completed[0]->reason)->toBe(\Infocyph\Runwire\Runtime\Enum\CancellationReason::DEADLINE_EXCEEDED)
+        expect($completed)->toHaveCount(1);
+        \PHPUnit\Framework\Assert::assertInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class, $completed[0]);
+        expect($completed[0]->reason)->toBe(\Infocyph\Runwire\Runtime\Enum\CancellationReason::DEADLINE_EXCEEDED)
             ->and($second->settled())->toBeTrue()
             ->and($second->cancel())->toBeFalse()
             ->and($session->metrics()['waiting'])->toBe(0)
@@ -218,9 +239,9 @@ it('settles already expired pooled H1 work without dialing or retaining admissio
         $handle = $session->send(new ClientRequest('GET', $origin . '/', protocol: $policy,
             deadline: new \Infocyph\Runwire\RequestDeadline(0),
         ), static function (): void {}, static function (): void {}, static function ($error) use (&$errors): void { $errors[] = $error; });
-        expect($errors)->toHaveCount(1)
-            ->and($errors[0])->toBeInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class)
-            ->and($errors[0]->reason)->toBe(\Infocyph\Runwire\Runtime\Enum\CancellationReason::DEADLINE_EXCEEDED)
+        expect($errors)->toHaveCount(1);
+        \PHPUnit\Framework\Assert::assertInstanceOf(\Infocyph\Runwire\Exception\CancelledException::class, $errors[0]);
+        expect($errors[0]->reason)->toBe(\Infocyph\Runwire\Runtime\Enum\CancellationReason::DEADLINE_EXCEEDED)
             ->and($handle->settled())->toBeTrue()
             ->and($session->metrics()['active'])->toBe(0)
             ->and($session->metrics()['waiting'])->toBe(0)
@@ -239,7 +260,9 @@ it('cleans queued H1 deadlines when cancellation grant or close wins admission',
     [$loop, $executor, $numeric, $dialer, $listener, $session, $policy, $origin] = pooledH1AdmissionFixture();
     $source = new \Infocyph\Runwire\CancellationSource();
     $calls = 0;
-    $watchdog = $loop->delay(0.5, static fn() => $loop->stop());
+    $watchdog = $loop->delay(0.5, static function () use ($loop): void {
+    $loop->stop();
+});
     try {
         $first = $session->send(new ClientRequest('GET', $origin . '/held', protocol: $policy),
             static function (): void {}, static function (): void {}, static function (): void {},
@@ -247,7 +270,7 @@ it('cleans queued H1 deadlines when cancellation grant or close wins admission',
         $second = $session->send(new ClientRequest('GET', $origin . '/queued', protocol: $policy,
             cancellation: $source->token(), deadline: \Infocyph\Runwire\RequestDeadline::afterSeconds(0.04, hrtime(true)),
         ), static function (): void {}, static function (): void {}, static function ($error) use (&$calls, $loop): void {
-            expect($error)->toBeInstanceOf(Throwable::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(Throwable::class, $error);
             ++$calls;
             $loop->stop();
         });
@@ -256,6 +279,7 @@ it('cleans queued H1 deadlines when cancellation grant or close wins admission',
                 'cancel' => $second->cancel(),
                 'grant' => $first->cancel(),
                 'close' => $session->close(),
+                default => throw new InvalidArgumentException('Unknown queued-session action.'),
             };
         });
         $loop->run();
@@ -314,9 +338,18 @@ it('verifies an IPv6 IP-SAN TLS peer and retains the bracketed Host through pool
     $privateKey = $directory . '/key.pem';
     file_put_contents($config, "[req]\ndistinguished_name=dn\n[dn]\n[v3]\nsubjectAltName=IP:::1\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,digitalSignature,keyEncipherment,keyCertSign\n");
     $key = openssl_pkey_new(['private_key_bits' => 2048]);
+    if ($key === false) {
+        throw new \RuntimeException('Unable to generate Pooled Http1Session Test private key.');
+    }
     $csr = openssl_csr_new(['commonName' => 'unrelated.example'], $key, ['config' => $config]);
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
+        throw new \RuntimeException('Unable to create Pooled Http1Session Test certificate request.');
+    }
     $cert = openssl_csr_sign($csr, null, $key, 1, ['config' => $config, 'x509_extensions' => 'v3']);
-    expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($cert)->not->toBeFalse();
+    if ($cert === false) {
+        throw new \RuntimeException('Unable to sign Pooled Http1Session Test certificate.');
+    }
+    \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($cert));
     openssl_x509_export($cert, $pem);
     openssl_pkey_export($key, $keyPem);
     file_put_contents($certificate, $pem);
@@ -354,7 +387,6 @@ it('verifies an IPv6 IP-SAN TLS peer and retains the bracketed Host through pool
     $policy = new ClientProtocolPolicy(ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1]);
     $results = [];
     $body = '';
-    $send = null;
     $send = static function () use ($session, $origin, $policy, &$send, &$results, &$body, $loop): void {
         $session->send(new ClientRequest('GET', $origin . '/resource', protocol: $policy),
             static function (): void {}, static function ($bytes) use (&$body): void { $body .= $bytes; },
@@ -368,7 +400,9 @@ it('verifies an IPv6 IP-SAN TLS peer and retains the bracketed Host through pool
             },
         );
     };
-    $watchdog = $loop->delay(2, static fn() => $loop->stop());
+    $watchdog = $loop->delay(2, static function () use ($loop): void {
+    $loop->stop();
+});
     try {
         expect(fn() => new PooledHttp1Session($loop, $dialer, $origin, 'wrong-peer', new \Infocyph\Runwire\Network\DialOptions(
             tls: new \Infocyph\Runwire\Network\TlsClientOptions('other.example', caFile: $certificate, alpnProtocols: ['http/1.1']),

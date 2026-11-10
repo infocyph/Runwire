@@ -29,6 +29,10 @@ final readonly class HttpNegotiatingOutboundClient
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection,?Throwable):void $completion
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public static function connect(
         LoopInterface $loop,
@@ -45,7 +49,8 @@ final readonly class HttpNegotiatingOutboundClient
             throw new RuntimeUnavailableException('HTTP/3 is not supported by this H1/H2 negotiator; use Http3OutboundClient with native QUIC.');
         }
         $parts = parse_url($request->uri);
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)) {
+        $originHost = $parts['host'] ?? null;
+        if (!is_array($parts) || !is_string($originHost)) {
             throw new InvalidArgumentException('HTTP client requires an absolute HTTP origin.');
         }
         // ClientRequest validated the absolute HTTP(S) scheme before dialing.
@@ -66,11 +71,11 @@ final readonly class HttpNegotiatingOutboundClient
                 $options,
             );
         }
-        $options = self::verifiedOptions($request, $options, trim($parts['host'], '[]'));
+        $options = self::verifiedOptions($request, $options, trim($originHost, '[]'));
         $port = $parts['port'] ?? 443;
 
         return $dialer->connect(
-            'tcp://' . $parts['host'] . ':' . $port,
+            'tcp://' . $originHost . ':' . $port,
             static function (?Connection $connection, ?Throwable $error) use (
                 $loop,
                 $request,
@@ -129,6 +134,11 @@ final readonly class HttpNegotiatingOutboundClient
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Connection,?Throwable):void $completion
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     private static function startExchange(
         LoopInterface $loop,
@@ -164,7 +174,11 @@ final readonly class HttpNegotiatingOutboundClient
         $exchange->start();
     }
 
-    /** Validate a complete ALPN offer against original peer identity before DNS. */
+    /**
+     * Validate a complete ALPN offer against original peer identity before DNS.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \InvalidArgumentException
+     */
     private static function verifiedOptions(
         ClientRequest $request,
         DialOptions $options,

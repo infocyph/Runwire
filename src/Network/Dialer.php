@@ -43,7 +43,11 @@ final class Dialer
      */
     private array $pending = [];
 
-    /** Create a loop-bound outgoing connector with a strict pending socket limit. */
+    /**
+     * Create a loop-bound outgoing connector with a strict pending socket limit.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(private readonly LoopInterface $loop, private readonly int $maxPending = 64)
     {
         if ($maxPending < 1 || $maxPending > 65_536) {
@@ -56,7 +60,10 @@ final class Dialer
         $this->ownerPid = $pid;
     }
 
-    /** Cancel one pending dial without invoking its completion twice. */
+    /**
+     * Cancel one pending dial without invoking its completion twice.
+     * @throws \LogicException
+     */
     public function cancel(int $id): bool
     {
         $this->assertProcessOwner();
@@ -68,7 +75,10 @@ final class Dialer
         return true;
     }
 
-    /** Close all pending sockets and reject future attempts. */
+    /**
+     * Close all pending sockets and reject future attempts.
+     * @throws \Throwable
+     */
     public function close(): void
     {
         $this->assertProcessOwner();
@@ -93,6 +103,11 @@ final class Dialer
      * Launch a numeric TCP or Unix-domain stream dial without blocking the loop.
      *
      * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function connect(
         DialEndpoint|string $endpoint,
@@ -155,16 +170,22 @@ final class Dialer
         return $id;
     }
 
-    /** Number of pending, not-yet-handed-off outgoing sockets. */
+    /**
+     * Number of pending, not-yet-handed-off outgoing sockets.
+     * @throws \LogicException
+     */
     public function pendingCount(): int
     {
-        $this->assertProcessOwner();
         $this->assertProcessOwner();
 
         return count($this->pending);
     }
 
-    /** Validate a restricted destination before opening its socket. */
+    /**
+     * Validate a restricted destination before opening its socket.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private static function assertAddressPolicy(DialEndpoint $endpoint, DialOptions $options): void
     {
         if ($options->addressPolicy === null) {
@@ -177,6 +198,15 @@ final class Dialer
         $options->addressPolicy->assertCandidate($endpoint->host ?? '');
     }
 
+    /** A pending stream can become closed while callbacks are in flight. */
+    private static function isOpenResource(mixed $resource): bool
+    {
+        return is_resource($resource);
+    }
+
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
@@ -184,6 +214,10 @@ final class Dialer
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     private function attachCancellation(int $id, DialOptions $options): void
     {
         $token = $options->cancellation;
@@ -216,6 +250,7 @@ final class Dialer
 
     /**
      * @param resource $stream
+     * @throws \RuntimeException
      */
     private function checkConnected(mixed $stream): void
     {
@@ -232,6 +267,9 @@ final class Dialer
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function finish(int $id, ?Connection $connection, ?Throwable $error): void
     {
         $job = $this->pending[$id] ?? null;
@@ -247,6 +285,9 @@ final class Dialer
         ($job['callback'])($connection, null);
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function handoff(int $id, ?string $protocol): void
     {
         $job = $this->pending[$id] ?? null;
@@ -278,7 +319,10 @@ final class Dialer
         $this->finish($id, $connection, null);
     }
 
-    /** @return resource */
+    /**
+     * @return resource
+     * @throws \RuntimeException
+     */
     private function open(DialEndpoint $endpoint): mixed
     {
         $errorCode = 0;
@@ -311,6 +355,9 @@ final class Dialer
         return $stream;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function ready(int $id): void
     {
         $job = $this->pending[$id] ?? null;
@@ -343,7 +390,9 @@ final class Dialer
                         $this->finish($id, null, $error);
                     },
                 );
-                $this->pending[$id] = [...$job, 'watcher' => null, 'tls' => $tls];
+                $job['watcher'] = null;
+                $job['tls'] = $tls;
+                $this->pending[$id] = $job;
 
                 return;
             }
@@ -356,6 +405,9 @@ final class Dialer
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function release(int $id, bool $handedOff = false, bool $cancelled = false): void
     {
         $job = $this->pending[$id] ?? null;
@@ -378,7 +430,7 @@ final class Dialer
             ], true)) {
                 $job['state']->transition($cancelled ? DialAttemptPhase::CANCELLED : DialAttemptPhase::FAILED);
             }
-            if (is_resource($job['stream'])) {
+            if (self::isOpenResource($job['stream'])) {
                 fclose($job['stream']);
             }
         }

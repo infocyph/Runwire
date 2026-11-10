@@ -20,7 +20,11 @@ final class DecoderStreamDecoder
      */
     public function __construct(private readonly int $maxBufferedBytes = 65_536) {}
 
-    /** @return list<DecoderInstruction> */
+    /**
+     * @return list<DecoderInstruction>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     public function push(string $bytes): array
     {
         $this->buffer .= $bytes;
@@ -45,7 +49,11 @@ final class DecoderStreamDecoder
         return $instructions;
     }
 
-    /** @return array{0: DecoderInstruction, 1: int}|null */
+    /**
+     * @return array{0: DecoderInstruction, 1: int}|null
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function decode(int $offset, int $prefixBits, DecoderInstructionType $type): ?array
     {
         $decoded = IntegerCodec::tryDecode(
@@ -63,7 +71,11 @@ final class DecoderStreamDecoder
         return [new DecoderInstruction($type, $value), $next];
     }
 
-    /** @return array{0: DecoderInstruction, 1: int}|null */
+    /**
+     * @return array{0: DecoderInstruction, 1: int}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function decodeInstruction(int $offset): ?array
     {
         if (!isset($this->buffer[$offset])) {

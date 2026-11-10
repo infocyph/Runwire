@@ -10,8 +10,10 @@ use Infocyph\Runwire\Network\StreamRelay;
 it('relays two independent streams simultaneously with hash-correct payloads and no retained watchers', function (): void {
     $leftPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $rightPair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($leftPair)->toBeArray()->toHaveCount(2)
-        ->and($rightPair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($leftPair);
+    \PHPUnit\Framework\Assert::assertIsArray($rightPair);
+    \PHPUnit\Framework\Assert::assertCount(2, $leftPair);
+    \PHPUnit\Framework\Assert::assertCount(2, $rightPair);
     [$leftSocket, $leftPeer] = $leftPair;
     [$rightSocket, $rightPeer] = $rightPair;
     stream_set_blocking($leftPeer, false);
@@ -24,8 +26,7 @@ it('relays two independent streams simultaneously with hash-correct payloads and
     $relay = new StreamRelay($loop, $left, $right, chunkBytes: 1_024, maxBytesPerTick: 4_096);
     $fromLeft = str_repeat('left-to-right-', 2_048);
     $fromRight = str_repeat('right-to-left-', 2_048);
-    $atLeft = '';
-    $atRight = '';
+    $received = new class { public string $left = ''; public string $right = ''; };
     $watchers = [];
     $timeout = $loop->delay(1.0, static function () use ($loop): void {
         $loop->stop();
@@ -35,28 +36,28 @@ it('relays two independent streams simultaneously with hash-correct payloads and
         $relay->start();
         expect(fwrite($leftPeer, $fromLeft))->toBe(strlen($fromLeft))
             ->and(fwrite($rightPeer, $fromRight))->toBe(strlen($fromRight));
-        $watchers[] = $loop->onReadable($leftPeer, static function ($stream) use (&$atLeft, $loop, &$atRight, $fromLeft, $fromRight): void {
+        $watchers[] = $loop->onReadable($leftPeer, static function ($stream) use ($received, $loop, $fromLeft, $fromRight): void {
             $chunk = fread($stream, 65_536);
             if (is_string($chunk)) {
-                $atLeft .= $chunk;
+                $received->left .= $chunk;
             }
-            if (strlen($atLeft) === strlen($fromRight) && strlen($atRight) === strlen($fromLeft)) {
+            if (strlen($received->left) === strlen($fromRight) && strlen($received->right) === strlen($fromLeft)) {
                 $loop->stop();
             }
         });
-        $watchers[] = $loop->onReadable($rightPeer, static function ($stream) use (&$atRight, $loop, &$atLeft, $fromLeft, $fromRight): void {
+        $watchers[] = $loop->onReadable($rightPeer, static function ($stream) use ($received, $loop, $fromLeft, $fromRight): void {
             $chunk = fread($stream, 65_536);
             if (is_string($chunk)) {
-                $atRight .= $chunk;
+                $received->right .= $chunk;
             }
-            if (strlen($atLeft) === strlen($fromRight) && strlen($atRight) === strlen($fromLeft)) {
+            if (strlen($received->left) === strlen($fromRight) && strlen($received->right) === strlen($fromLeft)) {
                 $loop->stop();
             }
         });
         $loop->run();
 
-        expect(hash('sha256', $atLeft))->toBe(hash('sha256', $fromRight))
-            ->and(hash('sha256', $atRight))->toBe(hash('sha256', $fromLeft))
+        expect(hash('sha256', $received->left))->toBe(hash('sha256', $fromRight))
+            ->and(hash('sha256', $received->right))->toBe(hash('sha256', $fromLeft))
             ->and($relay->transferredBytes())->toBe(['toLeft' => strlen($fromRight), 'toRight' => strlen($fromLeft)])
             ->and(fn() => $relay->start())->toThrow(InvalidArgumentException::class);
     } finally {
@@ -77,7 +78,8 @@ it('relays two independent streams simultaneously with hash-correct payloads and
 
 it('rejects invalid relay ownership without claiming callbacks', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket);

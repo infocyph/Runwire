@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
@@ -10,7 +12,16 @@ use Infocyph\Runwire\WebSocket\WebSocketMessage;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
 
+
 it('keeps 128 simultaneous fragmented WebSocket streams and heartbeat owners isolated', function (): void {
+    runwireOwnedWebSocketConcurrentSessionsTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketConcurrentSessionsTestCase01(): void
+{
     $loop = new SelectLoop();
     $connections = [];
     $peers = [];
@@ -32,7 +43,8 @@ it('keeps 128 simultaneous fragmented WebSocket streams and heartbeat owners iso
     try {
         for ($i = 0; $i < $count; ++$i) {
             $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-            expect($pair)->toBeArray()->toHaveCount(2);
+            \PHPUnit\Framework\Assert::assertIsArray($pair);
+            expect($pair)->toHaveCount(2);
             [$socket, $peer] = $pair;
             $peers[] = $peer;
             stream_set_blocking($peer, false);
@@ -69,7 +81,8 @@ it('keeps 128 simultaneous fragmented WebSocket streams and heartbeat owners iso
         // Verify that all 128 independent peers received its own pong.
         foreach ($peers as $peer) {
             $wire = stream_get_contents($peer);
-            expect($wire)->toBeString()
+            \PHPUnit\Framework\Assert::assertIsString($wire);
+            expect($wire)
                 ->toContain(WebSocketWireCodec::frame(0xA, 'heartbeat'));
         }
     } finally {
@@ -86,4 +99,4 @@ it('keeps 128 simultaneous fragmented WebSocket streams and heartbeat owners iso
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
-});
+}

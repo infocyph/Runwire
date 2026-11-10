@@ -29,7 +29,10 @@ final class DialAttemptLifecycle
         return $this->phase === DialAttemptPhase::READY;
     }
 
-    /** Advance to a valid phase, rejecting duplicate completion or resurrection. */
+    /**
+     * Advance to a valid phase, rejecting duplicate completion or resurrection.
+     * @throws \LogicException
+     */
     public function transition(DialAttemptPhase $next): void
     {
         $allowed = match ($this->phase) {

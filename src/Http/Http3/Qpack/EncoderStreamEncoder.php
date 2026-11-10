@@ -11,6 +11,8 @@ final class EncoderStreamEncoder
 {
     /**
      * Encode a Duplicate instruction.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function duplicate(int $relativeIndex): string
     {
@@ -19,6 +21,8 @@ final class EncoderStreamEncoder
 
     /**
      * Encode an Insert With Literal Name instruction.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function insertLiteralName(string $name, string $value): string
     {
@@ -28,6 +32,8 @@ final class EncoderStreamEncoder
 
     /**
      * Encode an Insert With Name Reference instruction.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function insertNameReference(int $index, bool $static, string $value): string
     {
@@ -37,6 +43,8 @@ final class EncoderStreamEncoder
 
     /**
      * Encode a Set Dynamic Table Capacity instruction.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function setCapacity(int $capacity): string
     {

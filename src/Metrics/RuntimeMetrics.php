@@ -127,6 +127,8 @@ final class RuntimeMetrics implements MetricsProviderInterface
 
     /**
      * Collect cyclic garbage when the configured thresholds are reached.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function maybeCollectGarbage(GcPolicy $policy): void
     {
@@ -300,6 +302,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
     /**
      * Capture the current immutable runtime metrics snapshot.
      */
+    #[\Override]
     public function snapshot(): RuntimeMetricsSnapshot
     {
         $now = MonotonicTime::nowNanoseconds();

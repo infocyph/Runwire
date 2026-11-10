@@ -21,6 +21,7 @@ final class FrameParser
 
     /**
      * Create a frame parser with an inbound frame-size limit.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private int $maxFrameSize = 16_384, ?ByteBudget $budget = null)
     {
@@ -48,7 +49,11 @@ final class FrameParser
         return $this->pending !== null && $this->buffer->bytes() >= $this->pending['length'];
     }
 
-    /** @return list<Frame> */
+    /**
+     * @return list<Frame>
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
+     */
     public function push(string $bytes, int $maxFrames = PHP_INT_MAX): array
     {
         if ($bytes !== '') {
@@ -83,6 +88,7 @@ final class FrameParser
 
     /**
      * Update the maximum accepted inbound frame size.
+     * @throws \InvalidArgumentException
      */
     public function setMaxFrameSize(int $bytes): void
     {
@@ -90,6 +96,10 @@ final class FrameParser
         $this->maxFrameSize = $bytes;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function readHeader(): bool
     {
         if ($this->buffer->bytes() < 9) {
@@ -118,6 +128,9 @@ final class FrameParser
         return true;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function validateMaxFrameSize(int $bytes): void
     {
         if ($bytes < 16_384 || $bytes > 0xFF_FFFF) {

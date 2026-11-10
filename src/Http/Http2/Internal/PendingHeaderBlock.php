@@ -19,6 +19,7 @@ final class PendingHeaderBlock
 
     /**
      * Create a pending compressed header block.
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      */
     public function __construct(
         public readonly int $streamId,
@@ -48,6 +49,7 @@ final class PendingHeaderBlock
 
     /**
      * Append one continuation fragment.
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
      */
     public function append(int $streamId, string $fragment): void
     {

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Benchmarks;
+
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
@@ -30,6 +32,20 @@ final class HostAdapterBench
     /** @var array<string, mixed> */
     private array $server;
 
+    /**
+     * Initialize fixtures before PHPBench's per-iteration setup refresh.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
+    public function __construct()
+    {
+        $this->setUp();
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     public function setUp(): void
     {
         $this->factory = new HostRequestFactory();
@@ -53,13 +69,17 @@ final class HostAdapterBench
         $this->request = $this->factory->fromServer($this->server, $this->body, 1_024);
         $this->application = new RuntimeApplication(
             static function (HttpRequest $request, ResponseWriterInterface $writer): void {
-                $request->headers->first('x-trace-id');
-                $writer->isStarted();
+                if ($request->headers->first('x-trace-id') !== 'benchmark-trace' || $writer->isStarted()) {
+                    throw new \LogicException('Host benchmark request normalization violated its fixture contract.');
+                }
             },
             static function (): void {},
         );
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function benchApplicationDispatchAndCleanup(): int
     {
         $request = $this->newApplicationRequest();
@@ -68,6 +88,10 @@ final class HostAdapterBench
         return strlen($request->method);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     public function benchHostRequestNormalization(): int
     {
         $request = $this->factory->fromServer($this->server, $this->body, 1_024);
@@ -75,6 +99,9 @@ final class HostAdapterBench
         return strlen($request->target);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     public function benchHostResponseWriterLifecycle(): int
     {
         $writer = $this->newWriter();
@@ -83,6 +110,9 @@ final class HostAdapterBench
         return $result->bufferedBytes;
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function newApplicationRequest(): HttpRequest
     {
         return new HttpRequest(
@@ -97,12 +127,17 @@ final class HostAdapterBench
         );
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function newWriter(): ResponseWriterInterface
     {
         return new CallbackResponseWriter(
             static function (): void {},
             static function (string $chunk): void {
-                strlen($chunk);
+                if (strlen($chunk) > 1_024) {
+                    throw new \LogicException('Host benchmark writer exceeded its configured buffer ceiling.');
+                }
             },
             static function (): void {},
             1_024,

@@ -38,6 +38,9 @@ final readonly class HttpOutboundDispatcher
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function send(
         ClientRequest $request,
@@ -99,6 +102,10 @@ final readonly class HttpOutboundDispatcher
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     private function dispatch(
         ClientRequest $request,
@@ -150,6 +157,11 @@ final readonly class HttpOutboundDispatcher
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
      */
     private function sendH3(
         ClientRequest $request,

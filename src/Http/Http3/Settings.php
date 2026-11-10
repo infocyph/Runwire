@@ -14,7 +14,10 @@ final readonly class Settings
     /** @var array<int, int> */
     private array $values;
 
-    /** @param array<int, int> $values */
+    /**
+     * @param array<int, int> $values
+     * @throws \InvalidArgumentException
+     */
     public function __construct(array $values = [])
     {
         $normalized = [];
@@ -38,6 +41,7 @@ final readonly class Settings
 
     /**
      * Build the server SETTINGS advertised from configured HTTP/3 limits.
+     * @throws \InvalidArgumentException
      */
     public static function serverDefaults(Http3Limits $limits): self
     {

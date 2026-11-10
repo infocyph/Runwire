@@ -14,6 +14,7 @@ final readonly class ResponseSemantics
 {
     /**
      * Reject framing metadata that contradicts a content-free final response.
+     * @throws \InvalidArgumentException
      */
     public static function assertContentLength(int $status, ?int $contentLength): void
     {
@@ -24,6 +25,7 @@ final readonly class ResponseSemantics
 
     /**
      * Reject informational and invalid codes where the writer accepts one final response.
+     * @throws \InvalidArgumentException
      */
     public static function assertFinalStatus(int $status): void
     {
@@ -34,6 +36,7 @@ final readonly class ResponseSemantics
 
     /**
      * Return one validated response Content-Length value when declared.
+     * @throws \InvalidArgumentException
      */
     public static function contentLength(Headers $headers): ?int
     {

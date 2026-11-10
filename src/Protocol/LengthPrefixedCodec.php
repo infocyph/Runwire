@@ -19,6 +19,7 @@ final class LengthPrefixedCodec implements FrameCodecInterface
 
     /**
      * Creates a length-prefixed codec with the selected prefix format and frame limit.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly LengthPrefixFormat $format = LengthPrefixFormat::UINT32_BE,
@@ -33,6 +34,7 @@ final class LengthPrefixedCodec implements FrameCodecInterface
     /**
      * Returns bytes currently buffered awaiting a complete frame.
      */
+    #[\Override]
     public function bufferedBytes(): int
     {
         return $this->buffer->bytes();
@@ -40,7 +42,9 @@ final class LengthPrefixedCodec implements FrameCodecInterface
 
     /**
      * Encodes one frame with its configured length prefix.
+     * @throws \Infocyph\Runwire\Protocol\CodecException
      */
+    #[\Override]
     public function encode(string $frame): string
     {
         $length = strlen($frame);
@@ -53,7 +57,11 @@ final class LengthPrefixedCodec implements FrameCodecInterface
 
     /**
      * Decodes up to the requested number of complete frames from incoming bytes.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Protocol\CodecException
      */
+    #[\Override]
     public function push(string $bytes, int $maxFrames = 256): array
     {
         if ($maxFrames <= 0) {
@@ -78,12 +86,16 @@ final class LengthPrefixedCodec implements FrameCodecInterface
     /**
      * Clears buffered bytes and any pending frame length.
      */
+    #[\Override]
     public function reset(): void
     {
         $this->buffer->clear();
         $this->pendingLength = null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Protocol\CodecException
+     */
     private static function decodeUint16(string $prefix): int
     {
         /** @var array{length: int}|false $decoded */
@@ -95,6 +107,9 @@ final class LengthPrefixedCodec implements FrameCodecInterface
         return $decoded['length'];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Protocol\CodecException
+     */
     private static function decodeUint32(string $prefix): int
     {
         /** @var array{length: int}|false $decoded */
@@ -106,6 +121,9 @@ final class LengthPrefixedCodec implements FrameCodecInterface
         return $decoded['length'];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Protocol\CodecException
+     */
     private static function encodeUint8(int $length): string
     {
         if ($length < 0 || $length > 0xFF) {
@@ -133,6 +151,10 @@ final class LengthPrefixedCodec implements FrameCodecInterface
         };
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Protocol\CodecException
+     * @throws \InvalidArgumentException
+     */
     private function nextFrame(): ?string
     {
         if ($this->pendingLength === null) {

@@ -22,7 +22,9 @@ final readonly class DefaultRequestIdPolicy implements RequestIdPolicyInterface
 
     /**
      * Resolve a valid request ID for the runtime context.
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function resolve(RuntimeContext $runtime, ?string $candidate = null): string
     {
         if ($this->reuseSupplied && $candidate !== null && self::acceptable($candidate)) {

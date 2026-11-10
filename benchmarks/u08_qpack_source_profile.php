@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/source_profile_class_file.php';
+
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
@@ -17,8 +19,7 @@ use Infocyph\Runwire\Http\Http3\VarIntCodec;
  */
 $args = $_SERVER['argv'] ?? null;
 if (!is_array($args) || count($args) < 3 || count($args) > 4
-    || !is_string($args[1] ?? null) || !is_string($args[2] ?? null)
-    || (isset($args[3]) && !is_string($args[3]))) {
+    || !is_string($args[1] ?? null) || !is_string($args[2] ?? null)) {
     throw new InvalidArgumentException('Expected source directory, immutable revision and optional iterations.');
 }
 $source = realpath($args[1]);
@@ -37,6 +38,12 @@ spl_autoload_register(static function (string $class) use ($source): void {
     }
     $file = $source . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) {
+        runwireSourceProfileValidateClassFile($source, $class, $file);
+        /** @psalm-taint-escape include */
+        $file = realpath($file);
+        if ($file === false) {
+            throw new RuntimeException('Validated source class is no longer available.');
+        }
         require_once $file;
     }
 });
@@ -44,8 +51,10 @@ spl_autoload_register(static function (string $class) use ($source): void {
 /**
  * @param callable(int):int $operation
  * @return array{iterations:int,trials:int,median_nanoseconds_per_op:float,cv_percent:float}
+ * @throws \RuntimeException
  */
-$measure = static function (callable $operation) use ($iterations): array {
+function runwireQpackMicroprofileMeasure(callable $operation, int $iterations): array
+{
     $checksum = 0;
     for ($i = 0; $i < 64; ++$i) {
         $checksum += $operation($i);
@@ -60,22 +69,22 @@ $measure = static function (callable $operation) use ($iterations): array {
         if (!is_int($elapsed) || $elapsed <= 0 || $checksum <= 0) {
             throw new RuntimeException('QPACK profile produced an invalid sample.');
         }
-        $samples[] = $elapsed / $iterations;
+        $samples[] = (float) $elapsed / (float) $iterations;
     }
     sort($samples, SORT_NUMERIC);
-    $mean = array_sum($samples) / count($samples);
+    $mean = array_sum($samples) / (float) count($samples);
     $variance = array_sum(array_map(
-        static fn(float $value): float => ($value - $mean) ** 2,
+        static fn(float $value): float => ($value - $mean) ** 2.0,
         $samples,
-    )) / count($samples);
+    )) / (float) count($samples);
 
     return [
         'iterations' => $iterations,
         'trials' => 5,
         'median_nanoseconds_per_op' => round($samples[2], 2),
-        'cv_percent' => round(100 * sqrt($variance) / $mean, 3),
+        'cv_percent' => round(100.0 * sqrt($variance) / $mean, 3),
     ];
-};
+}
 
 $jobs = [
     'qpack_continuation_integer' => static function (int $i): int {
@@ -91,7 +100,11 @@ $jobs = [
     },
     'quic_varint_widths' => static function (int $i): int {
         $values = [63, 16_384, VarIntCodec::MAX_VALUE];
-        $value = $values[$i % count($values)];
+        $offset = $i % count($values);
+        if ($offset < 0) {
+            throw new InvalidArgumentException('QPACK profile sample indices must be non-negative.');
+        }
+        $value = $values[$offset];
         $encoded = VarIntCodec::encode($value);
         $offset = 0;
         if (VarIntCodec::decode($encoded, $offset) !== $value || $offset !== strlen($encoded)) {
@@ -129,7 +142,7 @@ $jobs = [
 
 $results = [];
 foreach ($jobs as $name => $job) {
-    $results[$name] = $measure($job);
+    $results[$name] = runwireQpackMicroprofileMeasure($job, $iterations);
 }
 $json = json_encode([
     'schemaVersion' => 1,

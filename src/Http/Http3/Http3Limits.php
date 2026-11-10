@@ -13,6 +13,7 @@ final readonly class Http3Limits
 {
     /**
      * Create and validate HTTP/3 resource limits.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $maxFramePayloadBytes = 1_048_576,
@@ -108,6 +109,9 @@ final readonly class Http3Limits
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertBodyWatermarks(int $low, int $high, int $maximum): void
     {
         if ($low >= $high || $high > $maximum) {
@@ -117,7 +121,10 @@ final readonly class Http3Limits
         }
     }
 
-    /** @param array<string, int> $values */
+    /**
+     * @param array<string, int> $values
+     * @throws \InvalidArgumentException
+     */
     private static function assertNonNegative(array $values): void
     {
         foreach ($values as $name => $value) {
@@ -127,7 +134,10 @@ final readonly class Http3Limits
         }
     }
 
-    /** @param array<string, int> $values */
+    /**
+     * @param array<string, int> $values
+     * @throws \InvalidArgumentException
+     */
     private static function assertPositive(array $values): void
     {
         foreach ($values as $name => $value) {
@@ -137,6 +147,9 @@ final readonly class Http3Limits
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertResponseLimits(
         int $perStream,
         int $perConnection,
@@ -160,6 +173,9 @@ final readonly class Http3Limits
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertResponseWatermarks(int $low, int $high, int $maximum): void
     {
         if ($low < 0 || $low >= $high || $high > $maximum) {
@@ -169,7 +185,10 @@ final readonly class Http3Limits
         }
     }
 
-    /** @param array<string, int> $values */
+    /**
+     * @param array<string, int> $values
+     * @throws \InvalidArgumentException
+     */
     private static function assertVarIntCompatible(array $values): void
     {
         foreach ($values as $name => $value) {

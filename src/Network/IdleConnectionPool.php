@@ -27,7 +27,11 @@ final class IdleConnectionPool
 
     private int $nextId = 1;
 
-    /** Set finite idle retention and hard connection admission limit. */
+    /**
+     * Set finite idle retention and hard connection admission limit.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly int $maxIdle = 16,
@@ -44,7 +48,10 @@ final class IdleConnectionPool
         $this->ownerPid = $pid;
     }
 
-    /** Close the store and all borrowed-but-not-yet-issued idle sockets. */
+    /**
+     * Close the store and all borrowed-but-not-yet-issued idle sockets.
+     * @throws \LogicException
+     */
     public function close(): void
     {
         $this->assertProcessOwner();
@@ -57,7 +64,10 @@ final class IdleConnectionPool
         }
     }
 
-    /** Number of connections retained in the pool. */
+    /**
+     * Number of connections retained in the pool.
+     * @throws \LogicException
+     */
     public function count(): int
     {
         $this->assertProcessOwner();
@@ -68,6 +78,8 @@ final class IdleConnectionPool
     /**
      * Retain an already verified stream only when its previous protocol owner
      * has released every callback/byte. Failure closes the offered socket.
+     * @throws \Throwable
+     * @phpstan-impure
      */
     public function store(PoolIsolationKey $key, Connection $connection): bool
     {
@@ -151,6 +163,9 @@ final class IdleConnectionPool
     /**
      * Borrow one healthy, identity-matched connection; never hand back stale
      * or unverified buffer state even when the peer wrote during idle time.
+     * @throws \LogicException
+     * @phpstan-impure
+     * @throws \Throwable
      */
     public function take(PoolIsolationKey $key): ?Connection
     {
@@ -164,15 +179,21 @@ final class IdleConnectionPool
                 continue;
             }
             $connection = $this->release($id);
-            if ($connection?->isPoolIdleSafe()) {
+            if ($connection === null) {
+                continue;
+            }
+            if ($connection->isPoolIdleSafe()) {
                 return $connection;
             }
-            $connection?->abort();
+            $connection->abort();
         }
 
         return null;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertProcessOwner(): void
     {
         if (getmypid() !== $this->ownerPid) {
@@ -180,11 +201,17 @@ final class IdleConnectionPool
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function discard(int $id): void
     {
         $this->release($id)?->abort();
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function release(int $id): ?Connection
     {
         $entry = $this->entries[$id] ?? null;

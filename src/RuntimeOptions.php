@@ -13,6 +13,7 @@ use Infocyph\Runwire\Runtime\RequestExecutionPolicy;
 use Infocyph\Runwire\Supervisor\PrivilegeDropPolicy;
 use Infocyph\Runwire\Supervisor\ReloadPolicy;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
+use InvalidArgumentException;
 
 /**
  * Collects runtime driver, lifecycle, admission, diagnostics, and host-specific options.
@@ -21,6 +22,7 @@ final readonly class RuntimeOptions
 {
     /**
      * Create a complete runtime configuration with production-safe defaults.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public RuntimeDriver $driver = RuntimeDriver::AUTO,
@@ -36,5 +38,10 @@ final readonly class RuntimeOptions
         public SwooleOptions $swoole = new SwooleOptions(),
         public ApplicationLifecycleHooks $applicationLifecycle = new ApplicationLifecycleHooks(),
         public ReloadPolicy $reload = new ReloadPolicy(),
-    ) {}
+    ) {
+        if (($workerRecycle->maxRequests === 0 && $workerRecycle->jitterRequests !== 0)
+            || ($workerRecycle->maxLifetimeSeconds === 0 && $workerRecycle->jitterSeconds !== 0)) {
+            throw new InvalidArgumentException('Worker recycling jitter requires a nonzero matching limit.');
+        }
+    }
 }

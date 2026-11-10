@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\DialEndpoint;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\IdleConnectionPool;
 use Infocyph\Runwire\Network\PoolIsolationKey;
+
 
 it('never reuses a stream under a different tenant scope and closes overflow victims', function (): void {
     $loop = new SelectLoop();
@@ -17,8 +20,10 @@ it('never reuses a stream under a different tenant scope and closes overflow vic
     $b = new PoolIsolationKey($origin, 'worker-b');
     $first = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $second = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($first)->toBeArray()->toHaveCount(2)
-        ->and($second)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($first);
+    \PHPUnit\Framework\Assert::assertIsArray($second);
+    \PHPUnit\Framework\Assert::assertCount(2, $first);
+    \PHPUnit\Framework\Assert::assertCount(2, $second);
     [$sockA, $peerA] = $first;
     [$sockB, $peerB] = $second;
     $firstConnection = new Connection($loop, $sockA);
@@ -60,7 +65,9 @@ it('refuses to retain a plaintext socket under a TLS and ALPN identity', functio
         negotiatedAlpn: 'http/1.1',
     );
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$socket, $peer] = $pair;
     $connection = new Connection($loop, $socket);
 
@@ -82,8 +89,10 @@ it('evicts idle sockets on unsolicited response bytes or deadline without stale 
     $key = new PoolIsolationKey(DialEndpoint::parse('unix:///tmp/runwire-pool-b.sock'), 'worker-a');
     $first = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     $second = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($first)->toBeArray()->toHaveCount(2)
-        ->and($second)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($first);
+    \PHPUnit\Framework\Assert::assertIsArray($second);
+    \PHPUnit\Framework\Assert::assertCount(2, $first);
+    \PHPUnit\Framework\Assert::assertCount(2, $second);
     [$sockA, $peerA] = $first;
     [$sockB, $peerB] = $second;
     $firstConnection = new Connection($loop, $sockA);

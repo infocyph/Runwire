@@ -72,6 +72,9 @@ final class RequestFinalizer
 
     /**
      * Observe request cancellation after its cancellation source has been updated.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\RequestLifecycleException
+     * @throws \Throwable
      */
     public function cancelled(): void
     {
@@ -88,6 +91,9 @@ final class RequestFinalizer
 
     /**
      * Mark the synchronous application handler stack as exited.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\RequestLifecycleException
+     * @throws \Throwable
      */
     public function handlerFinished(): void
     {
@@ -97,6 +103,9 @@ final class RequestFinalizer
 
     /**
      * Observe settlement of request-owned asynchronous work.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\RequestLifecycleException
+     * @throws \Throwable
      */
     public function ownedWorkSettled(): void
     {
@@ -110,6 +119,9 @@ final class RequestFinalizer
 
     /**
      * Observe terminal response ownership.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\RequestLifecycleException
+     * @throws \Throwable
      */
     public function terminal(): void
     {
@@ -136,6 +148,11 @@ final class RequestFinalizer
         };
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\RequestLifecycleException
+     * @throws \Throwable
+     */
     private function finalize(): void
     {
         $this->finalizedRequest = true;
@@ -169,6 +186,11 @@ final class RequestFinalizer
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\RequestLifecycleException
+     * @throws \Throwable
+     */
     private function finalizeIfReady(): void
     {
         if ($this->finalizedRequest || $this->handlerRunning || $this->context->hasOwnedWork()) {

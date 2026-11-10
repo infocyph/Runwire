@@ -17,6 +17,9 @@ use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function http3SessionWriter(int $streamId, string $method): ResponseWriterInterface
 {
     if ($streamId < 0) {
@@ -32,11 +35,17 @@ function http3SessionWriter(int $streamId, string $method): ResponseWriterInterf
     );
 }
 
+/** @throws RuntimeException */
 function http3SessionDispatchedCount(Http3Session $session): int
 {
     $property = new ReflectionProperty($session, 'dispatchedRequestStreams');
 
-    return count($property->getValue($session));
+    $dispatched = $property->getValue($session);
+    if (!is_array($dispatched)) {
+        throw new \RuntimeException('HTTP/3 dispatched stream counter must be an array.');
+    }
+
+    return count($dispatched);
 }
 
 it('dispatches a decoded HTTP/3 request through the version-neutral application contract once', function (): void {

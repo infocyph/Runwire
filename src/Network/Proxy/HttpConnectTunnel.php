@@ -40,7 +40,10 @@ final class HttpConnectTunnel
 
     private ?int $timer = null;
 
-    /** @param callable(?Connection, ?Throwable):void $completion */
+    /**
+     * @param callable(?Connection, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
@@ -60,7 +63,11 @@ final class HttpConnectTunnel
         $this->completion = Closure::fromCallable($completion);
     }
 
-    /** Cancel the pending proxy handshake exactly once, retiring all owned resources. */
+    /**
+     * Cancel the pending proxy handshake exactly once, retiring all owned resources.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function cancel(): bool
     {
         if ($this->state !== 'pending') {
@@ -71,7 +78,12 @@ final class HttpConnectTunnel
         return true;
     }
 
-    /** Start one bounded nonblocking proxy handshake with exclusive callback ownership. */
+    /**
+     * Start one bounded nonblocking proxy handshake with exclusive callback ownership.
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     public function start(): void
     {
         if ($this->state !== 'new') {
@@ -97,7 +109,7 @@ final class HttpConnectTunnel
                     $this->fail(new RuntimeException('Proxy closed before CONNECT tunnel establishment.'));
                 },
             );
-            if ($this->state !== 'pending') {
+            if (!$this->isPending()) {
                 return;
             }
             $this->closeObserver = $this->connection->registerCloseObserver(
@@ -105,7 +117,7 @@ final class HttpConnectTunnel
                     $this->fail(new RuntimeException('Proxy connection closed during CONNECT negotiation.'));
                 },
             );
-            if ($this->state !== 'pending') {
+            if (!$this->isPending()) {
                 return;
             }
             $delay = $this->timeoutSeconds;
@@ -119,7 +131,7 @@ final class HttpConnectTunnel
             $this->subscription = $this->token?->onCancel(function (CancellationToken $token): void {
                 $this->fail(new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
             });
-            if ($this->state !== 'pending') {
+            if (!$this->isPending()) {
                 return;
             }
             if (!$this->connection->write($request)->accepted()) {
@@ -135,7 +147,10 @@ final class HttpConnectTunnel
     }
 
     /** Execute the bounded proxy exchange phase. */
-    /** Fail closed when a remote proxy cannot prove an approved destination IP. */
+    /**
+     * Fail closed when a remote proxy cannot prove an approved destination IP.
+     * @throws \RuntimeException
+     */
     private function assertTargetPolicy(): void
     {
         if ($this->targetAddressPolicy === null) {
@@ -148,7 +163,10 @@ final class HttpConnectTunnel
         $this->targetAddressPolicy->assertCandidate($target);
     }
 
-    /** Permit credentials only on a matching, dialer-verified outbound TLS channel. */
+    /**
+     * Permit credentials only on a matching, dialer-verified outbound TLS channel.
+     * @throws \LogicException
+     */
     private function assertVerifiedProxyPeer(): void
     {
         $verified = VerifiedOutboundTlsPeers::peerName($this->connection);
@@ -158,6 +176,9 @@ final class HttpConnectTunnel
         }
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function cleanup(): void
     {
         if ($this->timer !== null) {
@@ -175,7 +196,11 @@ final class HttpConnectTunnel
         }
     }
 
-    /** Execute the bounded proxy exchange phase. */
+    /**
+     * Execute the bounded proxy exchange phase.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function fail(Throwable $error): void
     {
         if ($this->state !== 'pending') {
@@ -190,7 +215,16 @@ final class HttpConnectTunnel
         ($this->completion)(null, $error);
     }
 
-    /** Reject a closed proxy transport during send-drain handoff. */
+    private function isPending(): bool
+    {
+        return $this->state === 'pending';
+    }
+
+    /**
+     * Reject a closed proxy transport during send-drain handoff.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function onDrain(Connection $connection): void
     {
         if ($connection->state() === ConnectionState::CLOSED) {
@@ -198,7 +232,11 @@ final class HttpConnectTunnel
         }
     }
 
-    /** Execute the bounded proxy exchange phase. */
+    /**
+     * Execute the bounded proxy exchange phase.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     private function receive(Connection $connection): void
     {
         if ($this->state !== 'pending') {

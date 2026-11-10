@@ -12,6 +12,7 @@ use Infocyph\Runwire\Metrics\DefaultRequestIdPolicy;
 use Infocyph\Runwire\Metrics\Enum\ApplicationErrorClass;
 use Infocyph\Runwire\Metrics\Enum\ProtocolMetric;
 use Infocyph\Runwire\Metrics\GcPolicy;
+use Infocyph\Runwire\Metrics\RandomRequestIdGenerator;
 use Infocyph\Runwire\Metrics\RequestIdGeneratorInterface;
 use Infocyph\Runwire\Metrics\RuntimeMetrics;
 use Infocyph\Runwire\Metrics\RuntimeMetricsSnapshot;
@@ -24,6 +25,9 @@ use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
 use Infocyph\Runwire\Supervisor\Internal\LifecycleEmitter;
 use Infocyph\Runwire\Supervisor\SupervisorEvent;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchERuntimeContext(?RuntimeMetrics $metrics = null): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(
@@ -59,21 +63,22 @@ it('round-trips the versioned bounded metrics snapshot contract', function (): v
     $decoded = RuntimeMetricsSnapshot::fromArray($array);
     $unknown = $array;
     $unknown['schema_version'] = 99;
+    \PHPUnit\Framework\Assert::assertNotNull($decoded);
 
-    expect($decoded)->not->toBeNull()
-        ->and($decoded?->protocol[ProtocolMetric::HPACK_TABLE_BYTES->value])->toBe(512)
-        ->and($decoded?->queuedBytesCurrent)->toBe(1_024)
-        ->and($decoded?->queuedBytesPeak)->toBe(1_024)
-        ->and($decoded?->queuedBytesLimit)->toBe(67_108_864)
-        ->and($decoded?->errors[ApplicationErrorClass::PROTOCOL_ERROR->value])->toBe(1)
-        ->and(array_keys($decoded?->protocol ?? []))->toHaveCount(count(ProtocolMetric::cases()))
-        ->and(array_keys($decoded?->errors ?? []))->toHaveCount(count(ApplicationErrorClass::cases()))
+    expect($decoded->protocol[ProtocolMetric::HPACK_TABLE_BYTES->value])->toBe(512)
+        ->and($decoded->queuedBytesCurrent)->toBe(1_024)
+        ->and($decoded->queuedBytesPeak)->toBe(1_024)
+        ->and($decoded->queuedBytesLimit)->toBe(67_108_864)
+        ->and($decoded->errors[ApplicationErrorClass::PROTOCOL_ERROR->value])->toBe(1)
+        ->and(array_keys($decoded->protocol))->toHaveCount(count(ProtocolMetric::cases()))
+        ->and(array_keys($decoded->errors))->toHaveCount(count(ApplicationErrorClass::cases()))
         ->and(RuntimeMetricsSnapshot::fromArray($unknown))->toBeNull();
 });
 
 it('applies request-id policy without forcing a tracing header convention', function (): void {
     $runtime = batchERuntimeContext();
     $generator = new class implements RequestIdGeneratorInterface {
+        #[\Override]
         public function generate(RuntimeContext $runtime): string
         {
             return 'generated-' . $runtime->pid;
@@ -160,4 +165,18 @@ it('isolates and classifies lifecycle-listener failures for expanded events', fu
     expect($delivered)->toBe(1)
         ->and($emitter->listenerFailures())->toBe(1)
         ->and($emitter->failureCounts()[SupervisorEventType::REQUEST_DEADLINE_EXCEEDED->value])->toBe(1);
+});
+
+it('generates unpredictable fixed-width request identifiers', function (): void {
+    $generator = new RandomRequestIdGenerator();
+    $runtime = batchERuntimeContext();
+    $ids = [];
+
+    for ($i = 0; $i < 64; ++$i) {
+        $id = $generator->generate($runtime);
+        expect(preg_match('/^[a-f0-9]{32}$/D', $id))->toBe(1);
+        $ids[] = $id;
+    }
+
+    expect(array_unique($ids))->toHaveCount(64);
 });

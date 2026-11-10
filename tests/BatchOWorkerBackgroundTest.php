@@ -12,10 +12,14 @@ use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
 use Infocyph\Runwire\Supervisor\Enum\WorkerRole;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 
-/** @return array{WorkerContext, resource} */
+/**
+ * @return array{WorkerContext, resource}
+ * @throws \RuntimeException
+ * @throws \Throwable
+ */
 function batchOWorkerContext(WorkerRole $role = WorkerRole::TASK): array
 {
-    [$readyParent, $readyChild] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$readyParent, $readyChild] = runwireBatchOWorkerBackgroundTestSocketPair();
 
     return [
         new WorkerContext(
@@ -34,6 +38,7 @@ function batchOWorkerContext(WorkerRole $role = WorkerRole::TASK): array
 it('cancels and drains worker-owned coroutine work before the background loop stops', function (): void {
     [$context, $readyParent] = batchOWorkerContext();
     $loop = new SelectLoop();
+    /** @var ArrayObject<int,string> $events */
     $events = new ArrayObject();
     $context->attachLoop($loop, 0.25);
 
@@ -41,7 +46,7 @@ it('cancels and drains worker-owned coroutine work before the background loop st
         try {
             $scope->sleep(60.0);
         } finally {
-            $events[] = 'cleanup';
+            $events->offsetSet($events->count(), 'cleanup');
         }
     });
     $loop->defer(static function (int $id) use ($context): void {
@@ -100,12 +105,14 @@ it('bounds worker coroutine drain when a task cannot cooperatively wake', functi
 
     $context->spawnBackground(static function (CoroutineScope $scope): void {
         unset($scope);
-        \Fiber::suspend(new class implements Suspension {
+        $unexpectedResume = \Fiber::suspend(new class implements Suspension {
+            #[\Override]
             public function arm(FiberScheduler $scheduler, Task $task): void
             {
                 unset($scheduler, $task);
             }
         });
+        throw new \LogicException('Unresumable task unexpectedly resumed with ' . get_debug_type($unexpectedResume));
     });
     $loop->defer(static function (int $id) use ($context): void {
         unset($id);
@@ -135,3 +142,17 @@ it('keeps worker coroutine admission scoped to background worker roles', functio
     $context->close();
     fclose($readyParent);
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireBatchOWorkerBackgroundTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

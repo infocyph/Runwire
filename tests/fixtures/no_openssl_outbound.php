@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/Support/SocketFixture.php';
+
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\TlsClientOptions;
@@ -22,7 +25,7 @@ try {
 
 $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $message);
 if (!is_resource($server)) {
-    throw new RuntimeException($message);
+    throw \Infocyph\Runwire\Tests\Support\socketFailure($message, 'Connection failed.');
 }
 $address = stream_socket_get_name($server, false);
 if (!is_string($address)) {

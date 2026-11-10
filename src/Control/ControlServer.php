@@ -49,7 +49,11 @@ final class ControlServer
         $this->close(false);
     }
 
-    /** Opens the control socket and attaches it to the loop and supervisor. */
+    /**
+     * Opens the control socket and attaches it to the loop and supervisor.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     public function open(LoopInterface $loop, Supervisor $supervisor): void
     {
         if ($this->listener !== null) {
@@ -131,6 +135,10 @@ final class ControlServer
         ];
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function handle(string $frame, FramedConnection $session): void
     {
         try {
@@ -179,7 +187,11 @@ final class ControlServer
         return is_string($runtimeId) && is_string($expected) && hash_equals($expected, $runtimeId);
     }
 
-    /** @param array<string, mixed> $request */
+    /**
+     * @param array<string, mixed> $request
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function recycle(array $request, FramedConnection $session): void
     {
         $group = $request['group'] ?? null;
@@ -192,14 +204,19 @@ final class ControlServer
 
         try {
             $accepted = $this->supervisor?->recycle($group, $slot) ?? false;
-        } catch (LogicException $error) {
-            $this->respondError($session, 'invalid_target', $error->getMessage());
+        } catch (LogicException) {
+            // Never return internal exception messages to a control-plane caller.
+            $this->respondError($session, 'invalid_target', 'Requested worker target is unavailable.');
 
             return;
         }
         $this->respond($session, ['accepted' => $accepted]);
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function reload(FramedConnection $session): void
     {
         $this->supervisor?->reload();
@@ -209,7 +226,11 @@ final class ControlServer
         ]);
     }
 
-    /** @param array<string, mixed> $data */
+    /**
+     * @param array<string, mixed> $data
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function respond(FramedConnection $session, array $data): void
     {
         $this->write($session, [
@@ -220,6 +241,10 @@ final class ControlServer
         ]);
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function respondError(FramedConnection $session, string $code, string $message): void
     {
         $this->write($session, [
@@ -266,7 +291,11 @@ final class ControlServer
         ];
     }
 
-    /** @param array<string, mixed> $request */
+    /**
+     * @param array<string, mixed> $request
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function stop(array $request, FramedConnection $session): void
     {
         $force = $request['force'] ?? false;
@@ -283,7 +312,11 @@ final class ControlServer
         });
     }
 
-    /** @param array<string, mixed> $payload */
+    /**
+     * @param array<string, mixed> $payload
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function write(FramedConnection $session, array $payload): void
     {
         try {

@@ -27,6 +27,7 @@ final readonly class PoolIsolationKey
      * @param string $scopeIdentity Opaque caller-owned tenant/worker scope identifier.
      * @param string|null $tlsPolicyIdentity Revisioned identity of the full TLS/mTLS trust policy.
      * @param string|null $proxyPolicyIdentity Revisioned proxy route/authentication policy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         DialEndpoint $endpoint,
@@ -102,6 +103,9 @@ final readonly class PoolIsolationKey
         return $this->identity;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function checkIdentity(string $identity, string $type): void
     {
         if ($identity === '' || strlen($identity) > 256

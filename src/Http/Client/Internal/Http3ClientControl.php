@@ -32,19 +32,28 @@ final class Http3ClientControl
 
     private bool $peerTyped = false;
 
-    /** Build an incremental peer control parser with bounded payloads. */
+    /**
+     * Build an incremental peer control parser with bounded payloads.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(int $maxFramePayloadBytes = 65_536, private readonly int $decoderCapacity = 0, private readonly int $maxBlocked = 0)
     {
         $this->peer = new ControlStream($maxFramePayloadBytes);
     }
 
-    /** Fail if the peer closes a mandatory HTTP/3 control stream. */
+    /**
+     * Fail if the peer closes a mandatory HTTP/3 control stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function closePeerControl(): never
     {
         $this->peer->close();
     }
 
-    /** Announce a local QPACK critical stream only after sending HTTP/3 SETTINGS. */
+    /**
+     * Announce a local QPACK critical stream only after sending HTTP/3 SETTINGS.
+     * @throws \LogicException
+     */
     public function localQpackPreamble(StreamType $type): string
     {
         if (!$this->localStarted) {
@@ -73,6 +82,8 @@ final class Http3ClientControl
      * Parse a fragmented peer stream type and control frames.
      *
      * @return list<Frame>
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function receivePeerControl(string $bytes): array
     {
@@ -116,7 +127,10 @@ final class Http3ClientControl
             && $wireStreamId >= $this->peerGoawayId;
     }
 
-    /** Emit local HTTP/3 stream type and SETTINGS, exactly once. */
+    /**
+     * Emit local HTTP/3 stream type and SETTINGS, exactly once.
+     * @throws \LogicException
+     */
     public function start(): string
     {
         if ($this->localStarted) {
@@ -131,7 +145,10 @@ final class Http3ClientControl
         ]));
     }
 
-    /** Accept only a complete, nonincreasing client-bidi GOAWAY request stream ID. */
+    /**
+     * Accept only a complete, nonincreasing client-bidi GOAWAY request stream ID.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private function validateGoaway(Frame $frame): void
     {
         $decoded = VarIntCodec::tryDecode($frame->payload);

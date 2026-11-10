@@ -17,7 +17,10 @@ use Throwable;
  */
 final readonly class ClientRedirectRetryPolicy
 {
-    /** Set finite HTTP redirect/retry bounds with cross-origin rejection by default. */
+    /**
+     * Set finite HTTP redirect/retry bounds with cross-origin rejection by default.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public int $maxRedirects = 4,
         public int $maxRetries = 1,
@@ -28,20 +31,24 @@ final readonly class ClientRedirectRetryPolicy
         }
     }
 
-    /** @return array{string,string,int} */
+    /**
+     * @return array{string,string,int}
+     * @throws \InvalidArgumentException
+     */
     public static function origin(string $uri): array
     {
         $parts = parse_url($uri);
-        if (!is_array($parts) || !is_string($parts['scheme'] ?? null)
-            || !is_string($parts['host'] ?? null)) {
+        $rawScheme = is_array($parts) ? ($parts['scheme'] ?? null) : null;
+        $rawHost = is_array($parts) ? ($parts['host'] ?? null) : null;
+        if (!is_array($parts) || !is_string($rawScheme) || !is_string($rawHost)) {
             throw new InvalidArgumentException('HTTP redirect origin is invalid.');
         }
-        $scheme = strtolower($parts['scheme']);
+        $scheme = strtolower($rawScheme);
         if (!in_array($scheme, ['https', 'http'], true)) {
             throw new InvalidArgumentException('HTTP redirect scheme is unsupported.');
         }
 
-        return [$scheme, strtolower($parts['host']), $parts['port'] ?? ($scheme === 'https' ? 443 : 80)];
+        return [$scheme, strtolower($rawHost), $parts['port'] ?? ($scheme === 'https' ? 443 : 80)];
     }
 
     /** Whether a status can initiate one explicitly bounded redirect. */
@@ -53,6 +60,8 @@ final readonly class ClientRedirectRetryPolicy
     /**
      * Preserve only safely replayable requests, with explicit credential
      * stripping for every changed origin including the port and scheme.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     public function redirect(ClientRequest $request, string $location, int $redirectsUsed): ClientRequest
     {
@@ -118,6 +127,9 @@ final readonly class ClientRedirectRetryPolicy
         return new Headers($fields);
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private static function resolve(string $origin, string $location): string
     {
         if ($location === '' || strlen($location) > 2_048

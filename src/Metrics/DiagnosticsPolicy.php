@@ -13,6 +13,7 @@ final readonly class DiagnosticsPolicy
 {
     /**
      * Create and validate diagnostics policy values.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public bool $debug = false,
@@ -25,6 +26,9 @@ final readonly class DiagnosticsPolicy
         self::positiveBounded($workerReportIntervalSeconds, 60.0, 'Worker metrics report interval');
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function positiveBounded(float $value, float $maximum, string $label): void
     {
         if (!is_finite($value) || $value <= 0 || $value > $maximum) {

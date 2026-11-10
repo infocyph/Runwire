@@ -46,7 +46,10 @@ final class Http2MultiplexConnection
 
     private bool $started = false;
 
-    /** @param callable(Http2MultiplexConnection):void $onReady */
+    /**
+     * @param callable(Http2MultiplexConnection):void $onReady
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
@@ -69,20 +72,28 @@ final class Http2MultiplexConnection
         return $this->session->activeCount();
     }
 
-    /** Cancel only the selected response, retaining unrelated stream owners. */
+    /**
+     * Cancel only the selected response, retaining unrelated stream owners.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     public function cancel(int $streamId): void
     {
-        if ($this->settled) {
+        if ($this->isSettled()) {
             return;
         }
         $this->queue($this->session->cancel($streamId));
         $this->pump();
     }
 
-    /** Abort one owned socket and complete every pending stream exactly once. */
+    /**
+     * Abort one owned socket and complete every pending stream exactly once.
+     * @throws \Throwable
+     */
     public function close(?Throwable $error = null): void
     {
-        if ($this->settled) {
+        if ($this->isSettled()) {
             return;
         }
         $this->settled = true;
@@ -111,6 +122,9 @@ final class Http2MultiplexConnection
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $onComplete
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function request(
         ClientRequest $request,
@@ -155,7 +169,12 @@ final class Http2MultiplexConnection
         return $streamId;
     }
 
-    /** Claim the socket callbacks and publish the HTTP/2 preface exactly once. */
+    /**
+     * Claim the socket callbacks and publish the HTTP/2 preface exactly once.
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     public function start(): void
     {
         if ($this->started || $this->settled || !$this->connection->isPoolIdleSafe()) {
@@ -177,7 +196,7 @@ final class Http2MultiplexConnection
                     $this->close(new RuntimeException('HTTP/2 multiplex peer closed before response completion.'));
                 },
             );
-            if ($this->settled) {
+            if ($this->isSettled()) {
                 return;
             }
             $this->ownsCallbacks = true;
@@ -190,11 +209,15 @@ final class Http2MultiplexConnection
         }
     }
 
-    /** Enforce cancellation and the shortest monotonic request deadline. */
+    /**
+     * Enforce cancellation and the shortest monotonic request deadline.
+     * @throws \Infocyph\Runwire\Exception\CancelledException
+     * @throws \RuntimeException
+     */
     private static function requestDeadline(ClientRequest $request): float
     {
         $token = $request->cancellation;
-        if ($token?->isCancelled()) {
+        if ($token !== null && $token->isCancelled()) {
             throw new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED);
         }
         $seconds = min(
@@ -209,9 +232,12 @@ final class Http2MultiplexConnection
         return $seconds;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function consume(): void
     {
-        if ($this->settled) {
+        if ($this->isSettled()) {
             return;
         }
 
@@ -221,7 +247,7 @@ final class Http2MultiplexConnection
                     ? $this->connection->read(8_192)
                     : '';
                 $this->processFrames($bytes);
-                if ($this->settled) {
+                if ($this->isSettled()) {
                     return;
                 }
                 if ($this->connection->receivedBytes() === 0 && !$this->frames->hasCompleteFrame()) {
@@ -239,7 +265,17 @@ final class Http2MultiplexConnection
         }
     }
 
-    /** Dispatch frames and emit connection-ready callback after validated SETTINGS. */
+    private function isSettled(): bool
+    {
+        return $this->settled;
+    }
+
+    /**
+     * Dispatch frames and emit connection-ready callback after validated SETTINGS.
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private function processFrames(string $bytes): void
     {
         foreach ($this->frames->push($bytes, 32) as $frame) {
@@ -248,12 +284,15 @@ final class Http2MultiplexConnection
                 $this->readyNotified = true;
                 ($this->readyCallback)($this);
             }
-            if ($this->settled) {
+            if ($this->isSettled()) {
                 return;
             }
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function pump(): void
     {
         if ($this->settled || $this->outgoing === '') {
@@ -282,6 +321,9 @@ final class Http2MultiplexConnection
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function queue(string $bytes): void
     {
         if ($bytes === '') {

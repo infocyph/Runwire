@@ -70,15 +70,24 @@ it('runs one real verified TLS h2 GET against a separate reference frame-speakin
     $keyFile = $directory . '/private.pem';
     file_put_contents($config, "[req]\ndistinguished_name=req_dn\nreq_extensions=v3_req\n[req_dn]\n[v3_req]\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n");
     $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    if (!$key instanceof \OpenSSLAsymmetricKey) {
+        throw new RuntimeException('Unable to create independent HTTP/2 signing key.');
+    }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, [
         'config' => $config, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256',
     ]);
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
+        throw new RuntimeException('Unable to construct independent HTTP/2 signing request.');
+    }
     $cert = openssl_csr_sign($csr, null, $key, 1, [
         'config' => $config, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256',
     ]);
-    expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($cert)->not->toBeFalse();
-    openssl_x509_export($cert, $certificate);
-    openssl_pkey_export($key, $private);
+    if (!$cert instanceof \OpenSSLCertificate) {
+        throw new RuntimeException('Unable to sign independent HTTP/2 peer certificate.');
+    }
+    if (!openssl_x509_export($cert, $certificate) || !openssl_pkey_export($key, $private)) {
+        throw new RuntimeException('Unable to export the independent HTTP/2 TLS identity.');
+    }
     file_put_contents($certFile, $certificate);
     file_put_contents($keyFile, $private);
 
@@ -130,7 +139,12 @@ it('runs one real verified TLS h2 GET against a separate reference frame-speakin
                 $buffer = '';
             });
         });
-        $port = (int) substr(strrchr($listener->address(), ':'), 1);
+        $address = $listener->address();
+        $separator = strrpos($address, ':');
+        if ($separator === false) {
+            throw new RuntimeException('HTTP/2 listener did not report a port.');
+        }
+        $port = (int) substr($address, $separator + 1);
         Http2OutboundClient::connect(
             $loop,
             $race,

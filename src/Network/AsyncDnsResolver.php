@@ -22,7 +22,11 @@ final readonly class AsyncDnsResolver implements DnsResolverInterface
     /** Reuse a loop-bound executor with explicit worker and queue limits. */
     public function __construct(private ProcessExecutor $executor) {}
 
-    /** Cancel one pending DNS operation, completing its callback exactly once. */
+    /**
+     * Cancel one pending DNS operation, completing its callback exactly once.
+     * @throws \LogicException
+     */
+    #[\Override]
     public function cancel(int $id): bool
     {
         return $this->executor->cancel($id);
@@ -32,7 +36,11 @@ final readonly class AsyncDnsResolver implements DnsResolverInterface
      * Queue a hostname resolution on worker processes without blocking the loop.
      *
      * @param callable(list<string>, ?Throwable):void $completion
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
      */
+    #[\Override]
     public function resolve(
         string $hostname,
         callable $completion,
@@ -82,6 +90,7 @@ final readonly class AsyncDnsResolver implements DnsResolverInterface
     /**
      * @param array<mixed> $result
      * @return list<string>
+     * @throws \RuntimeException
      */
     private static function validatedAddresses(array $result): array
     {

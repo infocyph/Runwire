@@ -24,6 +24,8 @@ final readonly class ScopedFileTransfer
     /**
      * Receive a bounded byte range into the existing file at an explicit offset.
      * This operation never truncates or atomically replaces the target.
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function receive(
         string $path,
@@ -53,6 +55,8 @@ final readonly class ScopedFileTransfer
     /**
      * Read file chunks off-loop, respect connection pressure and preserve
      * caller ownership of graceful network closure or reuse.
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function send(
         string $path,
@@ -64,7 +68,8 @@ final readonly class ScopedFileTransfer
         $total = 0;
 
         while ($total < $maxBytes) {
-            $bytes = $this->files->read($path, min($chunkBytes, $maxBytes - $total), $offset + $total);
+            $length = $this->readLength(min($chunkBytes, $maxBytes - $total));
+            $bytes = $this->files->read($path, $length, $offset + $total);
             if ($bytes === '') {
                 break;
             }
@@ -83,6 +88,9 @@ final readonly class ScopedFileTransfer
         return $total;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validate(int $maxBytes, int $offset, int $chunkBytes): void
     {
         if ($maxBytes < 0 || $maxBytes > self::MAX_TRANSFER_BYTES || $offset < 0
@@ -90,5 +98,26 @@ final readonly class ScopedFileTransfer
             || $chunkBytes < 1 || $chunkBytes > self::DEFAULT_CHUNK_BYTES) {
             throw new InvalidArgumentException('File transfer size, offset or chunk budget is invalid.');
         }
+    }
+
+    /**
+     * @throws \LogicException
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
+    private function readLength(int $requested): int
+    {
+        $available = $this->network->availableWriteBytes();
+        if ($available === 0) {
+            if ($this->network->drain() !== null) {
+                throw new RuntimeException('Network peer closed before file transfer could resume.');
+            }
+            $available = $this->network->availableWriteBytes();
+        }
+        if ($available === 0) {
+            throw new RuntimeException('Network file transfer has no available send-byte budget.');
+        }
+
+        return min($requested, $available);
     }
 }

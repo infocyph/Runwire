@@ -25,6 +25,7 @@ final class Encoder
 
     /**
      * Create an HPACK encoder with a dynamic-table capacity.
+     * @throws \InvalidArgumentException
      */
     public function __construct(int $maxDynamicTableBytes = 4_096)
     {
@@ -43,7 +44,10 @@ final class Encoder
         return $this->dynamic->bytes();
     }
 
-    /** @param list<array{0: string, 1: string}> $headers */
+    /**
+     * @param list<array{0: string, 1: string}> $headers
+     * @throws \InvalidArgumentException
+     */
     public function encode(array $headers, bool $useHuffman = true): string
     {
         $encoded = '';
@@ -80,6 +84,7 @@ final class Encoder
 
     /**
      * Update the dynamic-table capacity advertised by the peer.
+     * @throws \InvalidArgumentException
      */
     public function setPeerMaxDynamicTableBytes(int $bytes): void
     {
@@ -93,6 +98,9 @@ final class Encoder
         $this->pendingTableSize = $bytes;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function encodeString(string $value, bool $useHuffman): string
     {
         if (!$useHuffman || $value === '') {

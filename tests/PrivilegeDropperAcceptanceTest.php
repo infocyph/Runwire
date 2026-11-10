@@ -2,11 +2,21 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Supervisor\Internal\PrivilegeDropper;
 use Infocyph\Runwire\Tests\Fixtures\RunwirePrivilegeAuditIdentity;
 
 it('initializes groups then GID before UID and verifies the resulting identity', function (): void {
+    runwireOwnedPrivilegeDropperAcceptanceTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPrivilegeDropperAcceptanceTestCase01(): void
+{
     $identity = new RunwirePrivilegeAuditIdentity();
     (new PrivilegeDropper($identity))->apply(1500, null);
 
@@ -14,18 +24,34 @@ it('initializes groups then GID before UID and verifies the resulting identity',
         'passwd:1500', 'groups:runwire:1600', 'gid:1600', 'uid:1500',
     ])->and($identity->uid)->toBe(1500)
         ->and($identity->gid)->toBe(1600);
-});
+}
 
 it('applies GID-only transitions without UID or supplementary-group changes', function (): void {
+    runwireOwnedPrivilegeDropperAcceptanceTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPrivilegeDropperAcceptanceTestCase02(): void
+{
     $identity = new RunwirePrivilegeAuditIdentity();
     (new PrivilegeDropper($identity))->apply(null, 1600);
 
     expect($identity->calls)->toBe(['gid:1600'])
         ->and($identity->uid)->toBe(0)
         ->and($identity->gid)->toBe(1600);
-});
+}
 
 it('rejects unprivileged identity changes before attempting UID or GID changes', function (): void {
+    runwireOwnedPrivilegeDropperAcceptanceTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPrivilegeDropperAcceptanceTestCase03(): void
+{
     $identity = new RunwirePrivilegeAuditIdentity();
     $identity->uid = 1000;
     $identity->gid = 1000;
@@ -34,9 +60,17 @@ it('rejects unprivileged identity changes before attempting UID or GID changes',
         ->toThrow(SupervisorException::class, 'Changing worker identity requires');
 
     expect($identity->calls)->toBe(['passwd:1500']);
-});
+}
 
 it('rejects supplementary-group initialization failures before setting UID or GID', function (): void {
+    runwireOwnedPrivilegeDropperAcceptanceTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPrivilegeDropperAcceptanceTestCase04(): void
+{
     $identity = new RunwirePrivilegeAuditIdentity();
     $identity->allowGroups = false;
 
@@ -44,9 +78,17 @@ it('rejects supplementary-group initialization failures before setting UID or GI
         ->toThrow(SupervisorException::class, 'Unable to initialize supplementary groups');
 
     expect($identity->calls)->toBe(['passwd:1500', 'groups:runwire:1600']);
-});
+}
 
 it('fails closed when either the GID or UID transition is rejected', function (): void {
+    runwireOwnedPrivilegeDropperAcceptanceTestCase05();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPrivilegeDropperAcceptanceTestCase05(): void
+{
     $groupFailure = new RunwirePrivilegeAuditIdentity();
     $groupFailure->allowGid = false;
 
@@ -66,9 +108,17 @@ it('fails closed when either the GID or UID transition is rejected', function ()
     expect($userFailure->calls)->toBe([
         'passwd:1500', 'groups:runwire:1600', 'gid:1600', 'uid:1500',
     ]);
-});
+}
 
 it('verifies the effective UID after a transition that claims success', function (): void {
+    runwireOwnedPrivilegeDropperAcceptanceTestCase06();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPrivilegeDropperAcceptanceTestCase06(): void
+{
     $identity = new RunwirePrivilegeAuditIdentity();
     $identity->retainOldUid = true;
 
@@ -77,11 +127,19 @@ it('verifies the effective UID after a transition that claims success', function
 
     expect($identity->uid)->toBe(0)
         ->and($identity->gid)->toBe(1600);
-});
+}
 
 it('does not mutate POSIX process identity when no transition is requested', function (): void {
+    runwireOwnedPrivilegeDropperAcceptanceTestCase07();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedPrivilegeDropperAcceptanceTestCase07(): void
+{
     $identity = new RunwirePrivilegeAuditIdentity();
     (new PrivilegeDropper($identity))->apply(null, null);
 
     expect($identity->calls)->toBe([]);
-});
+}

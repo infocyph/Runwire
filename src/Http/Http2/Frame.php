@@ -10,10 +10,12 @@ use InvalidArgumentException;
 /**
  * Represents one validated HTTP/2 frame.
  */
+/** @psalm-taint-specialize */
 final readonly class Frame
 {
     /**
      * Create an HTTP/2 frame.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public int $type,

@@ -11,6 +11,7 @@ it('profiles real process-backed file operations without certification claims', 
     expect($status)->toBe(0, implode("\n", $lines));
 
     $report = json_decode(implode("\n", $lines), true, 32, JSON_THROW_ON_ERROR);
+    \PHPUnit\Framework\Assert::assertIsArray($report);
     expect($report['schemaVersion'])->toBe(1)
         ->and($report['releaseCertified'])->toBeFalse()
         ->and($report['correctnessPassed'])->toBeTrue()
@@ -58,7 +59,9 @@ it('profiles identical verified bytes under one and two worker processes', funct
             $status,
         );
         expect($status)->toBe(0, implode("\n", $lines));
-        $runs[$workerCount] = json_decode(implode("\n", $lines), true, 32, JSON_THROW_ON_ERROR);
+        $report = json_decode(implode("\n", $lines), true, 32, JSON_THROW_ON_ERROR);
+        \PHPUnit\Framework\Assert::assertIsArray($report);
+        $runs[$workerCount] = $report;
         expect($runs[$workerCount]['configuredWorkers'])->toBe($workerCount)
             ->and($runs[$workerCount]['verifiedRoundTrips'])->toBe(8)
             ->and($runs[$workerCount]['executorJobsCompleted'])->toBe(24)

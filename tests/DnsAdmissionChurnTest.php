@@ -12,7 +12,14 @@ it('bounds off-loop DNS admission and cancellation even under repeated resolver 
     $resolver = new AsyncDnsResolver($executor);
     $seen = [];
     $beforeMemory = memory_get_usage(true);
-    $beforeFds = is_dir('/proc/self/fd') ? count(scandir('/proc/self/fd')) : null;
+    $beforeFds = null;
+    if (is_dir('/proc/self/fd')) {
+        $entries = scandir('/proc/self/fd');
+        if (!is_array($entries)) {
+            throw new RuntimeException('Unable to inspect process file descriptors.');
+        }
+        $beforeFds = count($entries);
+    }
 
     try {
         for ($wave = 0; $wave < 6; ++$wave) {
@@ -32,8 +39,8 @@ it('bounds off-loop DNS admission and cancellation even under repeated resolver 
         expect($seen)->toHaveCount(18)
             ->and($executor->diagnostics()['cancelled'])->toBe(18);
         foreach ($seen as [$addresses, $error]) {
-            expect($addresses)->toBe([])
-                ->and($error)->toBeInstanceOf(Throwable::class);
+            \PHPUnit\Framework\Assert::assertInstanceOf(Throwable::class, $error);
+            expect($addresses)->toBe([]);
         }
     } finally {
         $executor->close();
@@ -47,6 +54,10 @@ it('bounds off-loop DNS admission and cancellation even under repeated resolver 
         ->and(memory_get_usage(true) - $beforeMemory)->toBeLessThanOrEqual(33_554_432);
 
     if ($beforeFds !== null) {
-        expect(count(scandir('/proc/self/fd')))->toBeLessThanOrEqual($beforeFds + 6);
+        $entries = scandir('/proc/self/fd');
+        if (!is_array($entries)) {
+            throw new RuntimeException('Unable to inspect final file descriptors.');
+        }
+        expect(count($entries))->toBeLessThanOrEqual($beforeFds + 6);
     }
 });

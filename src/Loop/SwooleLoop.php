@@ -34,7 +34,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /** @var array<int, int> */
     private array $readIndex = [];
 
-    /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
+    /** @var array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> */
     private array $readWatchers = [];
 
     /** @var array<int, resource> */
@@ -52,7 +52,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /** @var array<int, int> */
     private array $writeIndex = [];
 
-    /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
+    /** @var array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> */
     private array $writeWatchers = [];
 
     /** @internal The reactor argument exists for deterministic adapter tests. */
@@ -63,7 +63,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Cancel a deferred callback, timer, or stream watcher.
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
+    #[\Override]
     public function cancel(int $id): bool
     {
         if (isset($this->deferred[$id])) {
@@ -81,7 +84,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Queue a callback on the host reactor.
+     * @throws \OverflowException
      */
+    #[\Override]
     public function defer(callable $callback): int
     {
         $id = $this->allocateId();
@@ -106,7 +111,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Schedule a one-shot timer.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
+    #[\Override]
     public function delay(float $seconds, callable $callback): int
     {
         $milliseconds = self::milliseconds($seconds, true);
@@ -137,6 +145,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Capture current host-loop diagnostics.
      */
+    #[\Override]
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         $now = hrtime(true);
@@ -153,6 +162,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Return monotonic time in seconds.
      */
+    #[\Override]
     public function now(): float
     {
         return hrtime(true) / self::NANOS_PER_SECOND;
@@ -160,7 +170,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Register a readable stream watcher.
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
+    #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, true);
@@ -168,7 +181,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Register a writable stream watcher.
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
+    #[\Override]
     public function onWritable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, false);
@@ -176,7 +192,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Schedule a repeating timer.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
+    #[\Override]
     public function repeat(float $interval, callable $callback): int
     {
         $milliseconds = self::milliseconds($interval, false);
@@ -202,7 +221,11 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Suspend the host coroutine until the Runwire loop becomes idle or stops.
+     * Host coroutine callbacks may request stop while suspended.
+     * @throws \LogicException
+     * @throws \RuntimeException
      */
+    #[\Override]
     public function run(): void
     {
         if ($this->running) {
@@ -226,7 +249,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
         try {
             $this->reactor->suspendCoroutine();
-            if (!$this->stopRequested && $this->hasReferences()) {
+            if (!$this->isStopRequested() && $this->hasReferences()) {
                 throw new RuntimeException('The Swoole/OpenSwoole host coroutine resumed before the Runwire loop became idle.');
             }
         } finally {
@@ -239,6 +262,7 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Request that the running bridge resume its host coroutine and stop.
      */
+    #[\Override]
     public function stop(): void
     {
         if (!$this->running) {
@@ -249,6 +273,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $this->scheduleIdleCheck();
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private static function milliseconds(float $seconds, bool $allowZero): int
     {
         if (!is_finite($seconds) || $seconds < 0.0 || (!$allowZero && $seconds <= 0.0)) {
@@ -265,9 +293,12 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             throw new OverflowException('Timer duration exceeds the platform integer range.');
         }
 
-        return max(1, (int) ceil($seconds * self::MILLISECONDS_PER_SECOND));
+        return max(1, (int) ceil($seconds * (float) self::MILLISECONDS_PER_SECOND));
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -277,6 +308,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return $this->nextId++;
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function cancelTimer(int $id): bool
     {
         $nativeId = $this->timers[$id] ?? null;
@@ -293,6 +327,9 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return true;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function cancelWatcher(int $id): bool
     {
         $readable = isset($this->readWatchers[$id]);
@@ -306,6 +343,15 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             unset($this->readWatchers[$id], $this->readIndex[$resourceId]);
         } else {
             unset($this->writeWatchers[$id], $this->writeIndex[$resourceId]);
+        }
+
+        // The stream may have been closed by its owner after watcher registration.
+        // A closed stream cannot be passed back to the native reactor.
+        if (!is_resource($watcher['stream'])) {
+            unset($this->registeredStreams[$resourceId]);
+            $this->scheduleIdleCheck();
+
+            return true;
         }
 
         try {
@@ -357,7 +403,16 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             || $this->writeWatchers !== [];
     }
 
-    /** @param resource $stream */
+    /** Re-read the state modified by suspended host coroutines. */
+    private function isStopRequested(): bool
+    {
+        return $this->stopRequested;
+    }
+
+    /**
+     * @param resource $stream
+     * @throws \RuntimeException
+     */
     private function removeRegisteredWatcher(mixed $stream, int $resourceId): void
     {
         if (isset($this->registeredStreams[$resourceId]) && !$this->reactor->delete($stream)) {
@@ -387,7 +442,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         });
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \RuntimeException
+     */
     private function syncWatcher(mixed $stream, int $resourceId): void
     {
         $readable = isset($this->readIndex[$resourceId]);
@@ -416,7 +474,10 @@ final class SwooleLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $this->registeredStreams[$resourceId] = $stream;
     }
 
-    /** @param resource $stream */
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
+     */
     private function watch(mixed $stream, callable $callback, bool $readable): int
     {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {

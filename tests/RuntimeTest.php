@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Runtime;
@@ -19,17 +21,19 @@ it('rejects duplicate server names before runtime start', function (): void {
 
 it('serves through a prefork native worker and shuts down cleanly', function (): void {
     $probe = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
-    expect($probe)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($probe);
     $address = stream_socket_get_name($probe, false);
     fclose($probe);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
 
     $runtimePid = pcntl_fork();
     expect($runtimePid)->toBeGreaterThanOrEqual(0);
     if ($runtimePid === 0) {
         $server = Server::httpFactory($address, static function (): callable {
             return static function (HttpRequest $request, ResponseWriterInterface $writer): void {
-                $request->body->onEnd(static fn () => $writer->end('runwire-native-ok'));
+                $request->body->onEnd(static function () use ($writer): void {
+                    $writer->end('runwire-native-ok');
+                });
             };
         })->withWorkers(1);
 
@@ -54,7 +58,7 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
             restore_error_handler();
         }
 
-        expect($client)->toBeResource();
+        \PHPUnit\Framework\Assert::assertIsResource($client);
 
         fwrite($client, "GET / HTTP/1.1\r\nHost: example.test\r\n\r\n");
         stream_set_timeout($client, 2);
@@ -81,6 +85,7 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
     $deadline = microtime(true) + 12.0;
     while (microtime(true) < $deadline) {
         $reaped = pcntl_waitpid($runtimePid, $status, WNOHANG);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         if ($reaped === $runtimePid) {
             break;
         }
@@ -89,6 +94,7 @@ it('serves through a prefork native worker and shuts down cleanly', function ():
     if ($reaped !== $runtimePid) {
         posix_kill($runtimePid, SIGKILL);
         pcntl_waitpid($runtimePid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
     }
 
     expect($reaped)->toBe($runtimePid)

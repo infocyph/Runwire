@@ -44,7 +44,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /** @var array<int, int> */
     private array $readIndex = [];
 
-    /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
+    /** @var array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> */
     private array $readWatchers = [];
 
     private bool $running = false;
@@ -52,11 +52,13 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /** @var array<int, int> */
     private array $writeIndex = [];
 
-    /** @var array<int, array{stream: resource, resource_id: int, callback: Closure}> */
+    /** @var array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> */
     private array $writeWatchers = [];
 
     /**
      * Create a select-loop with the callback-overrun threshold.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function __construct(float $callbackOverrunSeconds = 0.05)
     {
@@ -71,6 +73,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Cancel a watcher, timer, or deferred callback handle.
      */
+    #[\Override]
     public function cancel(int $id): bool
     {
         if ($this->cancelWatcher($id, true) || $this->cancelWatcher($id, false)) {
@@ -90,7 +93,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Queue a callback for the next loop turn.
+     * @throws \OverflowException
      */
+    #[\Override]
     public function defer(callable $callback): int
     {
         $id = $this->allocateId();
@@ -101,7 +106,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Schedule a one-shot timer.
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
+    #[\Override]
     public function delay(float $seconds, callable $callback): int
     {
         $id = $this->allocateId();
@@ -113,6 +121,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Capture current loop diagnostics.
      */
+    #[\Override]
     public function diagnostics(): LoopDiagnosticsSnapshot
     {
         return new LoopDiagnosticsSnapshot(
@@ -131,6 +140,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Return monotonic time in seconds.
      */
+    #[\Override]
     public function now(): float
     {
         return MonotonicTime::nowNanoseconds() / MonotonicTime::NANOSECONDS_PER_SECOND;
@@ -138,7 +148,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Register a readable stream watcher.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
+    #[\Override]
     public function onReadable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, true);
@@ -146,7 +159,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Register a writable stream watcher.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
+    #[\Override]
     public function onWritable(mixed $stream, callable $callback): int
     {
         return $this->watch($stream, $callback, false);
@@ -154,7 +170,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Schedule a repeating timer.
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
+    #[\Override]
     public function repeat(float $interval, callable $callback): int
     {
         $id = $this->allocateId();
@@ -165,7 +184,12 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Run the event loop until stopped or idle.
+     * Callback-driven stop() can change running within a tick.
+     * @throws \LogicException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
+    #[\Override]
     public function run(): void
     {
         if ($this->running) {
@@ -175,10 +199,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         $this->running = true;
 
         try {
-            while ($this->running) {
+            while ($this->isRunning()) {
                 $this->runTick();
 
-                if (!$this->running || !$this->hasReferences()) {
+                if (!$this->isRunning() || !$this->hasReferences()) {
                     break;
                 }
 
@@ -192,6 +216,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     /**
      * Stop a running event loop.
      */
+    #[\Override]
     public function stop(): void
     {
         $this->running = false;
@@ -199,6 +224,8 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
 
     /**
      * Execute one non-polling loop tick.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function tick(): void
     {
@@ -215,6 +242,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private static function assertRecoverableSelectFailure(?string $warning, int $prunedWatchers): void
     {
         if ($prunedWatchers > 0) {
@@ -227,6 +257,28 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         throw new RuntimeException($warning ?? 'stream_select() failed permanently.');
     }
 
+    /**
+     * @param array<int, array{stream: resource|closed-resource, resource_id: int, callback: Closure}> $watchers
+     * @return list<resource>
+     */
+    private static function liveStreams(array $watchers): array
+    {
+        $live = [];
+        foreach ($watchers as $watcher) {
+            if (is_resource($watcher['stream'])) {
+                $live[] = $watcher['stream'];
+            }
+        }
+
+        return $live;
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    /**
+     * @throws \OverflowException
+     */
     private function allocateId(): int
     {
         if ($this->nextId === PHP_INT_MAX) {
@@ -254,7 +306,7 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         return true;
     }
 
-    /** @param list<resource> $ready */
+    /** @param array<array-key, resource> $ready */
     private function dispatchReady(array $ready, bool $readable): void
     {
         foreach ($ready as $stream) {
@@ -271,7 +323,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
-    /** @param array{deadline: int, interval: int, callback: Closure} $timer */
+    /**
+     * @param array{deadline: int, interval: int, callback: Closure} $timer
+     * @throws \Throwable
+     */
     private function fireTimer(int $id, array $timer): void
     {
         if ($timer['interval'] === 0) {
@@ -312,6 +367,15 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /** Re-read the running state after callbacks that can call stop(). */
+    private function isRunning(): bool
+    {
+        return $this->running;
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
     private function poll(): void
     {
         [$read, $write] = $this->selectStreams();
@@ -421,6 +485,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function runDueTimers(): void
     {
         for ($processed = 0; $this->running && $processed < self::MAX_TIMERS_PER_TICK;) {
@@ -438,6 +505,9 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function runTick(): void
     {
         $tickStart = MonotonicTime::nowNanoseconds();
@@ -459,17 +529,10 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
     {
         $this->pruneClosedWatchers();
 
-        $read = [];
-        foreach ($this->readWatchers as $watcher) {
-            $read[] = $watcher['stream'];
-        }
-
-        $write = [];
-        foreach ($this->writeWatchers as $watcher) {
-            $write[] = $watcher['stream'];
-        }
-
-        return [$read, $write];
+        return [
+            self::liveStreams($this->readWatchers),
+            self::liveStreams($this->writeWatchers),
+        ];
     }
 
     /** @return array{0: ?int, 1: int} */
@@ -501,23 +564,23 @@ final class SelectLoop implements LoopDiagnosticsProviderInterface, LoopInterfac
             return;
         }
 
-        $deadline = $this->timers->nextDeadline();
-        if ($deadline === null) {
-            return;
-        }
-
-        $remaining = $deadline - MonotonicTime::nowNanoseconds();
+        $remaining = ($this->timers->nextDeadline() ?? 0) - MonotonicTime::nowNanoseconds();
         if ($remaining <= 0) {
             return;
         }
 
-        time_nanosleep(
+        if (time_nanosleep(
             intdiv($remaining, MonotonicTime::NANOSECONDS_PER_SECOND),
             $remaining % MonotonicTime::NANOSECONDS_PER_SECOND,
-        );
+        ) !== true) {
+            return;
+        }
     }
 
-    /** @param resource $stream */
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function watch(mixed $stream, callable $callback, bool $readable): int
     {
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {

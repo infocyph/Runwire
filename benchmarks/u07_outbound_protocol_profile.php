@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/process_usage.php';
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
@@ -20,6 +22,9 @@ use Infocyph\Runwire\Network\TlsClientOptions;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 6 || !in_array($argv[1], ['h1', 'h2', 'h3'], true)
     || !ctype_digit($argv[2]) || !ctype_digit($argv[3])
     || !ctype_digit($argv[5]) || !is_file($argv[4])) {
@@ -43,9 +48,8 @@ $request = new ClientRequest(
 );
 $latencies = [];
 $warmups = 4;
-$before = getrusage();
-$childrenBefore = getrusage(1);
-$begin = hrtime(true);
+$before = runwireBenchmarkUsage();
+$childrenBefore = runwireBenchmarkUsage(1);
 for ($index = -$warmups; $index < $count; ++$index) {
     $loop = new SelectLoop();
     $status = 0;
@@ -62,8 +66,8 @@ for ($index = -$warmups; $index < $count; ++$index) {
         $received .= $part;
     };
     if ($index === 0) {
-        $before = getrusage();
-        $childrenBefore = getrusage(1);
+        $before = runwireBenchmarkUsage();
+        $childrenBefore = runwireBenchmarkUsage(1);
     }
     $start = hrtime(true);
     if ($kind === 'h3') {
@@ -85,6 +89,9 @@ for ($index = -$warmups; $index < $count; ++$index) {
                 $loop->stop();
             },
         );
+        $cleanup = static function () use ($client): void {
+            $client->close();
+        };
     } else {
         $executor = new ProcessExecutor($loop, 1, 8);
         $numeric = new Dialer($loop);
@@ -108,17 +115,16 @@ for ($index = -$warmups; $index < $count; ++$index) {
         } else {
             Http1OutboundClient::connect($loop, $dialer, $request, $headers, $body, $done, $options);
         }
+        $cleanup = static function () use ($dialer, $numeric, $executor): void {
+            $dialer->close();
+            $numeric->close();
+            $executor->close();
+        };
     }
     $loop->run();
     $elapsed = (hrtime(true) - $start) / 1_000_000;
     $loop->cancel($watchdog);
-    if ($kind === 'h3') {
-        $client->close();
-    } else {
-        $dialer->close();
-        $numeric->close();
-        $executor->close();
-    }
+    $cleanup();
     if ($error !== null || $completed !== 1 || $status !== 200
         || $received !== 'runwire-outbound-h3-peer-ok') {
         throw new RuntimeException('Independent outbound ' . $kind . ' did not produce an exact complete response.', 0, $error);
@@ -127,31 +133,26 @@ for ($index = -$warmups; $index < $count; ++$index) {
         $latencies[] = $elapsed;
     }
 }
-$after = getrusage();
-$childrenAfter = getrusage(1);
-if (!is_array($before) || !is_array($after)
-    || !is_array($childrenBefore) || !is_array($childrenAfter)) {
-    throw new RuntimeException('Process CPU and RSS profiling is not available.');
+$after = runwireBenchmarkUsage();
+$childrenAfter = runwireBenchmarkUsage(1);
+foreach ([$before, $after, $childrenBefore, $childrenAfter] as $snapshot) {
+    if (!isset($snapshot['ru_maxrss'])) {
+        throw new RuntimeException('Process CPU and RSS profiling data is incomplete.');
+    }
 }
-$usage = static function (array $v): int {
-    return (int) $v['ru_utime.tv_sec'] * 1_000_000
-        + (int) $v['ru_utime.tv_usec']
-        + (int) $v['ru_stime.tv_sec'] * 1_000_000
-        + (int) $v['ru_stime.tv_usec'];
-};
-$parentCpuUs = max(0, $usage($after) - $usage($before));
-$childCpuUs = max(0, $usage($childrenAfter) - $usage($childrenBefore));
-$parentRssBytes = (int) ($after['ru_maxrss'] ?? 0) * 1024;
-$childrenRssBytes = (int) ($childrenAfter['ru_maxrss'] ?? 0) * 1024;
+$parentCpuUs = max(0, runwireBenchmarkCpuMicroseconds($after) - runwireBenchmarkCpuMicroseconds($before));
+$childCpuUs = max(0, runwireBenchmarkCpuMicroseconds($childrenAfter) - runwireBenchmarkCpuMicroseconds($childrenBefore));
+$parentRssBytes = ($after['ru_maxrss'] ?? 0) * 1024;
+$childrenRssBytes = ($childrenAfter['ru_maxrss'] ?? 0) * 1024;
 sort($latencies, SORT_NUMERIC);
-$seconds = array_sum($latencies) / 1_000;
+$seconds = array_sum($latencies) / 1_000.0;
 if ($seconds <= 0.0 || count($latencies) !== $count) {
     throw new RuntimeException('Insufficient complete protocol samples.');
 }
 fwrite(STDOUT, json_encode([
     'schema' => 1,
     'protocol' => $kind,
-    'source_sha' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
+    'source_sha' => (($sourceSha = getenv('RUNWIRE_RUNTIME_BUILD')) === false || $sourceSha === '' || $sourceSha === '0') ? 'unknown' : $sourceSha,
     'php_version' => PHP_VERSION,
     'independent_peer' => $kind === 'h3' ? 'aioquic' : 'hyper-h2',
     'verified_tls_alpn' => true,
@@ -160,9 +161,9 @@ fwrite(STDOUT, json_encode([
     'warmups' => $warmups,
     'successful_requests' => $count,
     'errors' => 0,
-    'successful_rps' => round($count / $seconds, 3),
-    'successful_rpm' => round(60 * $count / $seconds, 3),
-    'p99_ms' => round($latencies[(int) ceil($count * 0.99) - 1], 3),
+    'successful_rps' => round((float) $count / $seconds, 3),
+    'successful_rpm' => round(60.0 * (float) $count / $seconds, 3),
+    'p99_ms' => round($latencies[(int) ceil((float) $count * 0.99) - 1], 3),
     'parent_cpu_ms' => round($parentCpuUs / 1_000, 3),
     'reaped_child_cpu_ms' => round($childCpuUs / 1_000, 3),
     'parent_plus_reaped_child_cpu_ms' => round(($parentCpuUs + $childCpuUs) / 1_000, 3),

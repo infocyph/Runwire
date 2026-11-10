@@ -14,7 +14,10 @@ final readonly class ListenerOptions
     /** @var array<string, mixed> */
     public array $socketContext;
 
-    /** @param array<string, mixed> $socketContext */
+    /**
+     * @param array<string, mixed> $socketContext
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public int $backlog = 128,
         public int $maxConnections = 10_000,

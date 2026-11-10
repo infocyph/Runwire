@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/process_usage.php';
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Filesystem\AsyncFileSystem;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -12,6 +14,44 @@ use Infocyph\Runwire\Loop\SelectLoop;
  * Usage: php benchmarks/async_file_worker_profile.php [operations] [bytes] [workers]
  */
 require dirname(__DIR__) . '/vendor/autoload.php';
+
+/** @return list<int> */
+function runwireFileProfileChildren(string $childrenFile): array
+{
+    $childrenPids = [];
+    $children = is_readable($childrenFile) ? file_get_contents($childrenFile) : false;
+    if (is_string($children) && trim($children) !== '') {
+        foreach (preg_split('/\s+/', trim($children)) ?: [] as $child) {
+            if (ctype_digit($child)) {
+                $childrenPids[] = (int) $child;
+            }
+        }
+    }
+
+    return $childrenPids;
+}
+
+/** @return array{rssBytes:int,cpuTicks:int,children:list<int>} */
+function runwireFileProfileProcessMetrics(string $prefix, int $pid): array
+{
+    $rssBytes = $cpuTicks = 0;
+    $statusFile = $prefix . '/status';
+    $status = is_readable($statusFile) ? file_get_contents($statusFile) : false;
+    if (is_string($status) && preg_match('/^VmRSS:\s+([0-9]+)\s+kB$/m', $status, $match) === 1) {
+        $rssBytes = (int) $match[1] * 1024;
+    }
+    $statFile = $prefix . '/stat';
+    $stat = is_readable($statFile) ? file_get_contents($statFile) : false;
+    if (is_string($stat) && ($end = strrpos($stat, ')')) !== false) {
+        $values = preg_split('/\s+/', trim(substr($stat, $end + 1)));
+        if (is_array($values) && isset($values[11], $values[12])) {
+            $cpuTicks = (int) $values[11] + (int) $values[12];
+        }
+    }
+    $childrenPids = runwireFileProfileChildren($prefix . '/task/' . $pid . '/children');
+
+    return ['rssBytes' => $rssBytes, 'cpuTicks' => $cpuTicks, 'children' => $childrenPids];
+}
 
 /**
  * Sample observed resident memory and kernel CPU ticks for the PHP worker tree.
@@ -28,7 +68,7 @@ function runwireFileProfileProcessTree(int $root): array
     $processes = 0;
     while ($queue !== [] && count($seen) < 64) {
         $pid = array_shift($queue);
-        if (!is_int($pid) || $pid < 1 || isset($seen[$pid])) {
+        if ($pid < 1 || isset($seen[$pid])) {
             continue;
         }
         $seen[$pid] = true;
@@ -37,28 +77,10 @@ function runwireFileProfileProcessTree(int $root): array
             continue;
         }
         ++$processes;
-        $statusFile = $prefix . '/status';
-        $status = is_readable($statusFile) ? file_get_contents($statusFile) : false;
-        if (is_string($status) && preg_match('/^VmRSS:\s+([0-9]+)\s+kB$/m', $status, $match) === 1) {
-            $rssBytes += (int) $match[1] * 1024;
-        }
-        $statFile = $prefix . '/stat';
-        $stat = is_readable($statFile) ? file_get_contents($statFile) : false;
-        if (is_string($stat) && ($end = strrpos($stat, ')')) !== false) {
-            $values = preg_split('/\s+/', trim(substr($stat, $end + 1)));
-            if (is_array($values) && isset($values[11], $values[12])) {
-                $cpuTicks += (int) $values[11] + (int) $values[12];
-            }
-        }
-        $childrenFile = $prefix . '/task/' . $pid . '/children';
-        $children = is_readable($childrenFile) ? file_get_contents($childrenFile) : false;
-        if (is_string($children) && trim($children) !== '') {
-            foreach (preg_split('/\s+/', trim($children)) ?: [] as $child) {
-                if (ctype_digit($child)) {
-                    $queue[] = (int) $child;
-                }
-            }
-        }
+        $metrics = runwireFileProfileProcessMetrics($prefix, $pid);
+        $rssBytes += $metrics['rssBytes'];
+        $cpuTicks += $metrics['cpuTicks'];
+        array_push($queue, ...$metrics['children']);
     }
 
     return ['rssBytes' => $rssBytes, 'cpuTicks' => $cpuTicks, 'processes' => $processes];
@@ -66,9 +88,7 @@ function runwireFileProfileProcessTree(int $root): array
 
 $args = $_SERVER['argv'] ?? null;
 if (!is_array($args) || count($args) > 4
-    || (isset($args[1]) && !is_string($args[1]))
-    || (isset($args[2]) && !is_string($args[2]))
-    || (isset($args[3]) && !is_string($args[3]))) {
+) {
     throw new InvalidArgumentException('Invalid filesystem profile arguments.');
 }
 $operations = isset($args[1]) ? filter_var($args[1], FILTER_VALIDATE_INT) : 32;
@@ -89,7 +109,9 @@ $executor = new ProcessExecutor($loop, $workers, 128);
 $filesystem = new AsyncFileSystem($executor, $directory);
 $payload = substr(str_repeat('runwire-fs-profile/', intdiv($bytes, 19) + 1), 0, $bytes);
 $paths = [];
-$remaining = $operations;
+$remaining = new class ($operations) {
+    public function __construct(public int $value) {}
+};
 $completed = 0;
 $failure = null;
 $heartbeats = 0;
@@ -109,7 +131,6 @@ $fail = static function (Throwable $error) use (&$failure, $loop): void {
     $failure ??= $error;
     $loop->stop();
 };
-$tick = null;
 $tick = static function () use (
     &$tick,
     &$heartbeatTimer,
@@ -123,7 +144,7 @@ $tick = static function () use (
     &$lastTick,
     &$maxTickGapNanoseconds,
     $treeAvailable,
-    &$remaining,
+    $remaining,
     &$failure,
     $loop,
     $executor,
@@ -134,7 +155,11 @@ $tick = static function () use (
     $lastTick = $now;
     if ($treeAvailable && ($heartbeats === 1 || $heartbeats % 5 === 0)) {
         ++$treeSamples;
-        $snapshot = runwireFileProfileProcessTree(getmypid());
+        $pid = getmypid();
+        if ($pid === false) {
+            throw new RuntimeException('Unable to sample the filesystem profile worker PID.');
+        }
+        $snapshot = runwireFileProfileProcessTree($pid);
         $treePeakRssBytes = max($treePeakRssBytes, $snapshot['rssBytes']);
         $treePeakCpuTicks = max($treePeakCpuTicks, $snapshot['cpuTicks']);
         $treePeakProcessCount = max($treePeakProcessCount, $snapshot['processes']);
@@ -142,7 +167,7 @@ $tick = static function () use (
     $active = $executor->diagnostics()['active'];
     $maxBusyWorkers = max($maxBusyWorkers, $active);
     $activeSampleSum += $active;
-    if ($remaining > 0 && $failure === null) {
+    if ($remaining->value > 0 && $failure === null) {
         $heartbeatTimer = $loop->delay(0.002, $tick);
     }
 };
@@ -165,7 +190,7 @@ try {
                 $bytes,
                 $fail,
                 &$completed,
-                &$remaining,
+                $remaining,
                 $loop,
             ): void {
                 if ($error !== null || $written !== $bytes) {
@@ -182,7 +207,7 @@ try {
                         $payload,
                         $fail,
                         &$completed,
-                        &$remaining,
+                        $remaining,
                         $loop,
                     ): void {
                         if ($error !== null || $data !== $payload) {
@@ -195,7 +220,7 @@ try {
                             static function (bool $removed, ?Throwable $error) use (
                                 $fail,
                                 &$completed,
-                                &$remaining,
+                                $remaining,
                                 $loop,
                             ): void {
                                 if ($error !== null || !$removed) {
@@ -204,8 +229,8 @@ try {
                                     return;
                                 }
                                 ++$completed;
-                                --$remaining;
-                                if ($remaining === 0) {
+                                --$remaining->value;
+                                if ($remaining->value === 0) {
                                     $loop->stop();
                                 }
                             },
@@ -224,10 +249,12 @@ try {
     }
     $elapsed = max(1, hrtime(true) - $start);
     $diagnostics = $executor->diagnostics();
-    $usage = getrusage();
-    $rss = is_array($usage)
-        ? ($usage['ru_maxrss'] ?? 0) * (PHP_OS_FAMILY === 'Linux' ? 1024 : 1)
-        : 0;
+    $usage = runwireBenchmarkUsage();
+    $rssKb = $usage['ru_maxrss'] ?? null;
+    if (!is_int($rssKb) || $rssKb < 0) {
+        throw new RuntimeException('Filesystem profile RSS metric is unavailable.');
+    }
+    $rss = $rssKb * (PHP_OS_FAMILY === 'Linux' ? 1024 : 1);
     $report = [
         'schemaVersion' => 1,
         'scope' => 'development-only-real-filesystem-worker-profile',

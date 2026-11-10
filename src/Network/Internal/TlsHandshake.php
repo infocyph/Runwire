@@ -39,6 +39,7 @@ final class TlsHandshake
     /**
      * @param callable(resource, ?string): void $onSuccess
      * @param callable(): void $onFailure
+     * @throws \InvalidArgumentException
      */
     public static function start(
         LoopInterface $loop,
@@ -50,9 +51,7 @@ final class TlsHandshake
         if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
             throw new InvalidArgumentException('TLS handshake requires a live stream resource.');
         }
-        /** @var Closure(resource, ?string): void $successClosure */
         $successClosure = Closure::fromCallable($onSuccess);
-        /** @var Closure(): void $failureClosure */
         $failureClosure = Closure::fromCallable($onFailure);
 
         $handshake = new self(
@@ -106,11 +105,18 @@ final class TlsHandshake
         }
 
         $meta = stream_get_meta_data($stream);
-        $protocol = is_array($meta['crypto'] ?? null) ? ($meta['crypto']['alpn_protocol'] ?? null) : null;
+        $crypto = $meta['crypto'] ?? null;
+        $protocol = null;
+        if (is_array($crypto) && array_key_exists('alpn_protocol', $crypto)) {
+            $protocol = $crypto['alpn_protocol'];
+        }
         $this->finish();
         ($this->onSuccess)($stream, is_string($protocol) ? $protocol : null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function begin(): void
     {
         $stream = $this->stream;

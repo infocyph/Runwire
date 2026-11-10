@@ -24,6 +24,7 @@ final class AdaptiveLoadController
 
     /**
      * Create an adaptive load controller with bounded hysteresis and EWMA smoothing.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly int $lowWatermarkBasisPoints = 2_500,

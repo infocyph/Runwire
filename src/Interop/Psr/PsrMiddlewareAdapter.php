@@ -22,7 +22,10 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
     /** @var list<MiddlewareInterface> */
     private array $middleware;
 
-    /** @param array<array-key,mixed> $middleware */
+    /**
+     * @param array<array-key,mixed> $middleware
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         array $middleware,
         private RequestHandlerInterface $terminal,
@@ -39,6 +42,7 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
     }
 
     /** Execute a bounded host-side PSR-15 middleware stack. */
+    #[\Override]
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $handler = $this->terminal;

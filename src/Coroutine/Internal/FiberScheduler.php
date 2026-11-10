@@ -72,6 +72,8 @@ final class FiberScheduler
 
     /**
      * Suspend the current task until the future completes.
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function awaitFuture(
         Future $future,
@@ -91,13 +93,19 @@ final class FiberScheduler
         ));
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function currentCancellation(): CancellationToken
     {
         return $this->requireCurrentTask()->cancellation();
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function currentTaskId(): int
     {
         return $this->requireCurrentTask()->id();
@@ -179,6 +187,8 @@ final class FiberScheduler
 
     /**
      * Drive the underlying event loop until all scheduled tasks settle.
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineDeadlockException
+     * @throws \LogicException
      */
     public function drive(): void
     {
@@ -210,7 +220,10 @@ final class FiberScheduler
         }
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function hasTaskLocal(TaskLocal $key): bool
     {
         return $this->requireCurrentTask()->taskLocalState()->has($key);
@@ -230,7 +243,10 @@ final class FiberScheduler
         return $this->policy->maxWaitersPerPrimitive;
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function removeTaskLocal(TaskLocal $key): bool
     {
         return $this->requireCurrentTask()->taskLocalState()->remove($key);
@@ -238,6 +254,8 @@ final class FiberScheduler
 
     /**
      * Enqueue a task to resume with a value.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      */
     public function resume(Task $task, mixed $value = null, bool $ignoreCancellation = false): bool
     {
@@ -246,13 +264,18 @@ final class FiberScheduler
 
     /**
      * Enqueue a task to resume by throwing an exception into it.
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
      */
     public function resumeException(Task $task, Throwable $error, bool $ignoreCancellation = false): bool
     {
         return $this->enqueueResume($task, null, $error, $ignoreCancellation);
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function setTaskLocal(TaskLocal $key, mixed $value): void
     {
         $this->requireCurrentTask()->taskLocalState()->set($key, $value);
@@ -260,6 +283,9 @@ final class FiberScheduler
 
     /**
      * Suspend the current task for the requested duration.
+     * Scheduler wakeups are required to resume without a payload.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function sleep(float $seconds): void
     {
@@ -273,7 +299,7 @@ final class FiberScheduler
             return;
         }
 
-        Fiber::suspend(new LoopWaitSuspension(
+        if (Fiber::suspend(new LoopWaitSuspension(
             $this->loop,
             fn(\Closure $wake): int => $this->loop->delay(
                 $seconds,
@@ -282,10 +308,19 @@ final class FiberScheduler
                     $wake();
                 },
             ),
-        ));
+        )) !== null) {
+            throw new LogicException('Loop-backed coroutine resumed with an unexpected payload.');
+        }
     }
 
-    /** @internal */
+    /**
+     * @template TResult
+     * @return Task<TResult>
+     * @param callable(): TResult $callback
+     * @internal
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \OverflowException
+     */
     public function spawn(
         callable $callback,
         CancellationSource $source,
@@ -316,11 +351,16 @@ final class FiberScheduler
         return $task;
     }
 
-    /** @param resource $stream */
+    /**
+     * Scheduler wakeups are required to resume without a payload.
+     *
+     * @param resource $stream
+     * @throws \LogicException
+     */
     public function suspendReadable(mixed $stream): void
     {
         $this->requireCurrentTask();
-        Fiber::suspend(new LoopWaitSuspension(
+        if (Fiber::suspend(new LoopWaitSuspension(
             $this->loop,
             fn(\Closure $wake): int => $this->loop->onReadable(
                 $stream,
@@ -329,14 +369,21 @@ final class FiberScheduler
                     $wake();
                 },
             ),
-        ));
+        )) !== null) {
+            throw new LogicException('Loop-backed coroutine resumed with an unexpected payload.');
+        }
     }
 
-    /** @param resource $stream */
+    /**
+     * Scheduler wakeups are required to resume without a payload.
+     *
+     * @param resource $stream
+     * @throws \LogicException
+     */
     public function suspendWritable(mixed $stream): void
     {
         $this->requireCurrentTask();
-        Fiber::suspend(new LoopWaitSuspension(
+        if (Fiber::suspend(new LoopWaitSuspension(
             $this->loop,
             fn(\Closure $wake): int => $this->loop->onWritable(
                 $stream,
@@ -345,10 +392,15 @@ final class FiberScheduler
                     $wake();
                 },
             ),
-        ));
+        )) !== null) {
+            throw new LogicException('Loop-backed coroutine resumed with an unexpected payload.');
+        }
     }
 
-    /** @internal */
+    /**
+     * @internal
+     * @throws \LogicException
+     */
     public function taskLocal(TaskLocal $key): mixed
     {
         return $this->requireCurrentTask()->taskLocalState()->get($key);
@@ -356,11 +408,15 @@ final class FiberScheduler
 
     /**
      * Cooperatively yield the current task back to the scheduler.
+     * Scheduler wakeups are required to resume without a payload.
+     * @throws \LogicException
      */
     public function yieldNow(): void
     {
         $this->requireCurrentTask();
-        Fiber::suspend($this);
+        if (Fiber::suspend($this) !== null) {
+            throw new LogicException('Cooperative yield resumed with an unexpected payload.');
+        }
     }
 
     private function cancelAll(CancellationReason $reason): void
@@ -370,6 +426,10 @@ final class FiberScheduler
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     */
     private function dispatch(ReadyItem $item): void
     {
         $task = $item->task;
@@ -409,6 +469,10 @@ final class FiberScheduler
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     * @throws \LogicException
+     */
     private function drain(): void
     {
         $this->drainScheduled = false;
@@ -433,6 +497,10 @@ final class FiberScheduler
         }
     }
 
+    /**
+     * @throws \LogicException
+     * @throws \Infocyph\Runwire\Coroutine\Exception\CoroutineOverflowException
+     */
     private function enqueueResume(
         Task $task,
         mixed $value,
@@ -467,6 +535,9 @@ final class FiberScheduler
         };
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function requireCurrentTask(): Task
     {
         if ($this->currentTask === null || Fiber::getCurrent() === null) {

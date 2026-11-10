@@ -10,7 +10,10 @@ use RuntimeException;
 /** Bounded RFC 1928/1929 SOCKS5 wire codec, without network or TLS ownership. */
 final readonly class Socks5Handshake
 {
-    /** Validate bounded SOCKS5 credentials and remote DNS disclosure policy. */
+    /**
+     * Validate bounded SOCKS5 credentials and remote DNS disclosure policy.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private bool $remoteDns = false,
         private ?string $username = null,
@@ -30,7 +33,10 @@ final readonly class Socks5Handshake
         }
     }
 
-    /** Enforce numeric target unless remote DNS was explicitly allowed. */
+    /**
+     * Enforce numeric target unless remote DNS was explicitly allowed.
+     * @throws \InvalidArgumentException
+     */
     public function connectRequest(string $host, int $port): string
     {
         if ($port < 1 || $port > 65_535) {
@@ -40,9 +46,9 @@ final readonly class Socks5Handshake
             ? substr($host, 1, -1)
             : $host;
         if (filter_var($target, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
-            $address = "\x01" . inet_pton($target);
+            $address = self::encodedIp($target, "\x01");
         } elseif (filter_var($target, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
-            $address = "\x04" . inet_pton($target);
+            $address = self::encodedIp($target, "\x04");
         } else {
             if (!$this->remoteDns) {
                 throw new InvalidArgumentException('SOCKS5 local DNS policy requires a pre-resolved IP.');
@@ -54,7 +60,10 @@ final readonly class Socks5Handshake
         return "\x05\x01\x00" . $address . pack('n', $port);
     }
 
-    /** Build one bounded RFC 1929 authentication request. */
+    /**
+     * Build one bounded RFC 1929 authentication request.
+     * @throws \InvalidArgumentException
+     */
     public function credentials(): string
     {
         if ($this->username === null || $this->password === null) {
@@ -71,7 +80,10 @@ final readonly class Socks5Handshake
         return $this->username === null ? "\x05\x01\x00" : "\x05\x01\x02";
     }
 
-    /** Complete reply frame length or null for fragmented frames; leave tunnel bytes untouched. */
+    /**
+     * Complete reply frame length or null for fragmented frames; leave tunnel bytes untouched.
+     * @throws \RuntimeException
+     */
     public function replyLength(string $buffer): ?int
     {
         if (strlen($buffer) < 4) {
@@ -102,7 +114,10 @@ final readonly class Socks5Handshake
         return $this->username !== null;
     }
 
-    /** Verify the required proxy authentication response. */
+    /**
+     * Verify the required proxy authentication response.
+     * @throws \RuntimeException
+     */
     public function verifyAuthentication(string $reply): void
     {
         if ($this->username === null || $reply !== "\x01\x00") {
@@ -110,7 +125,10 @@ final readonly class Socks5Handshake
         }
     }
 
-    /** Reject any SOCKS5 method substitution or unauthenticated downgrade. */
+    /**
+     * Reject any SOCKS5 method substitution or unauthenticated downgrade.
+     * @throws \RuntimeException
+     */
     public function verifyMethod(string $reply): void
     {
         $expected = $this->username === null ? "\x00" : "\x02";
@@ -119,7 +137,24 @@ final readonly class Socks5Handshake
         }
     }
 
-    /** Execute the bounded proxy exchange phase. */
+    /**
+     * Encode a previously validated numeric SOCKS5 destination.
+     * @throws \InvalidArgumentException
+     */
+    private static function encodedIp(string $target, string $family): string
+    {
+        $packed = inet_pton($target);
+        if ($packed === false) {
+            throw new InvalidArgumentException('Unable to encode SOCKS5 numeric destination.');
+        }
+
+        return $family . $packed;
+    }
+
+    /**
+     * Execute the bounded proxy exchange phase.
+     * @throws \InvalidArgumentException
+     */
     private static function validateDomain(string $host): void
     {
         if ($host === '' || strlen($host) > 253 || str_contains($host, ':')) {

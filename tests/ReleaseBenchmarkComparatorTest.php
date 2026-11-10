@@ -31,7 +31,12 @@ function runwireReleaseSummaryFixture(): array
     ];
 }
 
-/** @return array{int, string} */
+/**
+ * @param array<string,mixed> $baseline
+ * @param array<string,mixed> $candidate
+ * @return array{int, string}
+ * @throws \RuntimeException
+ */
 function runwireCompareReleaseSummaries(array $baseline, array $candidate): array
 {
     $first = tempnam(sys_get_temp_dir(), 'runwire-baseline-');
@@ -74,6 +79,7 @@ it('compares a stable, identical release topology and reports p99/RSS deltas', f
 
     [$exit, $json] = runwireCompareReleaseSummaries($baseline, $candidate);
     $result = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+    \PHPUnit\Framework\Assert::assertIsArray($result);
     expect($exit)->toBe(0)
         ->and($result['passed'])->toBeTrue()
         ->and($result['budget_enforced'])->toBeTrue()
@@ -162,6 +168,7 @@ it('keeps the p99 absolute tolerance for fast workloads without dropping the RSS
     $candidate['median_p99_ms'] = 0.9; // +80%, but only +0.4ms.
     [$exit, $output] = runwireCompareReleaseSummaries($baseline, $candidate);
     $result = json_decode($output, true, flags: JSON_THROW_ON_ERROR);
+    \PHPUnit\Framework\Assert::assertIsArray($result);
     expect($exit)->toBe(0)
         ->and($result['p99_passed'])->toBeTrue()
         ->and($result['rss_passed'])->toBeTrue();

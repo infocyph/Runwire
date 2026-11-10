@@ -20,6 +20,7 @@ final class AdaptivePollStrategy
 
     /**
      * Return a timeout that preserves non-blocking calls and readiness-driven active traffic.
+     * @throws \InvalidArgumentException
      */
     public static function timeout(
         ?float $baseTimeoutSeconds,
@@ -28,6 +29,9 @@ final class AdaptivePollStrategy
         int $pendingConnections,
         AdaptiveProtocolPolicy $policy = new AdaptiveProtocolPolicy(),
     ): ?float {
+        if ($activeConnections < 0 || $pendingConnections < 0) {
+            throw new \InvalidArgumentException('HTTP/3 connection counters must be non-negative.');
+        }
         if ($baseTimeoutSeconds === null || $baseTimeoutSeconds <= 0.0) {
             return $baseTimeoutSeconds;
         }
@@ -40,7 +44,7 @@ final class AdaptivePollStrategy
         if ($accepting
             && $activeConnections === 0
             && $policy->mode !== AdaptivePolicyMode::LATENCY) {
-            return min(self::MAX_IDLE_POLL_SECONDS, $baseTimeoutSeconds * 4);
+            return min(self::MAX_IDLE_POLL_SECONDS, $baseTimeoutSeconds * 4.0);
         }
 
         return $baseTimeoutSeconds;

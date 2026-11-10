@@ -9,22 +9,22 @@ use Infocyph\Runwire\Metrics\DiagnosticsPolicy;
 
 it('uses the portable loop when ext-event is unavailable', function (): void {
     if (EventLoop::supported()) {
-        expect(EventLoop::supported())->toBeTrue();
+        expect(LoopFactory::backendName(LoopFactory::native(new DiagnosticsPolicy())))->toBe('event');
 
         return;
     }
 
     $loop = LoopFactory::native(new DiagnosticsPolicy());
+    \PHPUnit\Framework\Assert::assertInstanceOf(SelectLoop::class, $loop);
 
-    expect($loop)->toBeInstanceOf(SelectLoop::class)
-        ->and(LoopFactory::backendName($loop))->toBe('select')
+    expect(LoopFactory::backendName($loop))->toBe('select')
         ->and(LoopFactory::connectionLimit($loop))->toBe(256)
         ->and(fn() => new EventLoop())->toThrow(RuntimeException::class, 'ext-event');
 });
 
 it('selects and exercises the scalable backend when ext-event is available', function (): void {
     if (!EventLoop::supported()) {
-        expect(EventLoop::supported())->toBeFalse();
+        expect(fn() => new EventLoop())->toThrow(RuntimeException::class, 'ext-event');
 
         return;
     }
@@ -52,16 +52,16 @@ it('selects and exercises the scalable backend when ext-event is available', fun
 
     fclose($reader);
     fclose($writer);
+    \PHPUnit\Framework\Assert::assertInstanceOf(EventLoop::class, $loop);
 
-    expect($loop)->toBeInstanceOf(EventLoop::class)
-        ->and(LoopFactory::backendName($loop))->toBe('event')
+    expect(LoopFactory::backendName($loop))->toBe('event')
         ->and(LoopFactory::connectionLimit($loop))->toBeNull()
         ->and($payload)->toBe('hello');
 });
 
 it('handles more than 1024 descriptors on the scalable backend', function (): void {
     if (!EventLoop::supported()) {
-        expect(EventLoop::supported())->toBeFalse();
+        expect(fn() => new EventLoop())->toThrow(RuntimeException::class, 'ext-event');
 
         return;
     }
@@ -80,7 +80,8 @@ it('handles more than 1024 descriptors on the scalable backend', function (): vo
             stream_set_blocking($reader, false);
             stream_set_blocking($writer, false);
             $pairs[] = $pair;
-            $loop->onReadable($reader, function ($stream, int $id) use ($loop, &$ready): void {
+            $loop->onReadable($reader, function (mixed $stream, int $id) use ($loop, &$ready): void {
+                \PHPUnit\Framework\Assert::assertIsResource($stream);
                 if (fread($stream, 1) === 'x') {
                     ++$ready;
                 }

@@ -15,6 +15,7 @@ final readonly class WebSocketWireCodec
 {
     /**
      * Validate a close code allowed on the wire.
+     * @throws \InvalidArgumentException
      */
     public static function assertCloseCode(int $code): void
     {
@@ -29,6 +30,7 @@ final readonly class WebSocketWireCodec
 
     /**
      * Validate UTF-8 required by text and close-reason fields.
+     * @throws \InvalidArgumentException
      */
     public static function assertUtf8(string $value, string $label): void
     {
@@ -37,7 +39,10 @@ final readonly class WebSocketWireCodec
         }
     }
 
-    /** Encode a client-to-server frame with a fresh cryptographic masking key. */
+    /**
+     * Encode a client-to-server frame with a fresh cryptographic masking key.
+     * @throws \InvalidArgumentException
+     */
     public static function clientFrame(int $opcode, string $payload, bool $fin = true): string
     {
         if (!in_array($opcode, [0x0, 0x1, 0x2, 0x8, 0x9, 0xA], true)) {
@@ -65,6 +70,7 @@ final readonly class WebSocketWireCodec
 
     /**
      * Encode one unmasked server-to-client frame.
+     * @throws \InvalidArgumentException
      */
     public static function frame(int $opcode, string $payload): string
     {
@@ -88,6 +94,7 @@ final readonly class WebSocketWireCodec
      * Decode and validate a peer close payload.
      *
      * @return array{0: int, 1: string}
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
      */
     public static function parseClosePayload(string $payload): array
     {

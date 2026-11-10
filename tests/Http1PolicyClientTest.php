@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+
+namespace Infocyph\Runwire\Tests;
+
+require_once __DIR__ . '/Support/SocketFixture.php';
+
+
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRedirectRetryPolicy;
@@ -14,18 +20,21 @@ use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
+use RuntimeException;
+use Throwable;
+
 
 it('follows one bounded independent H1 redirect without forwarding cross-origin credentials', function (): void {
     $first = stream_socket_server('tcp://127.0.0.1:0', $code, $reason);
     $second = stream_socket_server('tcp://127.0.0.1:0', $code, $reason);
-    expect($first)->toBeResource()
-        ->and($second)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($first);
+    \PHPUnit\Framework\Assert::assertIsResource($second);
     stream_set_blocking($first, false);
     stream_set_blocking($second, false);
     $firstAddress = stream_socket_get_name($first, false);
     $secondAddress = stream_socket_get_name($second, false);
-    expect($firstAddress)->toBeString()
-        ->and($secondAddress)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($firstAddress);
+    \PHPUnit\Framework\Assert::assertIsString($secondAddress);
 
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 1);
@@ -39,13 +48,14 @@ it('follows one bounded independent H1 redirect without forwarding cross-origin 
     $completed = null;
     $failed = null;
 
-    $register = static function ($listener, string $name) use (
+    $register = static function (mixed $listener, string $name) use (
         $loop,
         &$servers,
         &$peerWatchers,
         &$requests,
         $secondAddress,
     ): int {
+        \PHPUnit\Framework\Assert::assertIsResource($listener);
         return $loop->onReadable($listener, static function ($stream) use (
             $loop,
             $name,
@@ -127,6 +137,7 @@ it('follows one bounded independent H1 redirect without forwarding cross-origin 
     try {
         $client->start();
         $loop->run();
+        \PHPUnit\Framework\Assert::assertInstanceOf(Connection::class, $completed);
         expect($failed)->toBeNull()
             ->and($statuses)->toBe([200])
             ->and($body)->toBe('done')
@@ -135,9 +146,9 @@ it('follows one bounded independent H1 redirect without forwarding cross-origin 
             ->and($requests['second'])->toContain('GET /new HTTP/1.1')
             ->and(strtolower($requests['second']))->not->toContain('authorization:')
             ->and(strtolower($requests['second']))->not->toContain('cookie:')
-            ->and(strtolower($requests['second']))->not->toContain('x-tenant:')
-            ->and($completed)->toBeInstanceOf(Connection::class)
-            ->and($completed->isPoolIdleSafe())->toBeTrue();
+            ->and(strtolower($requests['second']))->not->toContain('x-tenant:');
+        $completed = $completed;
+        expect($completed->isPoolIdleSafe())->toBeTrue();
     } finally {
         $completed?->abort();
         $loop->cancel($watchdog);
@@ -147,9 +158,7 @@ it('follows one bounded independent H1 redirect without forwarding cross-origin 
             $loop->cancel($id);
         }
         foreach ($servers as $peer) {
-            if (is_resource($peer)) {
-                fclose($peer);
-            }
+            \Infocyph\Runwire\Tests\Support\closeSocket($peer);
         }
         $dialer->close();
         $numeric->close();

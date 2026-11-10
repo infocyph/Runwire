@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\TcpListener;
 
@@ -9,7 +11,7 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
     expect(function_exists('pcntl_fork'))->toBeTrue();
 
     $listener = TcpListener::bind('127.0.0.1:0');
-    [$reader, $writer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$reader, $writer] = runwireTcpListenerForkOwnershipTestSocketPair();
 
     $pid = pcntl_fork();
     expect($pid)->not->toBe(-1);
@@ -30,6 +32,7 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
     try {
         $observed = stream_get_contents($reader);
         pcntl_waitpid($pid, $status);
+        $status = \Infocyph\Runwire\Tests\Support\waitStatus($status);
         expect(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe(0)
             ->and($observed)->toBe('1');
@@ -41,10 +44,10 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
         if ($second === 0) {
             $rejected = 0;
             foreach ([
-                static fn() => $listener->abortConnections(),
-                static fn() => $listener->closeConnectionsGracefully(),
-                static fn() => $listener->resumeAccepting(),
-                static fn() => $listener->start(new SelectLoop(), static function (): void {}),
+                static fn() : null => $listener->abortConnections(),
+                static fn() : null => $listener->closeConnectionsGracefully(),
+                static fn() : null => $listener->resumeAccepting(),
+                static fn() : null => $listener->start(new SelectLoop(), static function (): void {}),
             ] as $operation) {
                 try {
                     $operation();
@@ -66,6 +69,7 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
             throw new RuntimeException('Unable to replace forked QA child process.');
         }
         pcntl_waitpid($second, $secondStatus);
+        $secondStatus = \Infocyph\Runwire\Tests\Support\waitStatus($secondStatus);
         expect(pcntl_wifexited($secondStatus))->toBeTrue()
             ->and(pcntl_wexitstatus($secondStatus))->toBe(0);
         $listener->close();
@@ -75,3 +79,17 @@ it('permits a prefork bound listener but refuses inherited active event-loop own
         $listener->close();
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireTcpListenerForkOwnershipTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

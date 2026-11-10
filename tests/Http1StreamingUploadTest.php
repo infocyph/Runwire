@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\ClientBodySourceInterface;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
@@ -11,6 +13,8 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\ConnectionLimits;
+use Throwable;
+
 
 it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a real Unix socket', function (ConnectionLimits $limits): void {
     $payload = str_repeat("binary\x00\xff", 16_384);
@@ -19,11 +23,13 @@ it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a
 
         public function __construct(private readonly string $bytes) {}
 
+        #[\Override]
         public function eof(): bool
         {
             return $this->offset >= strlen($this->bytes);
         }
 
+        #[\Override]
         public function read(int $maxBytes = PHP_INT_MAX): string
         {
             $slice = substr($this->bytes, $this->offset, $maxBytes);
@@ -32,13 +38,16 @@ it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a
             return $slice;
         }
 
+        #[\Override]
         public function trailers(): ?Headers
         {
             return null;
         }
     };
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    expect($pair)->toHaveCount(2);
     [$clientStream, $server] = $pair;
     stream_set_blocking($server, false);
     $loop = new SelectLoop();
@@ -70,6 +79,7 @@ it('uploads 128 KiB in bounded HTTP/1.1 chunks and parses a chunked reply over a
                 break;
             }
             $size = hexdec(substr($data, 0, $lineEnd));
+            \PHPUnit\Framework\Assert::assertIsInt($size);
             $data = substr($data, $lineEnd + 2);
             if ($size === 0) {
                 break;

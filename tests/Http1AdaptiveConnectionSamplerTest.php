@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionSampler;
@@ -9,10 +11,19 @@ use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 
+
+/**
+ * @return array{0: Connection, 1: resource}
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ */
 function adaptiveSamplerConnection(): array
 {
     $streams = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($streams)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($streams);
+    \PHPUnit\Framework\Assert::assertCount(2, $streams);
+    expect($streams)->toHaveCount(2);
 
     $loop = new SelectLoop();
     $connection = new Connection($loop, $streams[0]);
@@ -21,6 +32,14 @@ function adaptiveSamplerConnection(): array
 }
 
 it('bounds HTTP1 AUTO admission sampling independently of active population', function (): void {
+    runwireOwnedHttp1AdaptiveConnectionSamplerTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp1AdaptiveConnectionSamplerTestCase01(): void
+{
     $sampler = new AdaptiveConnectionSampler(activeCapacity: 256, maxSamples: 2);
     $resources = [];
     $connections = [];
@@ -44,9 +63,17 @@ it('bounds HTTP1 AUTO admission sampling independently of active population', fu
     foreach ($resources as $resource) {
         fclose($resource);
     }
-});
+}
 
 it('bypasses HTTP1 load sampling for deterministic policy modes', function (): void {
+    runwireOwnedHttp1AdaptiveConnectionSamplerTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttp1AdaptiveConnectionSamplerTestCase02(): void
+{
     $fixed = new AdaptiveConnectionStrategy(
         policy: new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED),
     );
@@ -64,4 +91,4 @@ it('bypasses HTTP1 load sampling for deterministic policy modes', function (): v
         ->and($latency->tcpNoDelay())->toBeTrue()
         ->and($throughput->tcpNoDelay())->toBeFalse()
         ->and((new AdaptiveConnectionStrategy())->requiresLoadSample())->toBeTrue();
-});
+}

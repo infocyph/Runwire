@@ -5,8 +5,7 @@ declare(strict_types=1);
 it('fails closed on unreviewed public API migration changes and malformed inventories', function (): void {
     $directory = sys_get_temp_dir() . '/runwire-migration-audit-' . bin2hex(random_bytes(6));
     expect(mkdir($directory, 0700))->toBeTrue();
-    $diffPath = $directory . '/diff.json';
-    $policyPath = $directory . '/policy.json';
+    $packetPath = $directory . '/audit-envelope.json';
     $tool = dirname(__DIR__) . '/tools/public-api-migration-audit.php';
     $baseline = str_repeat('a', 40);
     $candidate = str_repeat('b', 40);
@@ -29,14 +28,13 @@ it('fails closed on unreviewed public API migration changes and malformed invent
         'added' => [],
     ];
 
-    $run = static function (array $changes, array $approval) use ($diffPath, $policyPath, $tool): array {
-        file_put_contents($diffPath, json_encode($changes, JSON_THROW_ON_ERROR));
-        file_put_contents($policyPath, json_encode($approval, JSON_THROW_ON_ERROR));
+    $run = static function (array $changes, array $approval) use ($packetPath, $tool): array {
+        file_put_contents($packetPath, json_encode(['diff' => $changes, 'policy' => $approval], JSON_THROW_ON_ERROR));
         $output = [];
         $status = 0;
         exec(
             escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($tool)
-            . ' ' . escapeshellarg($diffPath) . ' ' . escapeshellarg($policyPath) . ' 2>&1',
+            . ' < ' . escapeshellarg($packetPath) . ' 2>&1',
             $output,
             $status,
         );
@@ -48,6 +46,7 @@ it('fails closed on unreviewed public API migration changes and malformed invent
         [$status, $output] = $run($diff, $policy);
         expect($status)->toBe(0);
         $accepted = json_decode($output, true, 32, JSON_THROW_ON_ERROR);
+        \PHPUnit\Framework\Assert::assertIsArray($accepted);
         expect($accepted['reviewed'])->toBeTrue()
             ->and($accepted['behavioralCompatibilityCertified'])->toBeFalse()
             ->and($accepted['traitRelocations'])->toBe(0);
@@ -92,7 +91,7 @@ it('fails closed on unreviewed public API migration changes and malformed invent
         ]));
         expect($status)->not->toBe(0);
     } finally {
-        foreach ([$diffPath, $policyPath] as $path) {
+        foreach ([$packetPath] as $path) {
             if (is_file($path)) {
                 unlink($path);
             }

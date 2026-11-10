@@ -16,6 +16,7 @@ final readonly class PrivilegeDropPolicy
 {
     /**
      * Create a worker identity policy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public ?int $uid = null,
@@ -31,6 +32,7 @@ final readonly class PrivilegeDropPolicy
 
     /**
      * Apply the configured identity to the current worker process.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function apply(): void
     {
@@ -44,6 +46,7 @@ final readonly class PrivilegeDropPolicy
 
     /**
      * Verify that the runtime can perform the configured identity changes.
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
     public function assertSupported(): void
     {
@@ -63,6 +66,9 @@ final readonly class PrivilegeDropPolicy
         return $this->uid !== null || $this->gid !== null;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function assertRequiredFunctions(): void
     {
         foreach ($this->requiredFunctions() as $function) {
@@ -75,6 +81,9 @@ final readonly class PrivilegeDropPolicy
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function assertTransitionPermission(?int $targetGid): void
     {
         $effectiveUid = posix_geteuid();
@@ -101,6 +110,9 @@ final readonly class PrivilegeDropPolicy
         return $functions;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
     private function resolveTargetGid(): ?int
     {
         if ($this->uid === null) {

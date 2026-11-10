@@ -35,9 +35,6 @@ final class Http2Connection
 
     private readonly FlowController $flow;
 
-    /** @var Closure(HttpRequest, Http2ResponseWriter): void */
-    private readonly Closure $handler;
-
     private readonly ResponseScheduler $output;
 
     private readonly FrameParser $parser;
@@ -66,16 +63,20 @@ final class Http2Connection
 
     private ?int $settingsAckTimer;
 
-    /** @param callable(HttpRequest, Http2ResponseWriter): void $handler */
+    /**
+     * @param callable(HttpRequest, Http2ResponseWriter): void $handler
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function __construct(
         private readonly LoopInterface $loop,
         private readonly Connection $connection,
         private readonly Http2Limits $limits,
         callable $handler,
     ) {
-        /** @var Closure(HttpRequest, Http2ResponseWriter): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
-        $this->handler = $handlerClosure;
         $this->parser = new FrameParser($limits->maxInboundFrameSize, $connection->bufferBudget());
         $this->peerSettings = new PeerSettings();
         $this->encoder = new Encoder($limits->maxDynamicTableBytes);
@@ -102,7 +103,7 @@ final class Http2Connection
             peerSettings: $this->peerSettings,
             flow: $this->flow,
             output: $this->output,
-            handler: $this->handler,
+            handler: $handlerClosure,
             connectionFailure: fn(ErrorCode $code, string $message) => $this->failConnection($code, $message),
             rotationRequested: fn() => $this->drain(),
             streamFailure: fn(StreamError $error) => $this->handleStreamError($error),
@@ -127,6 +128,9 @@ final class Http2Connection
 
     /**
      * Begin graceful HTTP/2 connection draining.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function drain(): void
     {
@@ -138,7 +142,7 @@ final class Http2Connection
         $this->requests->setDraining(true);
         $this->output->sendControl(FrameWriter::goAway($this->requests->lastAcceptedStreamId(), ErrorCode::NO_ERROR));
         $this->finishDrainIfReady();
-        if ($this->closed) {
+        if ($this->isClosedState()) {
             return;
         }
 
@@ -165,6 +169,9 @@ final class Http2Connection
         return $this->requests->lastClientStreamId();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function acceptSettingsAck(Frame $frame): void
     {
         if ($frame->payload !== '') {
@@ -215,6 +222,9 @@ final class Http2Connection
         $this->requests->cleanupIfClosed($stream);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function consumePreface(string $data): string
     {
         if ($this->prefaceComplete) {
@@ -239,6 +249,11 @@ final class Http2Connection
         return substr($data, $take);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function failConnection(ErrorCode $code, string $message): void
     {
         if ($this->closed) {
@@ -274,6 +289,9 @@ final class Http2Connection
         $this->errorClosePending = true;
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishDrainIfReady(): void
     {
         if (!$this->draining || $this->closed || $this->requests->count() !== 0 || $this->requests->hasOpenHeaderBlock() || !$this->output->wireIdle()) {
@@ -294,6 +312,9 @@ final class Http2Connection
         $this->cleanup();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function handleGoAway(Frame $frame): void
     {
         if ($frame->streamId !== 0) {
@@ -304,6 +325,9 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleOutputReady(): void
     {
         if ($this->errorClosePending && $this->output->wireIdle()) {
@@ -315,6 +339,12 @@ final class Http2Connection
         $this->finishDrainIfReady();
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function handlePing(Frame $frame): void
     {
         if ($frame->streamId !== 0) {
@@ -328,6 +358,10 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     */
     private function handlePriority(Frame $frame): void
     {
         if ($frame->streamId === 0) {
@@ -348,6 +382,9 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function handleReset(Frame $frame): void
     {
         if ($frame->streamId === 0) {
@@ -368,6 +405,12 @@ final class Http2Connection
         $this->requests->reset($stream);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function handleSettings(Frame $frame): void
     {
         if ($frame->streamId !== 0) {
@@ -389,6 +432,11 @@ final class Http2Connection
         $this->output->flush();
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function handleStreamError(StreamError $error): void
     {
         if ($this->closed) {
@@ -402,6 +450,11 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\StreamError
+     * @throws \Throwable
+     */
     private function handleWindowUpdate(Frame $frame): void
     {
         if (strlen($frame->payload) !== 4) {
@@ -434,6 +487,15 @@ final class Http2Connection
         $this->output->flush();
     }
 
+    private function isClosedState(): bool
+    {
+        return $this->closed;
+    }
+
+    /**
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function processBufferedFrames(string $data): void
     {
         foreach ($this->parser->push($data, $this->limits->maxFramesPerTurn) as $frame) {
@@ -475,6 +537,12 @@ final class Http2Connection
         };
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function processFrameSafely(Frame $frame): void
     {
         try {
@@ -493,6 +561,11 @@ final class Http2Connection
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
+     */
     private function pump(): void
     {
         if ($this->closed) {
@@ -528,6 +601,9 @@ final class Http2Connection
         $this->requests->touch($stream);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Internal\ConnectionError
+     */
     private function validateFirstFrame(Frame $frame): void
     {
         if ($frame->knownType() !== FrameType::SETTINGS || $frame->streamId !== 0 || $frame->hasFlag(0x1)) {

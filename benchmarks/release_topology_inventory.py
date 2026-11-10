@@ -6,7 +6,7 @@ import platform
 import subprocess
 from pathlib import Path
 
-BASELINE = "7e9bf20ad0737a187dfed77b723791b141b36378"
+BASELINE = "054737bc6a8d4025a8d05fabb8ad390f66ee47ae"
 
 
 def main():

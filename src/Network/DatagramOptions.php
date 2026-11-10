@@ -14,7 +14,10 @@ final readonly class DatagramOptions
     /** @var array<string, mixed> */
     public array $socketContext;
 
-    /** @param array<string, mixed> $socketContext */
+    /**
+     * @param array<string, mixed> $socketContext
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public int $maxDatagramBytes = 65_507,
         public int $receiveBatchSize = 32,

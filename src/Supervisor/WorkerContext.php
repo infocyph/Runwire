@@ -86,7 +86,9 @@ final class WorkerContext
     /**
      * Create a worker context optionally bound to a parent lifecycle channel.
      *
-     * @param resource|null $readyStream
+     * @param resource|closed-resource|null $readyStream
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function __construct(
         public readonly string $group,
@@ -137,6 +139,7 @@ final class WorkerContext
 
     /**
      * Attach the worker event loop and initialize background coroutine support when applicable.
+     * @throws \LogicException
      */
     public function attachLoop(LoopInterface $loop, float $backgroundShutdownGraceSeconds = 10.0): void
     {
@@ -190,6 +193,7 @@ final class WorkerContext
 
     /**
      * Close worker lifecycle, stop-wake, periodic-task, and coroutine resources.
+     * @throws \Throwable
      */
     public function close(): void
     {
@@ -231,8 +235,10 @@ final class WorkerContext
             }
         }
 
-        if (is_resource($this->readyStream)) {
-            fclose($this->readyStream);
+        // The owned stream property is readonly; close a local handle without reassigning it.
+        $readyStream = $this->readyStream;
+        if (is_resource($readyStream)) {
+            fclose($readyStream);
         }
 
         foreach (['stopRead', 'stopWrite'] as $property) {
@@ -289,6 +295,7 @@ final class WorkerContext
      * Register periodic worker work on the attached event loop.
      *
      * @param callable(): void $callback
+     * @throws \LogicException
      */
     public function every(string $name, float $intervalSeconds, callable $callback): PeriodicTaskHandle
     {
@@ -297,13 +304,17 @@ final class WorkerContext
 
     /**
      * Report the worker as unhealthy to the supervisor.
+     * @throws \RuntimeException
      */
     public function markUnhealthy(): void
     {
         $this->signal('U');
     }
 
-    /** Take responsibility for aborting a socket still active when this worker retires. */
+    /**
+     * Take responsibility for aborting a socket still active when this worker retires.
+     * @throws \LogicException
+     */
     public function ownConnection(Connection $connection): void
     {
         if ($this->stopping) {
@@ -313,7 +324,10 @@ final class WorkerContext
         $this->ownedConnections[spl_object_id($connection)] = $connection;
     }
 
-    /** Take ownership of an underlying numeric TCP/Unix connector and pending dials. */
+    /**
+     * Take ownership of an underlying numeric TCP/Unix connector and pending dials.
+     * @throws \LogicException
+     */
     public function ownDialer(Dialer $dialer): void
     {
         if ($this->stopping) {
@@ -328,6 +342,7 @@ final class WorkerContext
      *
      * The caller explicitly transfers shutdown responsibility; borrowed
      * executors must not be registered.
+     * @throws \LogicException
      */
     public function ownExecutor(ProcessExecutor $executor): void
     {
@@ -338,7 +353,10 @@ final class WorkerContext
         $this->ownedExecutors[spl_object_id($executor)] = $executor;
     }
 
-    /** Own a hostname-racing dialer without implicitly owning its borrowed dependencies. */
+    /**
+     * Own a hostname-racing dialer without implicitly owning its borrowed dependencies.
+     * @throws \LogicException
+     */
     public function ownHappyEyeballsDialer(HappyEyeballsDialer $dialer): void
     {
         if ($this->stopping) {
@@ -348,7 +366,10 @@ final class WorkerContext
         $this->ownedHappyDialers[spl_object_id($dialer)] = $dialer;
     }
 
-    /** Explicitly transfer one connection pool's shutdown to this worker. */
+    /**
+     * Explicitly transfer one connection pool's shutdown to this worker.
+     * @throws \LogicException
+     */
     public function ownPool(BoundedConnectionPool $pool): void
     {
         if ($this->stopping) {
@@ -358,7 +379,10 @@ final class WorkerContext
         $this->ownedPools[spl_object_id($pool)] = $pool;
     }
 
-    /** Explicitly transfer a native QUIC session's shutdown to this worker. */
+    /**
+     * Explicitly transfer a native QUIC session's shutdown to this worker.
+     * @throws \LogicException
+     */
     public function ownQuicSession(QuicClientSession $session): void
     {
         if ($this->stopping) {
@@ -378,6 +402,7 @@ final class WorkerContext
 
     /**
      * Signal that worker initialization is complete and traffic may be served.
+     * @throws \RuntimeException
      */
     public function ready(): void
     {
@@ -391,6 +416,8 @@ final class WorkerContext
 
     /**
      * Record request completion and request recycling when a threshold is reached.
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function recordRequestCompleted(): bool
     {
@@ -449,6 +476,7 @@ final class WorkerContext
 
     /**
      * Report application warmup failure to the supervisor.
+     * @throws \RuntimeException
      */
     public function reportWarmupFailure(): void
     {
@@ -457,6 +485,8 @@ final class WorkerContext
 
     /**
      * Request an orderly worker recycle for the supplied reason.
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function requestRecycle(ShutdownReason $reason = ShutdownReason::MANUAL_RECYCLE): void
     {
@@ -471,6 +501,7 @@ final class WorkerContext
 
     /**
      * Begin worker shutdown and stop accepting scheduled background work.
+     * @throws \Throwable
      */
     public function requestStop(?ShutdownReason $reason = null): void
     {
@@ -504,6 +535,8 @@ final class WorkerContext
      * Spawn background coroutine work for task or service worker roles.
      *
      * @param callable(CoroutineScope): mixed $callback
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function spawnBackground(callable $callback): Task
     {
@@ -532,6 +565,7 @@ final class WorkerContext
      * Return the readable stop-wake stream for event-loop integration.
      *
      * @return resource
+     * @throws \RuntimeException
      */
     public function stopStream(): mixed
     {
@@ -542,6 +576,9 @@ final class WorkerContext
         return $this->stopRead;
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function attachControlWatcher(LoopInterface $loop): void
     {
         if (!is_resource($this->readyStream)) {
@@ -567,6 +604,9 @@ final class WorkerContext
         );
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function beginStop(ShutdownReason $reason): void
     {
         if ($this->stopping) {
@@ -659,6 +699,9 @@ final class WorkerContext
         return $observed;
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private function signal(string $message): void
     {
         if (!is_resource($this->readyStream)) {

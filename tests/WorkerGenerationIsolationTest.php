@@ -18,11 +18,15 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
 
 it('invalidates background admission and periodic handles when a worker generation closes', function (): void {
     $loop = new SelectLoop();
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new RuntimeException('Unable to identify current test worker process.');
+    }
     $worker = new WorkerContext(
         group: 'generation-isolation',
         slot: 0,
         generation: 1,
-        pid: getmypid(),
+        pid: $pid,
         parentPid: 0,
         role: WorkerRole::TASK,
     );
@@ -56,11 +60,15 @@ it('isolates cancelled coroutine and periodic work from a replacement worker gen
     $priorTickCount = 0;
     $replacementTickCount = 0;
     $oldLoop = new SelectLoop();
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new RuntimeException('Unable to identify current test worker process.');
+    }
     $old = new WorkerContext(
         group: 'generation-isolation',
         slot: 0,
         generation: 1,
-        pid: getmypid(),
+        pid: $pid,
         parentPid: 0,
         role: WorkerRole::TASK,
     );
@@ -93,7 +101,7 @@ it('isolates cancelled coroutine and periodic work from a replacement worker gen
         group: 'generation-isolation',
         slot: 0,
         generation: 2,
-        pid: getmypid(),
+        pid: $pid,
         parentPid: 0,
         role: WorkerRole::TASK,
     );
@@ -125,14 +133,18 @@ it('rejects retired application references and completed request contexts after 
     $newCalls = 0;
     $retired = new RuntimeApplication(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$retiredCalls): void {
-            unset($request);
+            if ($request->target !== '/generation') {
+                throw new RuntimeException('Retired worker received an unexpected request target.');
+            }
             ++$retiredCalls;
             $writer->end('retired');
         },
     );
     $replacement = new RuntimeApplication(
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$newCalls): void {
-            unset($request);
+            if ($request->target !== '/generation') {
+                throw new RuntimeException('Replacement worker received an unexpected request target.');
+            }
             ++$newCalls;
             $writer->end('replacement');
         },

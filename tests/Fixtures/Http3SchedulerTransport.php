@@ -21,11 +21,13 @@ final class Http3SchedulerTransport implements Http3TransportInterface
 
     public string $qpackBytes = '';
 
+    #[\Override]
     public function finishRequestStream(int $streamId): void
     {
         $this->finished[] = $streamId;
     }
 
+    #[\Override]
     public function writeQpackEncoder(string $bytes): int
     {
         return $this->write($bytes, function (string $accepted): void {
@@ -33,6 +35,7 @@ final class Http3SchedulerTransport implements Http3TransportInterface
         });
     }
 
+    #[\Override]
     public function writeRequestStream(int $streamId, string $bytes): int
     {
         return $this->write($bytes, function (string $accepted) use ($streamId): void {

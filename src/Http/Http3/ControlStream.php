@@ -19,6 +19,7 @@ final class ControlStream
 
     /**
      * Create a control-stream parser with a frame payload limit.
+     * @throws \InvalidArgumentException
      */
     public function __construct(int $maxFramePayloadBytes = 1_048_576)
     {
@@ -27,6 +28,7 @@ final class ControlStream
 
     /**
      * Build the local control-stream preamble and SETTINGS frame.
+     * @throws \InvalidArgumentException
      */
     public static function preamble(Settings $settings): string
     {
@@ -39,6 +41,7 @@ final class ControlStream
 
     /**
      * Report closure of the critical control stream.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function close(): never
     {
@@ -56,7 +59,11 @@ final class ControlStream
         return $this->peerSettings;
     }
 
-    /** @return list<Frame> */
+    /**
+     * @return list<Frame>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     public function push(string $bytes): array
     {
         $frames = $this->parser->push($bytes);
@@ -68,6 +75,10 @@ final class ControlStream
         return $frames;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     private function validate(Frame $frame): void
     {
         $type = $frame->knownType();

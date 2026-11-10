@@ -30,26 +30,40 @@ final readonly class Http3ClientWireCodec
 
     private Encoder $encoder;
 
-    /** Restrict both directions to unblocked, finite field sections. */
+    /**
+     * Restrict both directions to unblocked, finite field sections.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function __construct(int $maxFieldSectionBytes = 65_536, int $maxHeaderFields = 128, int $decoderCapacity = 0, int $maxBlocked = 0)
     {
         $this->encoder = new Encoder(0, 0, $maxFieldSectionBytes);
         $this->decoder = new Decoder($decoderCapacity, $maxBlocked, $maxFieldSectionBytes, $maxHeaderFields);
     }
 
-    /** Cancel retained QPACK field sections and enqueue the matching stream-cancellation signal. */
+    /**
+     * Cancel retained QPACK field sections and enqueue the matching stream-cancellation signal.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function cancelResponseStream(int $wireStreamId): void
     {
         $this->decoder->cancelStream($wireStreamId);
     }
 
-    /** @return array{status:int, headers:Headers} */
+    /**
+     * @return array{status:int, headers:Headers}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function decodeReadyHeaders(DecodedFieldSection $section): array
     {
         return self::parseHeaders($section);
     }
 
-    /** Decode one QPACK-unblocked response trailer section. */
+    /**
+     * Decode one QPACK-unblocked response trailer section.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     public function decodeReadyTrailers(DecodedFieldSection $section): Headers
     {
         return self::parseTrailers($section);
@@ -69,7 +83,12 @@ final readonly class Http3ClientWireCodec
             ?? throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response trailer QPACK is unsupported.');
     }
 
-    /** Serialize HTTPS request headers for an already verified QUIC+h3 stream. */
+    /**
+     * Serialize HTTPS request headers for an already verified QUIC+h3 stream.
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
+     */
     public function encodeRequestHeaders(ClientRequest $request, int $streamId): string
     {
         $request->protocol->negotiate('h3', true, true);
@@ -86,7 +105,11 @@ final readonly class Http3ClientWireCodec
         return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
 
-    /** Encode the final bounded HTTP/3 trailer section without dynamic QPACK. */
+    /**
+     * Encode the final bounded HTTP/3 trailer section without dynamic QPACK.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \Throwable
+     */
     public function encodeRequestTrailers(Headers $trailers, int $streamId): string
     {
         $fields = [];
@@ -110,13 +133,22 @@ final readonly class Http3ClientWireCodec
         return new Frame(FrameType::HEADERS->value, $encoded->block)->encode();
     }
 
-    /** Validate the peer QPACK decoder stream; no dynamic references are outstanding. */
+    /**
+     * Validate the peer QPACK decoder stream; no dynamic references are outstanding.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     */
     public function receivePeerDecoderInstructions(string $bytes): void
     {
         $this->encoder->pushDecoderInstructions($bytes);
     }
 
-    /** @return list<ReadyFieldSection> */
+    /**
+     * @return list<ReadyFieldSection>
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function receivePeerEncoderInstructions(string $bytes): array
     {
         return $this->decoder->pushEncoderInstructions($bytes);
@@ -128,7 +160,12 @@ final readonly class Http3ClientWireCodec
         return $this->decoder->takeDecoderInstructions();
     }
 
-    /** @return array{status:int, headers:Headers}|null */
+    /**
+     * @return array{status:int, headers:Headers}|null
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function tryDecodeResponseHeaders(string $payload, int $streamId): ?array
     {
         $section = $this->decoder->decode($payload, $streamId);
@@ -136,7 +173,12 @@ final readonly class Http3ClientWireCodec
         return $section === null ? null : self::parseHeaders($section);
     }
 
-    /** Decode trailers or report a bounded QPACK-blocked field section. */
+    /**
+     * Decode trailers or report a bounded QPACK-blocked field section.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function tryDecodeResponseTrailers(string $payload, int $streamId): ?Headers
     {
         $section = $this->decoder->decode($payload, $streamId);
@@ -144,6 +186,9 @@ final readonly class Http3ClientWireCodec
         return $section === null ? null : self::parseTrailers($section);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function assertRequestHeader(string $name, string $value, bool $hasBody): void
     {
         if (in_array($name, ['host', 'connection', 'keep-alive', 'proxy-connection', 'proxy-authorization', 'transfer-encoding', 'upgrade'], true)
@@ -153,7 +198,10 @@ final readonly class Http3ClientWireCodec
         }
     }
 
-    /** @return array{status:int, headers:Headers} */
+    /**
+     * @return array{status:int, headers:Headers}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private static function parseHeaders(DecodedFieldSection $decoded): array
     {
         $status = null;
@@ -177,6 +225,9 @@ final readonly class Http3ClientWireCodec
         return ['status' => $status, 'headers' => new Headers($fields)];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private static function parseTrailers(DecodedFieldSection $decoded): Headers
     {
         $fields = [];
@@ -190,7 +241,10 @@ final readonly class Http3ClientWireCodec
         return new Headers($fields);
     }
 
-    /** @return list<array{0:string,1:string}> */
+    /**
+     * @return list<array{0:string,1:string}>
+     * @throws \InvalidArgumentException
+     */
     private static function requestFields(ClientRequest $request): array
     {
         [$authority, $target] = self::validatedOrigin($request->uri);
@@ -208,6 +262,9 @@ final readonly class Http3ClientWireCodec
         return $fields;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     */
     private static function responseField(string $name, string $value): HeaderField
     {
         if (str_starts_with($name, ':') || preg_match('/[A-Z]/', $name) === 1) {
@@ -224,11 +281,15 @@ final readonly class Http3ClientWireCodec
         }
     }
 
-    /** @return array{0:string,1:string} */
+    /**
+     * @return array{0:string,1:string}
+     * @throws \InvalidArgumentException
+     */
     private static function validatedOrigin(string $uri): array
     {
         $parts = parse_url($uri);
-        if (!is_array($parts) || !is_string($parts['host'] ?? null)
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
+        if (!is_array($parts) || !is_string($host)
             || ($parts['scheme'] ?? null) !== 'https') {
             throw new InvalidArgumentException('HTTP/3 requires a verified HTTPS origin.');
         }
@@ -237,7 +298,7 @@ final readonly class Http3ClientWireCodec
         if ($target === '' || preg_match('/[\x00-\x20\x7f]/', $target) === 1) {
             throw new InvalidArgumentException('Invalid HTTP/3 request target.');
         }
-        $authority = $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+        $authority = $host . (isset($parts['port']) ? ':' . $parts['port'] : '');
 
         return [$authority, $target];
     }

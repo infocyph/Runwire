@@ -18,7 +18,7 @@ final class TimerQueue
 
     private int $cancelledEntries = 0;
 
-    /** @var list<array{id: int, deadline: int}> */
+    /** @var array<int, array{id: int, deadline: int}> */
     private array $heap = [];
 
     /** @var array<int, array{deadline: int, interval: int, callback: Closure}> */
@@ -26,6 +26,8 @@ final class TimerQueue
 
     /**
      * Add a one-shot timer.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function addDelay(int $id, float $seconds, Closure $callback): void
     {
@@ -34,6 +36,8 @@ final class TimerQueue
 
     /**
      * Add a repeating timer.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
      */
     public function addRepeat(int $id, float $seconds, Closure $callback): void
     {
@@ -103,6 +107,7 @@ final class TimerQueue
 
     /**
      * Advance a repeating timer to its next future deadline.
+     * @throws \OverflowException
      */
     public function rescheduleRepeat(int $id): void
     {
@@ -152,6 +157,10 @@ final class TimerQueue
         return $this->timers[$id] ?? null;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function add(int $id, float $seconds, int $interval, Closure $callback): void
     {
         $delay = $this->secondsToNanoseconds($seconds, true);
@@ -190,6 +199,9 @@ final class TimerQueue
             || ($left['deadline'] === $right['deadline'] && $left['id'] < $right['id']);
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function nextRepeatDeadline(int $previousDeadline, int $interval, int $now): int
     {
         if ($previousDeadline > PHP_INT_MAX - $interval) {
@@ -251,6 +263,10 @@ final class TimerQueue
         $this->heap[$index] = $entry;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
     private function secondsToNanoseconds(float $seconds, bool $allowZero): int
     {
         if (!is_finite($seconds) || $seconds < 0 || (!$allowZero && $seconds <= 0)) {

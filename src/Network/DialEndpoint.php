@@ -11,6 +11,7 @@ use InvalidArgumentException;
  *
  * Parsing performs no DNS resolution or network I/O.
  */
+/** @psalm-taint-specialize */
 final readonly class DialEndpoint
 {
     private function __construct(
@@ -22,7 +23,10 @@ final readonly class DialEndpoint
         public bool $isIpLiteral,
     ) {}
 
-    /** Parse an outbound endpoint without resolving hostname addresses. */
+    /**
+     * Parse an outbound endpoint without resolving hostname addresses.
+     * @throws \InvalidArgumentException
+     */
     public static function parse(string $uri): self
     {
         if ($uri === '' || str_contains($uri, "\0")) {
@@ -32,18 +36,22 @@ final readonly class DialEndpoint
         return str_starts_with($uri, 'unix://') ? self::parseUnix($uri) : self::parseTcp($uri);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function parseTcp(string $uri): self
     {
         $parts = parse_url($uri);
+        $host = is_array($parts) ? ($parts['host'] ?? null) : null;
+        $port = is_array($parts) ? ($parts['port'] ?? null) : null;
         if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'tcp'
-            || !is_string($parts['host'] ?? null) || !is_int($parts['port'] ?? null)
-            || $parts['port'] < 1
+            || !is_string($host) || !is_int($port)
+            || $port < 1
             || isset($parts['user']) || isset($parts['pass'])
             || isset($parts['query']) || isset($parts['fragment']) || isset($parts['path'])) {
             throw new InvalidArgumentException('TCP endpoints require tcp://host:port without URL credentials or suffixes.');
         }
 
-        $host = $parts['host'];
         $isIpv6 = str_starts_with($host, '[') && str_ends_with($host, ']');
         if ($isIpv6) {
             $host = substr($host, 1, -1);
@@ -52,9 +60,12 @@ final readonly class DialEndpoint
         $literal = filter_var($host, FILTER_VALIDATE_IP) !== false;
         self::validateHost($host, $isIpv6, $literal);
 
-        return new self('tcp', $uri, $host, $parts['port'], null, $literal);
+        return new self('tcp', $uri, $host, $port, null, $literal);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function parseUnix(string $uri): self
     {
         $path = substr($uri, 7);
@@ -66,6 +77,9 @@ final readonly class DialEndpoint
         return new self('unix', $uri, null, null, $path, false);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateHost(string $host, bool $ipv6Brackets, bool $literal): void
     {
         if ($ipv6Brackets && (!$literal || filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false)) {

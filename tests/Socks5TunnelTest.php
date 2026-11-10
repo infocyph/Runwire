@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -9,9 +11,13 @@ use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Proxy\Socks5Handshake;
 use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use InvalidArgumentException;
+use LogicException;
+use Throwable;
+
 
 it('negotiates live nonblocking SOCKS5 and preserves pipelined tunnel bytes', function (): void {
-    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$socket, $peer] = runwireSocks5TunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $socket);
     $captured = [];
@@ -58,7 +64,7 @@ it('negotiates live nonblocking SOCKS5 and preserves pipelined tunnel bytes', fu
 });
 
 it('refuses SOCKS5 DNS-leaking target and credentials before transmitting', function (): void {
-    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$socket, $peer] = runwireSocks5TunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $socket);
     try {
@@ -82,7 +88,7 @@ it('refuses SOCKS5 DNS-leaking target and credentials before transmitting', func
 });
 
 it('cancels SOCKS5 setup exactly once without leaving a live transport observer', function (): void {
-    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$socket, $peer] = runwireSocks5TunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $socket);
     $source = new CancellationSource();
@@ -113,7 +119,7 @@ it('cancels SOCKS5 setup exactly once without leaving a live transport observer'
 });
 
 it('refuses SOCKS5 credentials before proving an exact outbound proxy TLS peer', function (): void {
-    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$socket, $peer] = runwireSocks5TunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $socket);
     try {
@@ -134,3 +140,17 @@ it('refuses SOCKS5 credentials before proving an exact outbound proxy TLS peer',
         fclose($peer);
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireSocks5TunnelTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

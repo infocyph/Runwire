@@ -29,6 +29,7 @@ final readonly class PhpQuicConnection
 
     /**
      * Wrap and validate a native ext-quic connection object.
+     * @throws \InvalidArgumentException
      */
     public function __construct(private object $connection)
     {
@@ -43,6 +44,8 @@ final readonly class PhpQuicConnection
 
     /**
      * Accept the next available peer stream.
+     * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     public function acceptStream(): ?PhpQuicStream
     {
@@ -59,6 +62,7 @@ final readonly class PhpQuicConnection
 
     /**
      * Close the QUIC connection with an application error and reason.
+     * @throws \InvalidArgumentException
      */
     public function close(int $errorCode = 0, string $reason = '', bool $rapid = true): void
     {
@@ -73,6 +77,7 @@ final readonly class PhpQuicConnection
      * Determine whether the native QUIC layer has observed connection closure.
      *
      * @phpstan-impure
+     * @throws \UnexpectedValueException
      */
     public function closed(): bool
     {
@@ -100,6 +105,7 @@ final readonly class PhpQuicConnection
 
     /**
      * Return the negotiated ALPN protocol when available.
+     * @throws \UnexpectedValueException
      */
     public function negotiatedAlpn(): ?string
     {
@@ -121,6 +127,8 @@ final readonly class PhpQuicConnection
 
     /**
      * Open a local QUIC stream with the requested directionality.
+     * @throws \UnexpectedValueException
+     * @throws \InvalidArgumentException
      */
     public function openStream(bool $bidirectional): PhpQuicStream
     {
@@ -140,6 +148,9 @@ final readonly class PhpQuicConnection
         ($this->setBlockingCallback)(false);
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function callback(object $object, string $method): Closure
     {
         $callable = [$object, $method];

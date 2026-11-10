@@ -2,15 +2,29 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Proxy\HttpConnectHandshake;
 use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
+use LogicException;
+use RuntimeException;
+use Throwable;
+
 
 it('establishes a bounded real nonblocking CONNECT and preserves the first tunnel bytes', function (): void {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    runwireOwnedHttpConnectTunnelTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttpConnectTunnelTestCase01(): void
+{
+    [$stream, $peer] = runwireHttpConnectTunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $request = '';
@@ -54,10 +68,18 @@ it('establishes a bounded real nonblocking CONNECT and preserves the first tunne
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('aborts a failed CONNECT response without handing out the connection', function (): void {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    runwireOwnedHttpConnectTunnelTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttpConnectTunnelTestCase02(): void
+{
+    [$stream, $peer] = runwireHttpConnectTunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $results = [];
@@ -85,10 +107,18 @@ it('aborts a failed CONNECT response without handing out the connection', functi
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('cancels a pending CONNECT once and releases all callback owners', function (): void {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    runwireOwnedHttpConnectTunnelTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttpConnectTunnelTestCase03(): void
+{
+    [$stream, $peer] = runwireHttpConnectTunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $stream);
     $source = new CancellationSource();
@@ -116,10 +146,18 @@ it('cancels a pending CONNECT once and releases all callback owners', function (
         $connection->abort();
         fclose($peer);
     }
-});
+}
 
 it('refuses to disclose CONNECT credentials on a plaintext socket with a claimed proxy name', function (): void {
-    [$socket, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    runwireOwnedHttpConnectTunnelTestCase04();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedHttpConnectTunnelTestCase04(): void
+{
+    [$socket, $peer] = runwireHttpConnectTunnelTestSocketPair();
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $socket);
     try {
@@ -140,4 +178,18 @@ it('refuses to disclose CONNECT credentials on a plaintext socket with a claimed
         $connection->abort();
         fclose($peer);
     }
-});
+}
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireHttpConnectTunnelTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

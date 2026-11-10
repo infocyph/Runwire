@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http;
 /**
  * Stores an ordered collection of validated HTTP header fields.
  */
+/** @psalm-taint-specialize */
 final readonly class Headers
 {
     /** @param list<HeaderField> $fields */
@@ -14,6 +15,7 @@ final readonly class Headers
 
     /**
      * @param array<string, string|list<string>> $headers
+     * @throws \InvalidArgumentException
      */
     public static function fromArray(array $headers): self
     {

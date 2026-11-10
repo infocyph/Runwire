@@ -55,6 +55,7 @@ final class UnixListener
 
     /**
      * Binds a Unix-domain listener at the supplied absolute socket path.
+     * @throws \Infocyph\Runwire\Exception\ListenerException
      */
     public static function bind(
         string $path,
@@ -74,6 +75,7 @@ final class UnixListener
 
     /**
      * Immediately aborts every active connection.
+     * @throws \Throwable
      */
     public function abortConnections(): void
     {
@@ -134,10 +136,11 @@ final class UnixListener
         }
         $this->closed = true;
         $this->syncAcceptWatcher();
-        if (is_resource($this->stream)) {
-            fclose($this->stream);
-        }
+        $stream = $this->stream;
         $this->stream = null;
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
         $this->connectionCallback = null;
         $this->loop = null;
         if ($unlinkPath) {
@@ -147,6 +150,7 @@ final class UnixListener
 
     /**
      * Begins graceful closure of all active connections.
+     * @throws \Throwable
      */
     public function closeConnectionsGracefully(): void
     {
@@ -216,7 +220,10 @@ final class UnixListener
         $this->syncAcceptWatcher();
     }
 
-    /** @param callable(Connection): void $onConnection */
+    /**
+     * @param callable(Connection): void $onConnection
+     * @throws \LogicException
+     */
     public function start(LoopInterface $loop, callable $onConnection): void
     {
         if ($this->closed) {
@@ -230,7 +237,10 @@ final class UnixListener
         $this->syncAcceptWatcher();
     }
 
-    /** @param resource $stream */
+    /**
+     * @param resource $stream
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function configureListener(mixed $stream, string $path, UnixListenerOptions $options): void
     {
         if (!stream_set_blocking($stream, false)) {
@@ -260,7 +270,10 @@ final class UnixListener
             && str_starts_with($message, 'stream_socket_accept(): Accept failed:');
     }
 
-    /** @return resource */
+    /**
+     * @return resource
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function openListener(string $path, UnixListenerOptions $options): mixed
     {
         $context = stream_context_create([
@@ -290,6 +303,9 @@ final class UnixListener
         return $stream;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function preparePath(string $path, UnixListenerOptions $options): void
     {
         if (!file_exists($path) && !is_link($path)) {
@@ -328,6 +344,9 @@ final class UnixListener
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ListenerException
+     */
     private static function validatePath(string $path): void
     {
         if ($path === '' || $path[0] !== '/') {
@@ -341,6 +360,7 @@ final class UnixListener
     /**
      * @param resource $client
      * @param Closure(Connection): void $callback
+     * @throws \Throwable
      */
     private function activateConnection(LoopInterface $loop, mixed $client, mixed $peer, Closure $callback): void
     {
@@ -373,6 +393,9 @@ final class UnixListener
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function handleAccept(): void
     {
         $loop = $this->loop;

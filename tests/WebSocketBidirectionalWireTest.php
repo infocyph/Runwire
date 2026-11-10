@@ -2,12 +2,23 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\WebSocket\Internal\WebSocketFrameParser;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketWireCodec;
 use Infocyph\Runwire\WebSocket\WebSocketOptions;
+use InvalidArgumentException;
 
 it('encodes fresh masked client frames and decodes them with existing bounded server parser', function (): void {
+    runwireOwnedWebSocketBidirectionalWireTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketBidirectionalWireTestCase01(): void
+{
     $payloads = [
         '',
         'hello',
@@ -29,9 +40,17 @@ it('encodes fresh masked client frames and decodes them with existing bounded se
             ->and($frames[0]->fin)->toBeTrue()
             ->and($parser->bufferedBytes())->toBe(0);
     }
-});
+}
 
 it('decodes unmasked server frames only in client peer mode', function (): void {
+    runwireOwnedWebSocketBidirectionalWireTestCase02();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketBidirectionalWireTestCase02(): void
+{
     $wire = WebSocketWireCodec::frame(0x1, 'hello-server');
     $client = new WebSocketFrameParser(new WebSocketOptions(), expectMasked: false);
     $client->append($wire);
@@ -46,9 +65,17 @@ it('decodes unmasked server frames only in client peer mode', function (): void 
 
     $client->append(WebSocketWireCodec::clientFrame(0x9, 'ping'));
     expect(fn() => $client->parse(1))->toThrow(WebSocketProtocolException::class);
-});
+}
 
 it('keeps masked ping close and binary control limits compatible with the server', function (): void {
+    runwireOwnedWebSocketBidirectionalWireTestCase03();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedWebSocketBidirectionalWireTestCase03(): void
+{
     $parser = new WebSocketFrameParser(new WebSocketOptions());
     $close = pack('n', 1000) . 'finished';
     $parser->append(WebSocketWireCodec::clientFrame(0x9, 'ping'));
@@ -62,4 +89,4 @@ it('keeps masked ping close and binary control limits compatible with the server
         ->and(fn() => WebSocketWireCodec::clientFrame(0xB, 'reserved'))->toThrow(InvalidArgumentException::class)
         ->and(fn() => WebSocketWireCodec::clientFrame(0x9, str_repeat('a', 126)))->toThrow(InvalidArgumentException::class)
         ->and(fn() => WebSocketWireCodec::clientFrame(0x9, 'ping', false))->toThrow(InvalidArgumentException::class);
-});
+}

@@ -23,8 +23,6 @@ final readonly class ProcessRunner
 {
     private const int IO_CHUNK_BYTES = 65_536;
 
-    private const string NULL_DEVICE = DIRECTORY_SEPARATOR === '\\' ? 'NUL' : '/dev/null';
-
     private const int POLL_MICROS = 50_000;
 
     private ProcessPolicy $policy;
@@ -42,6 +40,7 @@ final readonly class ProcessRunner
 
     /**
      * Executes a command and returns its captured execution result.
+     * @throws \Throwable
      */
     public function run(Command $command, ?callable $stdoutConsumer = null, ?callable $stderrConsumer = null): ProcessResult
     {
@@ -77,13 +76,26 @@ final readonly class ProcessRunner
         return $consumer === null ? null : Closure::fromCallable($consumer);
     }
 
+    /** The producer may release an input handle between event-loop iterations. */
+    private static function isOpenResource(mixed $resource): bool
+    {
+        return is_resource($resource);
+    }
+
+    /** Return the platform-specific operating system null device. */
+    private static function nullDevice(): string
+    {
+        return ['/' => '/dev/null', '\\' => 'NUL'][DIRECTORY_SEPARATOR];
+    }
+
     /** @param array<int, resource> $pipes */
     private function closePipe(array &$pipes, int $index): void
     {
-        if (isset($pipes[$index]) && is_resource($pipes[$index])) {
-            fclose($pipes[$index]);
-        }
+        $pipe = $pipes[$index] ?? null;
         unset($pipes[$index]);
+        if (is_resource($pipe)) {
+            fclose($pipe);
+        }
     }
 
     /** @param array<int, resource> $pipes */
@@ -114,6 +126,9 @@ final readonly class ProcessRunner
         return $allowed < strlen($chunk);
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     */
     private function ensureProcessFunctions(): void
     {
         foreach (['proc_open', 'proc_get_status', 'proc_terminate', 'proc_close'] as $function) {
@@ -123,7 +138,12 @@ final readonly class ProcessRunner
         }
     }
 
-    /** @param array<int, resource> $pipes */
+    /**
+     * @param array<int, resource> $pipes
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     private function execute(PreparedCommand $prepared, ProcessHandle $process, array &$pipes, InputSource $input, OutputSink $stdout, OutputSink $stderr): ProcessResult
     {
         $child = $process->resource();
@@ -232,7 +252,7 @@ final readonly class ProcessRunner
         return match ($mode) {
             IoMode::CAPTURE, IoMode::STREAM => ['pipe', 'w'],
             IoMode::INHERIT => $inherit,
-            IoMode::NULL => ['file', self::NULL_DEVICE, 'w'],
+            IoMode::NULL => ['file', self::nullDevice(), 'w'],
         };
     }
 
@@ -250,7 +270,10 @@ final readonly class ProcessRunner
         return max(0, $micros);
     }
 
-    /** @param array<int, resource> $pipes */
+    /**
+     * @param array<int, resource> $pipes
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     private function primeInput(InputSource $input, string &$buffer, array &$pipes): void
     {
         if (!isset($pipes[0]) || $buffer !== '' || $input->isResource()) {
@@ -265,7 +288,7 @@ final readonly class ProcessRunner
         $buffer = $chunk;
     }
 
-    /** @param list<resource> $read */
+    /** @param array<array-key, resource> $read */
     private function readInputResource(array $read, ?int $inputResourceId, InputSource $input, string &$buffer): void
     {
         if ($inputResourceId === null || $buffer !== '') {
@@ -282,7 +305,7 @@ final readonly class ProcessRunner
     }
 
     /**
-     * @param list<resource> $read
+     * @param array<array-key, resource> $read
      * @param array<int, resource> $pipes
      */
     private function readOutputs(array $read, array &$pipes, OutputSink $stdout, OutputSink $stderr, int $limit, int &$accepted): bool
@@ -300,8 +323,9 @@ final readonly class ProcessRunner
     }
 
     /**
-     * @param array<int, resource> $pipes
+     * @param array<int, resource|closed-resource> $pipes
      * @return array{0: list<resource>, 1: list<resource>, 2: ?int}
+     * @throws \Infocyph\Runwire\Exception\ProcessException
      */
     private function selectSets(array $pipes, InputSource $input, string $stdinBuffer): array
     {
@@ -314,7 +338,7 @@ final readonly class ProcessRunner
         $inputResourceId = null;
         if (isset($pipes[0]) && $stdinBuffer === '' && $input->isResource()) {
             $resource = $input->resource();
-            if (is_resource($resource)) {
+            if (self::isOpenResource($resource)) {
                 $read[] = $resource;
                 $inputResourceId = get_resource_id($resource);
             }
@@ -327,12 +351,16 @@ final readonly class ProcessRunner
         return [$read, $write, $inputResourceId];
     }
 
-    /** @return array{0: ProcessHandle, 1: array<int, resource>} */
+    /**
+     * @return array{0: ProcessHandle, 1: array<int, resource>}
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     * @throws \Throwable
+     */
     private function start(PreparedCommand $prepared): array
     {
         $command = $prepared->command;
         $descriptors = [
-            0 => $command->stdin === null ? ['file', self::NULL_DEVICE, 'r'] : ['pipe', 'r'],
+            0 => $command->stdin === null ? ['file', self::nullDevice(), 'r'] : ['pipe', 'r'],
             1 => $this->outputDescriptor($command->stdoutMode, STDOUT),
             2 => $this->outputDescriptor($command->stderrMode, STDERR),
         ];
@@ -369,6 +397,9 @@ final readonly class ProcessRunner
         return [$handle, $pipes];
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Exception\ProcessStartException
+     */
     private function validateConsumer(IoMode $mode, ?callable $consumer, string $stream): void
     {
         if ($mode === IoMode::STREAM && $consumer === null) {
@@ -377,8 +408,10 @@ final readonly class ProcessRunner
     }
 
     /**
-     * @param list<resource> $read
-     * @param list<resource> $write
+     * stream_select may change numeric keys in the by-reference arrays.
+     *
+     * @param array<array-key, resource> $read
+     * @param array<array-key, resource> $write
      */
     private function waitForIo(array &$read, array &$write, int $micros): void
     {
@@ -401,7 +434,7 @@ final readonly class ProcessRunner
     }
 
     /**
-     * @param list<resource> $write
+     * @param array<array-key, resource> $write
      * @param array<int, resource> $pipes
      */
     private function writeInput(array $write, array &$pipes, string &$buffer, InputSource $input): void

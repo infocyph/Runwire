@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/process_usage.php';
+
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http3OutboundClient;
@@ -11,6 +13,9 @@ use Infocyph\Runwire\Network\QuicClientOptions;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 4 || filter_var($argv[1], FILTER_VALIDATE_INT) === false
     || filter_var($argv[3], FILTER_VALIDATE_INT) === false) {
     throw new InvalidArgumentException('Usage: profile.php <udp-port> <trusted-ca> <iterations>');
@@ -39,7 +44,7 @@ $request = new ClientRequest('GET', 'https://localhost:' . $port . '/interop?q=1
 $latencies = [];
 $bytesTotal = 0;
 $expected = 'runwire-outbound-h3-peer-ok';
-$startUsage = getrusage();
+$startUsage = runwireBenchmarkUsage();
 $start = hrtime(true);
 
 for ($index = 0; $index < $iterations; ++$index) {
@@ -80,29 +85,20 @@ for ($index = 0; $index < $iterations; ++$index) {
     $bytesTotal += strlen($received);
 }
 
-$duration = (hrtime(true) - $start) / 1_000_000_000;
+$duration = (float) (hrtime(true) - $start) / 1_000_000_000.0;
 if ($duration <= 0.0) {
     throw new RuntimeException('Nonpositive native QUIC transport measurement duration.');
 }
-$endUsage = getrusage();
-if (!is_array($startUsage) || !is_array($endUsage)) {
-    throw new RuntimeException('Process CPU usage metrics are unavailable.');
-}
+$endUsage = runwireBenchmarkUsage();
 sort($latencies, SORT_NUMERIC);
-$index95 = (int) ceil(count($latencies) * 0.95) - 1;
-$index99 = (int) ceil(count($latencies) * 0.99) - 1;
-$cpuStart = (int) $startUsage['ru_utime.tv_sec'] * 1_000_000
-    + (int) $startUsage['ru_utime.tv_usec']
-    + (int) $startUsage['ru_stime.tv_sec'] * 1_000_000
-    + (int) $startUsage['ru_stime.tv_usec'];
-$cpuEnd = (int) $endUsage['ru_utime.tv_sec'] * 1_000_000
-    + (int) $endUsage['ru_utime.tv_usec']
-    + (int) $endUsage['ru_stime.tv_sec'] * 1_000_000
-    + (int) $endUsage['ru_stime.tv_usec'];
+$index95 = (int) ceil((float) count($latencies) * 0.95) - 1;
+$index99 = (int) ceil((float) count($latencies) * 0.99) - 1;
+$cpuStart = runwireBenchmarkCpuMicroseconds($startUsage);
+$cpuEnd = runwireBenchmarkCpuMicroseconds($endUsage);
 
 fwrite(STDOUT, json_encode([
     'schema' => 1,
-    'runtime_build' => getenv('RUNWIRE_RUNTIME_BUILD') ?: 'unknown',
+    'runtime_build' => (($build = getenv('RUNWIRE_RUNTIME_BUILD')) === false || $build === '' || $build === '0') ? 'unknown' : $build,
     'php_version' => PHP_VERSION,
     'protocol' => 'h3',
     'implementation' => 'native-ext-quic-worker',
@@ -116,8 +112,8 @@ fwrite(STDOUT, json_encode([
     'successful_requests' => count($latencies),
     'errors_total' => 0,
     'duration_seconds' => $duration,
-    'successful_rps' => round(count($latencies) / $duration, 3),
-    'successful_rpm' => round(count($latencies) * 60 / $duration, 3),
+    'successful_rps' => round((float) count($latencies) / $duration, 3),
+    'successful_rpm' => round((float) count($latencies) * 60.0 / $duration, 3),
     'p50_ms' => round($latencies[(int) floor((count($latencies) - 1) / 2)], 3),
     'p95_ms' => round($latencies[$index95], 3),
     'p99_ms' => round($latencies[$index99], 3),

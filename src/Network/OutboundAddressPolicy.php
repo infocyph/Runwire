@@ -14,7 +14,10 @@ use RuntimeException;
  */
 final readonly class OutboundAddressPolicy
 {
-    /** Reject reserved, private, loopback and link-local numeric addresses. */
+    /**
+     * Reject reserved, private, loopback and link-local numeric addresses.
+     * @throws \RuntimeException
+     */
     public function assertCandidate(string $ip): void
     {
         if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
@@ -40,7 +43,10 @@ final readonly class OutboundAddressPolicy
         }
     }
 
-    /** Verify the real connected peer has not changed from the approved candidate. */
+    /**
+     * Verify the real connected peer has not changed from the approved candidate.
+     * @throws \RuntimeException
+     */
     public function assertConnected(string $approvedIp, string $peerSocketAddress): void
     {
         $this->assertCandidate($approvedIp);
@@ -63,6 +69,9 @@ final readonly class OutboundAddressPolicy
         }
     }
 
+    /**
+     * @throws \RuntimeException
+     */
     private static function canonicalAddress(string $ip): string
     {
         $packed = inet_pton($ip);

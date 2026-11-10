@@ -43,6 +43,11 @@ final class PortableNativeRuntime
 
     /**
      * Run all bound native listeners on one shared SelectLoop.
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public function run(): void
     {
@@ -65,6 +70,8 @@ final class PortableNativeRuntime
 
     /**
      * Request graceful or forced shutdown of the portable runtime.
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
      */
     public function stop(bool $force = false): void
     {
@@ -98,6 +105,12 @@ final class PortableNativeRuntime
         return array_all($this->handles, fn(NativeWorkerHandle $handle): bool => $handle->drained());
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     * @throws \LogicException
+     * @throws \InvalidArgumentException
+     */
     private function attachHttp3(string $name, BoundServer $target): void
     {
         if ($target->definition->http3 === null || !$this->selection->capabilities->supportsQuic) {
@@ -118,6 +131,10 @@ final class PortableNativeRuntime
         );
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function attachTarget(
         string $name,
         BoundServer|BoundStreamServer|BoundDatagramServer $target,
@@ -161,6 +178,9 @@ final class PortableNativeRuntime
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function close(): void
     {
         $this->cancelDrainTimers();
@@ -195,6 +215,10 @@ final class PortableNativeRuntime
         $loop->stop();
     }
 
+    /**
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
     private function newContext(string $group, WorkerRole $role): WorkerContext
     {
         $pid = getmypid();
@@ -221,6 +245,9 @@ final class PortableNativeRuntime
         return $this->loop ?? throw new LogicException('Portable native loop is unavailable before run().');
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private function runtimeContext(WorkerContext $context): RuntimeContext
     {
         return RuntimeContext::fromCapabilities(
@@ -233,6 +260,10 @@ final class PortableNativeRuntime
         );
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
+     */
     private function scheduleDrainCompletion(SelectLoop $loop): void
     {
         $this->drainPollTimer = $loop->repeat(0.01, function () use ($loop): void {
@@ -254,6 +285,10 @@ final class PortableNativeRuntime
         });
     }
 
+    /**
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
+     */
     private function stopGracefully(SelectLoop $loop): void
     {
         if ($this->stopping) {

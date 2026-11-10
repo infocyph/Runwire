@@ -19,7 +19,10 @@ final readonly class TraceContext
 {
     private const string ATTRIBUTE = 'runwire.trace_context';
 
-    /** Validate a W3C trace identity before exposing it to application code. */
+    /**
+     * Validate a W3C trace identity before exposing it to application code.
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         public string $traceId,
         public string $spanId,
@@ -44,7 +47,11 @@ final readonly class TraceContext
         return $context instanceof self ? $context : null;
     }
 
-    /** Parse one inbound W3C traceparent and optional tracestate header. */
+    /**
+     * Parse one inbound W3C traceparent and optional tracestate header.
+     * Preserve duplicate-state rejection for external header implementations.
+     * @throws \InvalidArgumentException
+     */
     public static function fromHeaders(Headers $headers): ?self
     {
         $parents = $headers->all('traceparent');
@@ -52,7 +59,7 @@ final readonly class TraceContext
         if ($parents === []) {
             return null;
         }
-        if (count($parents) !== 1 || count($states) > 1
+        if (count($parents) !== 1 || self::hasDuplicateHeader($states)
             || preg_match('/^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/D', $parents[0], $match) !== 1) {
             throw new InvalidArgumentException('Malformed or duplicate W3C traceparent header.');
         }
@@ -60,19 +67,29 @@ final readonly class TraceContext
         return new self($match[1], $match[2], (int) hexdec($match[3]), $states[0] ?? null);
     }
 
-    /** Bind trace identity to an explicitly owned request, never a global Fiber slot. */
+    /**
+     * Bind trace identity to an explicitly owned request, never a global Fiber slot.
+     * @throws \LogicException
+     * @throws \OverflowException
+     */
     public function bind(RequestContext $request): void
     {
         $request->setAttribute(self::ATTRIBUTE, $this);
     }
 
-    /** Create an independent span while preserving the trace and bounded tracestate. */
+    /**
+     * Create an independent span while preserving the trace and bounded tracestate.
+     * @throws \InvalidArgumentException
+     */
     public function child(): self
     {
         return new self($this->traceId, bin2hex(random_bytes(8)), $this->flags, $this->traceState);
     }
 
-    /** Produce new header fields, replacing any untrusted inbound trace context. */
+    /**
+     * Produce new header fields, replacing any untrusted inbound trace context.
+     * @throws \InvalidArgumentException
+     */
     public function inject(Headers $headers): Headers
     {
         $fields = [];
@@ -90,6 +107,18 @@ final readonly class TraceContext
         return new Headers($fields);
     }
 
+    /**
+     * Preserve duplicate detection for externally supplied Header collections.
+     * @param list<string> $values
+     */
+    private static function hasDuplicateHeader(array $values): bool
+    {
+        return count($values) > 1;
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateState(string $state): void
     {
         if ($state === '' || strlen($state) > 512) {

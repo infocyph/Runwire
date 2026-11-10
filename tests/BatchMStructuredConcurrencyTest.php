@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Coroutine\Enum\TaskGroupFailureMode;
@@ -12,6 +14,12 @@ use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use LogicException;
+use RuntimeException;
+use stdClass;
+use Throwable;
+use WeakReference;
+
 
 it('fails fast on an unhandled child failure and drains cancelled siblings', function (): void {
     $runtime = new CoroutineRuntime();
@@ -42,11 +50,11 @@ it('fails fast on an unhandled child failure and drains cancelled siblings', fun
     } catch (Throwable $error) {
         $caught = $error;
     }
+    \PHPUnit\Framework\Assert::assertInstanceOf(CoroutineScope::class, $capturedScope);
 
     expect($caught)->toBe($failure)
-        ->and($siblingCleaned)->toBeTrue()
-        ->and($capturedScope)->toBeInstanceOf(CoroutineScope::class)
-        ->and($capturedScope->secondaryFailures())->toHaveCount(1)
+        ->and($siblingCleaned)->toBeTrue();
+    expect($capturedScope->secondaryFailures())->toHaveCount(1)
         ->and($capturedScope->secondaryFailures()[0]->getMessage())->toBe('secondary-cleanup-failure')
         ->and($runtime->activeTaskCount())->toBe(0);
 });
@@ -180,8 +188,8 @@ it('drains child cleanup when a nested deadline cancels its owner task', functio
     }
 
     $diagnostics = $loop->diagnostics();
-    expect($caught)->toBeInstanceOf(CancelledException::class)
-        ->and($caught->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
+    \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $caught);
+    expect($caught->reason)->toBe(CancellationReason::DEADLINE_EXCEEDED)
         ->and($cleaned)->toBeTrue()
         ->and($runtime->activeTaskCount())->toBe(0)
         ->and($diagnostics->timersActive)->toBe(0)
@@ -279,15 +287,16 @@ it('releases task-local values and request-owned loop state across persistent ru
 
         gc_collect_cycles();
         $diagnostics = $loop->diagnostics();
+        \PHPUnit\Framework\Assert::assertNotNull($weakPayload);
         expect($result)->toBe('x')
             ->and($runtime->activeTaskCount())->toBe(0)
             ->and($diagnostics->timersActive)->toBe(0)
             ->and($diagnostics->deferredBacklog)->toBe(0)
             ->and($diagnostics->readWatchers)->toBe(0)
             ->and($diagnostics->writeWatchers)->toBe(0)
-            ->and($token)->not->toBeNull()
-            ->and($token->subscriptionCount())->toBe(0)
-            ->and($weakPayload)->not->toBeNull()
+            ->and($token)->not->toBeNull();
+        $token = $token ?? throw new LogicException('Cancellation token was not captured.');
+        expect($token->subscriptionCount())->toBe(0)
             ->and($weakPayload->get())->toBeNull();
     }
 });

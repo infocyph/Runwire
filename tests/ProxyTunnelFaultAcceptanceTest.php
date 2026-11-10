@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -11,32 +13,32 @@ use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
 use Infocyph\Runwire\Network\Proxy\Socks5Handshake;
 use Infocyph\Runwire\Network\Proxy\Socks5Tunnel;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use RuntimeException;
+use Throwable;
+
 
 /**
  * @return array{errors:list<Throwable>,successes:int,timers:int,reads:int,writes:int,remainingSubscriptions:int}
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ * @throws \RuntimeException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireProxyFaultFixture(
     string $protocol,
     string $failureMode,
 ): array {
     $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($sockets)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($sockets);
+    \PHPUnit\Framework\Assert::assertCount(2, $sockets);
     [$socket, $peer] = $sockets;
     $loop = new SelectLoop();
     $connection = ConnectionFactory::accepted($loop, $socket);
     $source = new CancellationSource();
     $errors = [];
     $successes = 0;
-    $callback = static function ($value, ?Throwable $error) use (&$errors, &$successes, $loop): void {
-        if ($error !== null) {
-            $errors[] = $error;
-        } elseif ($value instanceof \Infocyph\Runwire\Network\Connection) {
-            ++$successes;
-        } else {
-            $errors[] = new RuntimeException('Proxy tunnel returned neither a connection nor an error.');
-        }
-        $loop->stop();
-    };
+    $callback = runwireFaultProxyCompletion($errors, $successes, $loop);
     $token = $source->token();
     $tunnel = $protocol === 'http'
         ? new HttpConnectTunnel(
@@ -52,19 +54,7 @@ function runwireProxyFaultFixture(
     try {
         $tunnel->start();
         if ($failureMode !== 'timeout') {
-            $scriptTimer = $loop->delay(0.01, static function () use (
-                $failureMode, $protocol, $peer, $source,
-            ): void {
-                if ($failureMode === 'cancel') {
-                    $source->cancel(CancellationReason::HOST_CANCELLED);
-                } elseif ($failureMode === 'eof') {
-                    stream_socket_shutdown($peer, STREAM_SHUT_WR);
-                } else {
-                    fwrite($peer, $protocol === 'http'
-                        ? "HTTP/1.1 407 Proxy Authentication Required\r\n\r\n"
-                        : "\x05\xff");
-                }
-            });
+            $scriptTimer = $loop->delay(0.01, runwireFaultProxyPeerAction($failureMode, $protocol, $peer, $source));
         }
         $watchdog = $loop->delay(0.3, static function () use ($loop): void {
             $loop->stop();
@@ -144,3 +134,44 @@ it('does not deliver success or duplicate failures when a proxy closes early', f
             ->and($outcome['writes'])->toBe(0);
     }
 });
+
+
+/**
+ * @param list<Throwable> $errors
+ * @return \Closure(mixed,?Throwable):void
+ */
+function runwireFaultProxyCompletion(array &$errors, int &$successes, SelectLoop $loop): \Closure
+{
+    return static function ($value, ?Throwable $error) use (&$errors, &$successes, $loop): void {
+        if ($error !== null) {
+            $errors[] = $error;
+        } elseif ($value instanceof \Infocyph\Runwire\Network\Connection) {
+            ++$successes;
+        } else {
+            $errors[] = new RuntimeException('Proxy tunnel returned neither a connection nor an error.');
+        }
+        $loop->stop();
+    };
+}
+
+
+/**
+ * @param resource $peer
+ * @return \Closure():void
+ */
+function runwireFaultProxyPeerAction(string $failureMode, string $protocol, mixed $peer, CancellationSource $source): \Closure
+{
+    return static function () use (
+        $failureMode, $protocol, $peer, $source,
+    ): void {
+        if ($failureMode === 'cancel') {
+            $source->cancel(CancellationReason::HOST_CANCELLED);
+        } elseif ($failureMode === 'eof') {
+            stream_socket_shutdown($peer, STREAM_SHUT_WR);
+        } else {
+            fwrite($peer, $protocol === 'http'
+                ? "HTTP/1.1 407 Proxy Authentication Required\r\n\r\n"
+                : "\x05\xff");
+        }
+    };
+}

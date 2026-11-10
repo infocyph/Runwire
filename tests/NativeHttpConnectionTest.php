@@ -18,7 +18,7 @@ use Infocyph\Runwire\Network\Enum\CloseReason;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 
 it('selects HTTP/1.1 for cleartext native connections', function (): void {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireNativeHttpConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server);
     $version = null;
@@ -28,25 +28,32 @@ it('selects HTTP/1.1 for cleartext native connections', function (): void {
         $connection,
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$version): void {
             $version = $request->version;
-            $request->body->onEnd(static fn () => $writer->end('h1'));
+            $request->body->onEnd(static function () use ($writer): void {
+                $writer->end('h1');
+            });
         },
     );
 
     fwrite($client, "GET / HTTP/1.1\r\nHost: example.test\r\nConnection: close\r\n\r\n");
-    $loop->delay(0.2, static fn () => $loop->stop());
+    $loop->delay(0.2, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
+    if (!is_string($response)) {
+        throw new RuntimeException('Unable to read the native HTTP response.');
+    }
     fclose($client);
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+    \PHPUnit\Framework\Assert::assertNotNull($session);
+    expect($session->version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and($version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and($response)->toContain('h1');
 });
 
 it('dispatches negotiated h2 without HTTP/1 protocol sniffing', function (): void {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireNativeHttpConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection(
         $loop,
@@ -63,7 +70,9 @@ it('dispatches negotiated h2 without HTTP/1 protocol sniffing', function (): voi
         $connection,
         static function (HttpRequest $request, ResponseWriterInterface $writer) use (&$version): void {
             $version = $request->version;
-            $request->body->onEnd(static fn () => $writer->end('h2'));
+            $request->body->onEnd(static function () use ($writer): void {
+                $writer->end('h2');
+            });
         },
     );
 
@@ -79,10 +88,15 @@ it('dispatches negotiated h2 without HTTP/1 protocol sniffing', function (): voi
         . FrameWriter::encode(FrameWriter::settings())
         . FrameWriter::encode(new Frame(FrameType::HEADERS->value, 0x5, 1, $block)),
     );
-    $loop->delay(0.2, static fn () => $loop->stop());
+    $loop->delay(0.2, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
     stream_set_blocking($client, false);
     $wire = stream_get_contents($client);
+    if (!is_string($wire)) {
+        throw new RuntimeException('Unable to read the HTTP/2 response bytes.');
+    }
     fclose($client);
 
     $body = '';
@@ -92,14 +106,14 @@ it('dispatches negotiated h2 without HTTP/1 protocol sniffing', function (): voi
         }
     }
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_2)
+    \PHPUnit\Framework\Assert::assertNotNull($session);
+    expect($session->version)->toBe(ProtocolVersion::HTTP_2)
         ->and($version)->toBe(ProtocolVersion::HTTP_2)
         ->and($body)->toBe('h2');
 });
 
 it('rejects unsupported negotiated protocols without failing the worker', function (): void {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireNativeHttpConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server, negotiatedProtocol: 'spdy/3', encrypted: true);
 
@@ -112,7 +126,7 @@ it('rejects unsupported negotiated protocols without failing the worker', functi
 });
 
 it('drains an active HTTP/1.1 exchange without accepting another request', function (): void {
-    [$server, $client] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$server, $client] = runwireNativeHttpConnectionTestSocketPair();
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server);
     $writer = null;
@@ -127,7 +141,7 @@ it('drains an active HTTP/1.1 exchange without accepting another request', funct
             $writer = $response;
         },
     );
-    expect($session)->not->toBeNull();
+    \PHPUnit\Framework\Assert::assertNotNull($session);
 
     fwrite(
         $client,
@@ -136,11 +150,16 @@ it('drains an active HTTP/1.1 exchange without accepting another request', funct
     );
     $loop->delay(0.03, static function () use ($session): void { $session->drain(); });
     $loop->delay(0.06, static function () use (&$writer): void { $writer?->end('done'); });
-    $loop->delay(0.2, static fn () => $loop->stop());
+    $loop->delay(0.2, static function () use ($loop): void {
+    $loop->stop();
+});
     $loop->run();
 
     stream_set_blocking($client, false);
     $response = stream_get_contents($client);
+    if (!is_string($response)) {
+        throw new RuntimeException('Unable to read the native HTTP response.');
+    }
     fclose($client);
 
     expect($requests)->toBe(1)
@@ -159,41 +178,47 @@ function runwireCanInspectTcpNoDelay(): bool
         && defined('TCP_NODELAY');
 }
 
+/**
+ * @return array{0: resource, 1: resource}
+ * @throws \PHPUnit\Framework\Exception
+  * @throws \PHPUnit\Framework\ExpectationFailedException
+  * @throws \RuntimeException
+ */
 function runwireNativeTcpPair(): array
 {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
-    expect($listener)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($listener);
     $address = stream_socket_get_name($listener, false);
-    expect($address)->toBeString();
+    \PHPUnit\Framework\Assert::assertIsString($address);
 
     $client = stream_socket_client('tcp://' . $address, $clientErrno, $clientError, 1.0);
-    expect($client)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($client);
 
     $server = stream_socket_accept($listener, 1.0);
     fclose($listener);
-    expect($server)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($server);
 
     return [$server, $client];
 }
 
 it('enables TCP_NODELAY for H1 without applying it to H2', function (): void {
     if (!runwireCanInspectTcpNoDelay()) {
-        expect(runwireCanInspectTcpNoDelay())->toBeFalse();
+        runwireNativeTcpFallback();
 
         return;
     }
 
     [$server, $client] = runwireNativeTcpPair();
     $socket = socket_import_stream($server);
-    expect($socket)->not->toBeFalse();
+    \PHPUnit\Framework\Assert::assertInstanceOf(\Socket::class, $socket);
     socket_set_option($socket, SOL_TCP, TCP_NODELAY, 0);
 
     $loop = new SelectLoop();
     $connection = new Connection($loop, $server, tcpTransport: true);
     $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+    \PHPUnit\Framework\Assert::assertNotNull($session);
+    expect($session->version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(1);
 
     $connection->abort();
@@ -201,7 +226,7 @@ it('enables TCP_NODELAY for H1 without applying it to H2', function (): void {
 
     [$server, $client] = runwireNativeTcpPair();
     $socket = socket_import_stream($server);
-    expect($socket)->not->toBeFalse();
+    \PHPUnit\Framework\Assert::assertInstanceOf(\Socket::class, $socket);
     socket_set_option($socket, SOL_TCP, TCP_NODELAY, 0);
 
     $loop = new SelectLoop();
@@ -214,8 +239,8 @@ it('enables TCP_NODELAY for H1 without applying it to H2', function (): void {
     );
     $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_2)
+    \PHPUnit\Framework\Assert::assertNotNull($session);
+    expect($session->version)->toBe(ProtocolVersion::HTTP_2)
         ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(0);
 
     $connection->abort();
@@ -224,13 +249,13 @@ it('enables TCP_NODELAY for H1 without applying it to H2', function (): void {
 
 it('preserves an explicit H1 TCP_NODELAY override', function (): void {
     if (!runwireCanInspectTcpNoDelay()) {
-        expect(runwireCanInspectTcpNoDelay())->toBeFalse();
+        runwireNativeTcpFallback();
 
         return;
     }
     [$server, $client] = runwireNativeTcpPair();
     $socket = socket_import_stream($server);
-    expect($socket)->not->toBeFalse();
+    \PHPUnit\Framework\Assert::assertInstanceOf(\Socket::class, $socket);
     socket_set_option($socket, SOL_TCP, TCP_NODELAY, 0);
 
     $loop = new SelectLoop();
@@ -242,8 +267,8 @@ it('preserves an explicit H1 TCP_NODELAY override', function (): void {
     );
     $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+    \PHPUnit\Framework\Assert::assertNotNull($session);
+    expect($session->version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(0);
 
     $connection->abort();
@@ -253,14 +278,14 @@ it('preserves an explicit H1 TCP_NODELAY override', function (): void {
 
 it('applies a throughput-biased NODELAY default only when H1 is newly attached', function (): void {
     if (!runwireCanInspectTcpNoDelay()) {
-        expect(runwireCanInspectTcpNoDelay())->toBeFalse();
+        runwireNativeTcpFallback();
 
         return;
     }
 
     [$server, $client] = runwireNativeTcpPair();
     $socket = socket_import_stream($server);
-    expect($socket)->not->toBeFalse();
+    \PHPUnit\Framework\Assert::assertInstanceOf(\Socket::class, $socket);
     socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
 
     $loop = new SelectLoop();
@@ -272,10 +297,40 @@ it('applies a throughput-biased NODELAY default only when H1 is newly attached',
         http1TcpNoDelayDefault: false,
     );
 
-    expect($session)->not->toBeNull()
-        ->and($session->version)->toBe(ProtocolVersion::HTTP_1_1)
+    \PHPUnit\Framework\Assert::assertNotNull($session);
+    expect($session->version)->toBe(ProtocolVersion::HTTP_1_1)
         ->and(socket_get_option($socket, SOL_TCP, TCP_NODELAY))->toBe(0);
 
     $connection->abort();
     fclose($client);
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireNativeHttpConnectionTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}
+
+/** @throws \Throwable */
+function runwireNativeTcpFallback(): void
+{
+    [$server, $client] = runwireNativeTcpPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $server, tcpTransport: true);
+    try {
+        $session = NativeHttpConnection::attach($loop, $connection, static function (): void {});
+        \PHPUnit\Framework\Assert::assertNotNull($session);
+        expect($session->version)->toBe(ProtocolVersion::HTTP_1_1);
+    } finally {
+        $connection->abort();
+        fclose($client);
+    }
+}

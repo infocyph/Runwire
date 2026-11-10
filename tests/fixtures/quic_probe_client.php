@@ -3,12 +3,16 @@
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__) . '/Support/NativeReply.php';
 
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\QuicClientOptions;
 use Infocyph\Runwire\Network\QuicHandshakeProbe;
 
+if (!isset($argc, $argv)) {
+    throw new \RuntimeException('CLI arguments are unavailable.');
+}
 if ($argc !== 4 || filter_var($argv[2], FILTER_VALIDATE_INT) === false) {
     throw new InvalidArgumentException('Expected host, UDP port and trusted CA file.');
 }
@@ -32,17 +36,18 @@ try {
     );
     $loop->run();
 
+    $reply = \Infocyph\Runwire\Tests\Support\nativeReply($results[0][0] ?? null);
     if (count($results) !== 1 || $results[0][1] !== null
-        || ($results[0][0]['verified'] ?? null) !== true
-        || ($results[0][0]['backend'] ?? null) !== 'ext-quic'
-        || ($results[0][0]['alpn'] ?? null) !== 'h3'
+        || ($reply['verified'] ?? null) !== true
+        || ($reply['backend'] ?? null) !== 'ext-quic'
+        || ($reply['alpn'] ?? null) !== 'h3'
         || $loop->diagnostics()->readWatchers !== 0
         || $loop->diagnostics()->writeWatchers !== 0
         || $loop->diagnostics()->timersActive !== 0
         || $executor->diagnostics()['workers'] !== 0) {
         throw new RuntimeException(
             'Off-loop QUIC handshake acceptance failed: ' .
-            ($results[0][1] instanceof Throwable ? $results[0][1]->getMessage() : 'invalid result'),
+            (($failure = $results[0][1] ?? null) instanceof Throwable ? $failure->getMessage() : 'invalid result'),
         );
     }
 

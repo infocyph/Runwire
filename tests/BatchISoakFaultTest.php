@@ -34,6 +34,9 @@ use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
+/**
+ * @throws \InvalidArgumentException
+ */
 function batchISoakRuntime(): RuntimeContext
 {
     return RuntimeContext::fromCapabilities(
@@ -53,11 +56,14 @@ function batchISoakRuntime(): RuntimeContext
         mode: 'native',
         workerSlot: 0,
         generation: 1,
-        pid: getmypid() ?: 0,
+        pid: (int) getmypid(),
         concurrent: false,
     );
 }
 
+/**
+ * @throws \OverflowException
+ */
 function batchISoakRequest(string $target): HttpRequest
 {
     return new HttpRequest(
@@ -69,6 +75,10 @@ function batchISoakRequest(string $target): HttpRequest
     );
 }
 
+/**
+ * @param ArrayObject<string,mixed>|null $state
+ * @throws \InvalidArgumentException
+ */
 function batchISoakWriter(?ArrayObject $state = null): ResponseWriterInterface
 {
     return new CallbackResponseWriter(
@@ -80,7 +90,11 @@ function batchISoakWriter(?ArrayObject $state = null): ResponseWriterInterface
         },
         static function (string $chunk) use ($state): void {
             if ($state !== null) {
-                $state['body'] = (string) ($state['body'] ?? '') . $chunk;
+                $body = $state['body'] ?? '';
+                if (!is_string($body)) {
+                    throw new LogicException('Response fixture body must remain a string.');
+                }
+                $state['body'] = $body . $chunk;
             }
         },
         static function () use ($state): void {
@@ -108,14 +122,19 @@ it('keeps request contexts metrics resetters and cancellation state bounded unde
     $runtime = batchISoakRuntime();
     $resets = new ArrayObject(['count' => 0]);
     $resetter = new class($resets) implements RequestResetterInterface {
+        /** @param ArrayObject<string,int> $state */
         public function __construct(private readonly ArrayObject $state) {}
 
+        /**
+         * @throws \RuntimeException
+         */
+        #[\Override]
         public function reset(RequestContext $context): void
         {
             if (!$context->hasAttribute('iteration')) {
                 throw new RuntimeException('Request-local soak attribute disappeared before reset.');
             }
-            $this->state['count'] = (int) $this->state['count'] + 1;
+            $this->state['count'] = $this->state['count'] + 1;
         }
     };
     $iteration = 0;
@@ -203,6 +222,7 @@ it('uses one deterministic recycle contract for request memory and lifetime trig
 
 it('recovers admission immediately after bounded overlap rejection', function (): void {
     $runtime = batchISoakRuntime();
+    /** @var ArrayObject<string,mixed> $overload */
     $overload = new ArrayObject();
     $handled = [];
     $lifecycle = null;

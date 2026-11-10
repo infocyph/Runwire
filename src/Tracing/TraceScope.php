@@ -17,12 +17,15 @@ final class TraceScope
 {
     private readonly int $pid;
 
-    /** @var WeakMap<Fiber<mixed,mixed,mixed,mixed>,TraceContext> */
+    /** @var WeakMap<object, mixed> */
     private WeakMap $fibers;
 
     private ?TraceContext $root = null;
 
-    /** Initialize request-owned Fiber tracking without global process context. */
+    /**
+     * Initialize request-owned Fiber tracking without global process context.
+     * @throws \LogicException
+     */
     public function __construct()
     {
         $this->fibers = new WeakMap();
@@ -33,16 +36,27 @@ final class TraceScope
         $this->pid = $pid;
     }
 
-    /** Read the current explicitly owned trace context. */
+    /**
+     * Read the current explicitly owned trace context.
+     * @throws \LogicException
+     */
     public function current(): ?TraceContext
     {
         $this->assertOwner();
         $fiber = Fiber::getCurrent();
 
-        return $fiber === null ? $this->root : ($this->fibers[$fiber] ?? null);
+        if ($fiber === null) {
+            return $this->root;
+        }
+        $context = $this->fibers[$fiber] ?? null;
+
+        return $context instanceof TraceContext ? $context : null;
     }
 
-    /** Restore the previous scope even when a callback fails or a Fiber suspends. */
+    /**
+     * Restore the previous scope even when a callback fails or a Fiber suspends.
+     * @throws \LogicException
+     */
     public function run(TraceContext $context, callable $callback): mixed
     {
         $this->assertOwner();
@@ -57,7 +71,10 @@ final class TraceScope
         }
     }
 
-    /** Explicitly capture parent context for deferred callbacks and child Fibers. */
+    /**
+     * Explicitly capture parent context for deferred callbacks and child Fibers.
+     * @throws \LogicException
+     */
     public function wrap(callable $callback): Closure
     {
         $this->assertOwner();
@@ -73,6 +90,9 @@ final class TraceScope
         );
     }
 
+    /**
+     * @throws \LogicException
+     */
     private function assertOwner(): void
     {
         if (getmypid() !== $this->pid) {
@@ -80,7 +100,10 @@ final class TraceScope
         }
     }
 
-    /** @param Fiber<mixed,mixed,mixed,mixed>|null $fiber */
+    /**
+     * @phpstan-param Fiber<mixed, mixed, mixed, mixed>|null $fiber
+     * @psalm-param Fiber[impure]|null $fiber
+     */
     private function set(?Fiber $fiber, ?TraceContext $context): void
     {
         if ($fiber === null) {

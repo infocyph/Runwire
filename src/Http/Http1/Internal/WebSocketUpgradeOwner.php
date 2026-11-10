@@ -41,7 +41,6 @@ final class WebSocketUpgradeOwner
         Http1Input $httpInput,
         callable $beforeHandoff,
     ) {
-        /** @var Closure(): void $handoff */
         $handoff = $beforeHandoff(...);
         $this->beforeHandoff = $handoff;
         $this->connection = self::retainConnection($ownedConnection);
@@ -59,6 +58,9 @@ final class WebSocketUpgradeOwner
 
     /**
      * Drain an active WebSocket session.
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \Throwable
      */
     public function drain(): bool
     {
@@ -73,6 +75,12 @@ final class WebSocketUpgradeOwner
 
     /**
      * Queue the 101 response and transfer the existing connection to a WebSocket session.
+     * @throws \RuntimeException
+     * @throws \OverflowException
+     * @throws \Infocyph\Runwire\WebSocket\Internal\WebSocketProtocolException
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \Throwable
      */
     public function upgrade(
         string $accept,

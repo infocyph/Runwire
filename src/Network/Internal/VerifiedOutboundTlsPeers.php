@@ -24,14 +24,21 @@ final class VerifiedOutboundTlsPeers
         return self::$names === null ? null : (self::$names[$connection] ?? null);
     }
 
-    /** Record the peer only after the dialer's secure client TLS handshake succeeded. */
+    /**
+     * Record the peer only after the dialer's secure client TLS handshake succeeded.
+     * @throws \LogicException
+     */
     public static function register(Connection $connection, string $peerName): void
     {
         if (!$connection->isEncrypted() || $peerName === '') {
             throw new LogicException('Verified outbound TLS requires an authenticated encrypted connection.');
         }
 
-        self::$names ??= new WeakMap();
+        if (self::$names === null) {
+            /** @var WeakMap<Connection, string> $names */
+            $names = new WeakMap();
+            self::$names = $names;
+        }
         self::$names[$connection] = $peerName;
     }
 }

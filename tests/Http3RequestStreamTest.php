@@ -11,6 +11,10 @@ use Infocyph\Runwire\Http\Http3\Internal\RequestStream;
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 
+/**
+ * @param list<array{0: string, 1: string}> $extra
+ * @throws \Throwable
+ */
 function http3RequestHeaders(Encoder $encoder, int $streamId, array $extra = []): string
 {
     $fields = [
@@ -50,7 +54,7 @@ it('rejects DATA before initial request HEADERS', function (): void {
 
     try {
         $stream->push((new Frame(FrameType::DATA->value, 'x'))->encode());
-        test()->fail('DATA before request HEADERS should fail.');
+        \PHPUnit\Framework\Assert::fail('DATA before request HEADERS should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::FRAME_UNEXPECTED);
     }
@@ -81,7 +85,7 @@ it('rejects DATA after trailing HEADERS', function (): void {
 
     try {
         $stream->push((new Frame(FrameType::DATA->value, 'late'))->encode());
-        test()->fail('DATA after trailers should fail.');
+        \PHPUnit\Framework\Assert::fail('DATA after trailers should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::FRAME_UNEXPECTED);
     }
@@ -122,7 +126,7 @@ it('defers FIN while QPACK is blocked and rejects later stream bytes', function 
 
     try {
         $stream->push((new Frame(FrameType::DATA->value, 'late'))->encode());
-        test()->fail('Bytes after HTTP/3 stream FIN should fail even while QPACK is blocked.');
+        \PHPUnit\Framework\Assert::fail('Bytes after HTTP/3 stream FIN should fail even while QPACK is blocked.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::FRAME_UNEXPECTED);
     }
@@ -144,7 +148,7 @@ it('enforces Content-Length at request stream completion', function (): void {
 
     try {
         $stream->finish();
-        test()->fail('Mismatched HTTP/3 Content-Length should fail.');
+        \PHPUnit\Framework\Assert::fail('Mismatched HTTP/3 Content-Length should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::MESSAGE_ERROR);
     }
@@ -155,7 +159,7 @@ it('rejects control frames on a request stream and incomplete request FIN', func
 
     try {
         $stream->push((new Frame(FrameType::SETTINGS->value, ''))->encode());
-        test()->fail('SETTINGS on a request stream should fail.');
+        \PHPUnit\Framework\Assert::fail('SETTINGS on a request stream should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::FRAME_UNEXPECTED);
     }
@@ -164,7 +168,7 @@ it('rejects control frames on a request stream and incomplete request FIN', func
 
     try {
         $stream->finish();
-        test()->fail('FIN before request HEADERS should fail.');
+        \PHPUnit\Framework\Assert::fail('FIN before request HEADERS should fail.');
     } catch (Http3Exception $exception) {
         expect($exception->errorCode)->toBe(ErrorCode::REQUEST_INCOMPLETE);
     }

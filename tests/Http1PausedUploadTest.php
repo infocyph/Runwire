@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Http\Client\ClientBodySourceInterface;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
@@ -10,10 +12,13 @@ use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
+use Throwable;
+
 
 it('resumes a temporarily starved upload without reactor spinning or retaining socket ownership', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray()->toHaveCount(2);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
     [$clientSocket, $serverSocket] = $pair;
     stream_set_blocking($serverSocket, false);
 
@@ -22,11 +27,13 @@ it('resumes a temporarily starved upload without reactor spinning or retaining s
 
         private bool $sent = false;
 
+        #[\Override]
         public function eof(): bool
         {
             return $this->sent;
         }
 
+        #[\Override]
         public function read(int $maxBytes = PHP_INT_MAX): string
         {
             if (!$this->ready || $this->sent) {
@@ -42,6 +49,7 @@ it('resumes a temporarily starved upload without reactor spinning or retaining s
             $this->ready = true;
         }
 
+        #[\Override]
         public function trailers(): ?Headers
         {
             return null;

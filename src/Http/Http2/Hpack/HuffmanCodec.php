@@ -25,6 +25,8 @@ final class HuffmanCodec
 
     /**
      * Decode an HPACK Huffman string within the output limit.
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
      */
     public function decode(string $encoded, int $maxOutputBytes): string
     {
@@ -82,6 +84,9 @@ final class HuffmanCodec
         return $output;
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     */
     private function consume(int &$buffer, int &$bits, string &$output, int $maxOutputBytes): void
     {
         while ($bits >= 5) {
@@ -109,6 +114,9 @@ final class HuffmanCodec
         }
     }
 
+    /**
+     * @throws \Infocyph\Runwire\Http\Http2\Hpack\HpackException
+     */
     private function consumeSymbol(int $symbol, int $length, int &$buffer, int &$bits, string &$output, int $maxOutputBytes): void
     {
         if ($symbol === 256) {

@@ -2,15 +2,40 @@
 
 declare(strict_types=1);
 
+
+namespace Infocyph\Runwire\Tests;
+
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
+
+use Closure;
 use Infocyph\Runwire\Control\ControlOptions;
 use Infocyph\Runwire\Internal\MonotonicTime;
+use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Supervisor\Internal\ChildReaper;
 use Infocyph\Runwire\Supervisor\Supervisor;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+
+/**
+ * Preserve the production monotonic deadline contract inside test-owned code.
+ * @throws \InvalidArgumentException
+ * @throws \OverflowException
+ */
+function runwireControlTestDeadline(float $seconds): int
+{
+    return MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), $seconds);
+}
 
 it('serves bounded runtime control over a protected unix socket', function (int $publicationDelayMicroseconds): void {
-    $socket = sys_get_temp_dir() . '/runwire-control-test-' . getmypid() . '-' . bin2hex(random_bytes(4)) . '.sock';
+    $pid = getmypid();
+    if ($pid === false) {
+        throw new RuntimeException('Unable to identify the control supervisor test process.');
+    }
+    $socket = sys_get_temp_dir() . '/runwire-control-test-' . $pid . '-' . bin2hex(random_bytes(4)) . '.sock';
     $resultFile = tempnam(sys_get_temp_dir(), 'runwire-control-result-');
     if ($resultFile === false) {
         throw new RuntimeException('Unable to allocate control result file.');
@@ -53,9 +78,7 @@ it('serves bounded runtime control over a protected unix socket', function (int 
                 throw new RuntimeException('Missing control response.');
             }
             $decoded = json_decode(trim($line), true, 32, JSON_THROW_ON_ERROR);
-            if (!is_array($decoded)) {
-                throw new RuntimeException('Invalid control response.');
-            }
+            \PHPUnit\Framework\Assert::assertIsArray($decoded);
 
             return $decoded;
         };
@@ -115,7 +138,8 @@ it('serves bounded runtime control over a protected unix socket', function (int 
     }
 
     try {
-        $supervisor = (new Supervisor())
+        $loop = new SelectLoop();
+        $supervisor = (new Supervisor($loop))
             ->control(new ControlOptions($socket, permissions: 0600, maxRequestBytes: 512));
         $supervisor->group(WorkerGroup::callbacks(
             name: 'workers',
@@ -135,6 +159,21 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             readyTimeoutSeconds: 0.5,
             shutdownTimeoutSeconds: 0.3,
         ));
+        // Distinguish client-side request failures from a supervisor that
+        // accepted a stop request but failed to shut down. An early client
+        // error would otherwise leave the parent running until SIGALRM.
+        $clientFailureWatcher = $loop->repeat(0.05, static function () use ($resultFile): void {
+            $contents = file_get_contents($resultFile);
+            if (!is_string($contents) || $contents === '') {
+                return;
+            }
+            $result = json_decode($contents, true, 32);
+            $message = is_array($result) ? ($result['error'] ?? null) : null;
+            if (is_string($message)) {
+                throw new RuntimeException('Control client request failed: ' . $message);
+            }
+        });
+
         // A failing control client must never leave the supervisor
         // running until the entire CI quality task times out.
         // Keep this watchdog scoped to the parent process and restore the
@@ -148,12 +187,13 @@ it('serves bounded runtime control over a protected unix socket', function (int 
         try {
             $supervisor->run();
         } finally {
+            $loop->cancel($clientFailureWatcher);
             pcntl_alarm(0);
-            pcntl_signal(SIGALRM, $priorAlarmHandler);
+            \Infocyph\Runwire\Tests\Support\restoreSignalHandler(SIGALRM, $priorAlarmHandler);
             pcntl_async_signals($priorAsyncSignals);
         }
 
-        if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), 3.0))) {
+        if (!ChildReaper::waitForUntil($clientPid, runwireControlTestDeadline(3.0))) {
             throw new RuntimeException('Control client did not exit before the result deadline.');
         }
         $raw = file_get_contents($resultFile);
@@ -161,9 +201,12 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             throw new RuntimeException('Control client did not write a result.');
         }
         $result = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
-        if (!is_array($result)) {
-            throw new RuntimeException('Invalid control result.');
-        }
+        \PHPUnit\Framework\Assert::assertIsArray($result);
+        \PHPUnit\Framework\Assert::assertIsArray($result['status']);
+        \PHPUnit\Framework\Assert::assertIsArray($result['stale']);
+        \PHPUnit\Framework\Assert::assertIsArray($result['stale']['error']);
+        \PHPUnit\Framework\Assert::assertIsArray($result['stop']);
+        \PHPUnit\Framework\Assert::assertIsArray($result['stop']['data']);
 
         expect($result)->not->toHaveKey('error')
             ->and($result['mode'])->toBe(0600)
@@ -175,9 +218,9 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             ->and(file_exists($socket))->toBeFalse()
             ->and($supervisor->status()->workers)->toBe([]);
     } finally {
-        if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::nowNanoseconds())) {
+        if (!ChildReaper::waitForUntil($clientPid, runwireControlTestDeadline(0.0))) {
             posix_kill($clientPid, SIGKILL);
-            if (!ChildReaper::waitForUntil($clientPid, MonotonicTime::deadlineAfterSeconds(MonotonicTime::nowNanoseconds(), 1.0))) {
+            if (!ChildReaper::waitForUntil($clientPid, runwireControlTestDeadline(1.0))) {
                 throw new RuntimeException('Control client did not exit after cleanup.');
             }
         }
@@ -191,7 +234,15 @@ it('serves bounded runtime control over a protected unix socket', function (int 
 })->with(['immediate publication' => 0, 'delayed publication' => 50_000]);
 
 it('rejects unsafe control options', function (): void {
+    runwireOwnedControlServerTestCase01();
+});
+
+/**
+ * @throws \Throwable
+ */
+function runwireOwnedControlServerTestCase01(): void
+{
     expect(fn () => new ControlOptions('relative.sock'))->toThrow(InvalidArgumentException::class)
         ->and(fn () => new ControlOptions('/tmp/runwire.sock', permissions: 0666))->toThrow(InvalidArgumentException::class)
         ->and(fn () => new ControlOptions('/tmp/runwire.sock', maxRequestBytes: 128))->toThrow(InvalidArgumentException::class);
-});
+}

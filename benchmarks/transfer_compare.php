@@ -22,7 +22,8 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
 
     public int $bytes = 0;
 
-    private $drainCallback = null;
+    /** @var (\Closure(ResponseWriterInterface): void)|null */
+    private ?\Closure $drainCallback = null;
 
     private bool $ended = false;
 
@@ -38,6 +39,7 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
         $this->pressureEvery = $pressureEvery;
     }
 
+    #[\Override]
     public function end(string $finalChunk = ''): WriteResult
     {
         if ($this->ended) {
@@ -51,23 +53,27 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    #[\Override]
     public function isEnded(): bool
     {
         return $this->ended;
     }
 
+    #[\Override]
     public function isStarted(): bool
     {
         return $this->started;
     }
 
+    #[\Override]
     public function onDrain(callable $callback): self
     {
-        $this->drainCallback = $callback;
+        $this->drainCallback = \Closure::fromCallable($callback);
 
         return $this;
     }
 
+    #[\Override]
     public function onTerminal(callable $callback): self
     {
         if ($this->ended) {
@@ -77,6 +83,7 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
         return $this;
     }
 
+    #[\Override]
     public function start(int $status = 200, ?Headers $headers = null): WriteResult
     {
         unset($status, $headers);
@@ -85,6 +92,7 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
         return new WriteResult(WriteState::ACCEPTED, 0);
     }
 
+    #[\Override]
     public function write(string $chunk): WriteResult
     {
         if ($this->ended) {
@@ -111,7 +119,10 @@ final class TransferBenchmarkWriter implements ResponseWriterInterface
     }
 }
 
-/** @return resource */
+/**
+ * @return resource
+ * @throws \RuntimeException
+ */
 function transferBenchmarkSource(int $bytes): mixed
 {
     $source = tmpfile();
@@ -135,6 +146,56 @@ function transferBenchmarkSource(int $bytes): mixed
     return $source;
 }
 
+/**
+ * @param resource $source
+ * @param positive-int $chunkBytes
+ * @throws RuntimeException
+ * @throws \Throwable
+ */
+function manualRead(CoroutineScope $scope, mixed $source, int $chunkBytes): ?string
+{
+    while (true) {
+        $scope->cancellation()->throwIfCancelled();
+        $chunk = fread($source, $chunkBytes);
+        if ($chunk === false) {
+            throw new RuntimeException('Unable to read manual benchmark source.');
+        }
+        if ($chunk !== '') {
+            return $chunk;
+        }
+        if (feof($source)) {
+            return null;
+        }
+        $scope->waitReadable($source);
+    }
+}
+
+/** @throws \Throwable */
+function manualAwaitDrain(CoroutineScope $scope, ResponseWriterInterface $writer): void
+{
+    $deferred = $scope->deferred();
+    $writer->onDrain(static function () use ($deferred): void {
+        if (!$deferred->future()->isComplete()) {
+            $deferred->resolve(null);
+        }
+    });
+    $deferred->future()->await();
+}
+
+/** @throws RuntimeException */
+function manualEnd(ResponseWriterInterface $writer): void
+{
+    if (!$writer->end()->accepted()) {
+        throw new RuntimeException('Manual benchmark failed to end response.');
+    }
+}
+
+/**
+ * @param resource $source
+ * @param positive-int $chunkBytes
+ * @throws \RuntimeException
+ * @throws \Throwable
+ */
 function manualTransfer(
     CoroutineScope $scope,
     mixed $source,
@@ -152,23 +213,11 @@ function manualTransfer(
     try {
         while (true) {
             $scope->cancellation()->throwIfCancelled();
-            $chunk = fread($source, $chunkBytes);
-            if ($chunk === false) {
-                throw new RuntimeException('Unable to read manual benchmark source.');
-            }
-            if ($chunk === '') {
-                if (feof($source)) {
-                    $result = $writer->end();
-                    if (!$result->accepted()) {
-                        throw new RuntimeException('Manual benchmark failed to end response.');
-                    }
+            $chunk = manualRead($scope, $source, $chunkBytes);
+            if ($chunk === null) {
+                manualEnd($writer);
 
-                    return $transferred;
-                }
-
-                $scope->waitReadable($source);
-
-                continue;
+                return $transferred;
             }
 
             $result = $writer->write($chunk);
@@ -178,13 +227,7 @@ function manualTransfer(
             $transferred += strlen($chunk);
 
             if ($result->pressured()) {
-                $deferred = $scope->deferred();
-                $writer->onDrain(static function () use ($deferred): void {
-                    if (!$deferred->future()->isComplete()) {
-                        $deferred->resolve(null);
-                    }
-                });
-                $deferred->future()->await();
+                manualAwaitDrain($scope, $writer);
                 $chunksThisTurn = 0;
 
                 continue;
@@ -197,9 +240,7 @@ function manualTransfer(
             }
         }
     } finally {
-        if (is_resource($source)) {
-            fclose($source);
-        }
+        fclose($source);
     }
 }
 
@@ -212,7 +253,7 @@ function transferMedian(array $values): float
 
     return $count % 2 === 1
         ? $values[$middle]
-        : ($values[$middle - 1] + $values[$middle]) / 2;
+        : ($values[$middle - 1] + $values[$middle]) / 2.0;
 }
 
 /** @param list<float> $values */
@@ -223,19 +264,22 @@ function transferCoefficientOfVariation(array $values): float
         return 0.0;
     }
 
-    $mean = array_sum($values) / $count;
+    $mean = array_sum($values) / (float) $count;
     if ($mean <= 0.0) {
         return 0.0;
     }
 
     $sum = 0.0;
     foreach ($values as $value) {
-        $sum += ($value - $mean) ** 2;
+        $sum += ($value - $mean) ** 2.0;
     }
 
-    return sqrt($sum / ($count - 1)) / $mean * 100.0;
+    return sqrt($sum / (float) ($count - 1)) / $mean * 100.0;
 }
 
+/**
+ * @throws \Throwable
+ */
 function transferTrial(bool $helper, int $bytes): float
 {
     $loop = new SelectLoop();
@@ -250,12 +294,12 @@ function transferTrial(bool $helper, int $bytes): float
             : manualTransfer($scope, $source, $writer, 65_536, 8);
     });
 
-    $elapsed = (hrtime(true) - $started) / 1_000_000_000;
+    $elapsed = (float) (hrtime(true) - $started) / 1_000_000_000.0;
     if ($transferred !== $bytes || $writer->bytes !== $bytes || !$writer->isEnded()) {
         throw new RuntimeException('Response-transfer benchmark produced incorrect byte accounting.');
     }
 
-    return ($bytes / 1_048_576) / $elapsed;
+    return ((float) $bytes / 1_048_576.0) / $elapsed;
 }
 
 $bytes = 256 * 1_048_576;

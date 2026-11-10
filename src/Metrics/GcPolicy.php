@@ -13,6 +13,7 @@ final readonly class GcPolicy
 {
     /**
      * Create and validate garbage-collection policy thresholds.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public bool $enabled = true,

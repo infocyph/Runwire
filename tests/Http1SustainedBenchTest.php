@@ -4,7 +4,50 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../benchmarks/http1_sustained_bench.php';
 
-/** @return array{process:resource, script:string, ready:string, stdout:string, stderr:string, port:int} */
+/**
+ * @param resource $process
+ * @param list<string> $paths
+ */
+function cleanupFailedHttp1Fixture(mixed $process, array $paths): void
+{
+    $processStatus = proc_get_status($process);
+    if ($processStatus['running']) {
+        proc_terminate($process);
+    }
+    proc_close($process);
+    foreach ($paths as $path) {
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
+}
+
+/**
+ * @param resource $process
+ * @throws RuntimeException
+ */
+function awaitHttp1FixtureReady(mixed $process, string $script, string $ready, string $stdout, string $stderr): void
+{
+    // CI starts this real server amid other process-heavy QA lanes.
+    $startupDeadline = microtime(true) + 8.0;
+    while (!is_file($ready) && microtime(true) < $startupDeadline) {
+        if (!proc_get_status($process)['running']) {
+            break;
+        }
+        usleep(20_000);
+    }
+    if (!is_file($ready)) {
+        $diagnostic = is_file($stderr) ? trim((string) file_get_contents($stderr)) : '';
+        cleanupFailedHttp1Fixture($process, [$script, $ready, $stdout, $stderr]);
+        throw new RuntimeException('HTTP fixture did not become ready: ' . ($diagnostic ?: 'no stderr output'));
+    }
+
+}
+
+/**
+ * @return array{process:resource, script:string, ready:string, stdout:string, stderr:string, port:int}
+ * @throws \RuntimeException
+ */
 function startHttp1SustainedFixture(string $response, bool $repeat): array
 {
     $base = tempnam(sys_get_temp_dir(), 'runwire-http1-fixture-');
@@ -12,6 +55,7 @@ function startHttp1SustainedFixture(string $response, bool $repeat): array
         throw new RuntimeException('Unable to allocate fixture path.');
     }
     $script = $base . '.php';
+    unlink($base);
     $ready = $base . '.ready';
     $stdout = $base . '.out';
     $stderr = $base . '.err';
@@ -19,7 +63,7 @@ function startHttp1SustainedFixture(string $response, bool $repeat): array
 <?php
 $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
 if (!is_resource($server)) {
-    throw new RuntimeException($error);
+    throw new RuntimeException($error ?? 'Socket operation failed.');
 }
 $name = stream_socket_get_name($server, false);
 if (!is_string($name) || !str_contains($name, ':')) {
@@ -72,28 +116,7 @@ PHP;
     if (!is_resource($process)) {
         throw new RuntimeException('Unable to start HTTP fixture.');
     }
-    // CI starts this real server amid other process-heavy QA lanes.
-    $startupDeadline = microtime(true) + 8.0;
-    while (!is_file($ready) && microtime(true) < $startupDeadline) {
-        if (!proc_get_status($process)['running']) {
-            break;
-        }
-        usleep(20_000);
-    }
-    if (!is_file($ready)) {
-        $diagnostic = is_file($stderr) ? trim((string) file_get_contents($stderr)) : '';
-        $processStatus = proc_get_status($process);
-        if ($processStatus['running']) {
-            proc_terminate($process);
-        }
-        proc_close($process);
-        foreach ([$script, $ready, $stdout, $stderr] as $path) {
-            if (is_file($path)) {
-                unlink($path);
-            }
-        }
-        throw new RuntimeException('HTTP fixture did not become ready: ' . ($diagnostic ?: 'no stderr output'));
-    }
+    awaitHttp1FixtureReady($process, $script, $ready, $stdout, $stderr);
 
     return compact('process', 'script', 'ready', 'stdout', 'stderr') + ['port' => (int) file_get_contents($ready)];
 }
@@ -133,7 +156,11 @@ it('rotates announced close connections without phantom requests', function (): 
         true,
     );
     try {
-        $result = http1SustainedRun('127.0.0.1', $fixture['port'], 2, 0.15, getmypid(), true);
+        $serverPid = getmypid();
+        if ($serverPid === false) {
+            throw new RuntimeException('Cannot resolve the HTTP benchmark server process ID.');
+        }
+        $result = http1SustainedRun('127.0.0.1', $fixture['port'], 2, 0.15, $serverPid, true);
         $counter = $result['counter'];
         expect($counter['requests_total'])->toBeGreaterThan(1)
             ->and($counter['completed_requests'])->toBe($counter['requests_total'])
@@ -152,7 +179,11 @@ it('counts a dropped response body as a failed attempted request', function (): 
         false,
     );
     try {
-        $result = http1SustainedRun('127.0.0.1', $fixture['port'], 1, 0.15, getmypid(), false);
+        $serverPid = getmypid();
+        if ($serverPid === false) {
+            throw new RuntimeException('Cannot resolve the HTTP benchmark server process ID.');
+        }
+        $result = http1SustainedRun('127.0.0.1', $fixture['port'], 1, 0.15, $serverPid, false);
         expect($result['counter'])->toMatchArray([
             'requests_total' => 1,
             'completed_requests' => 0,
@@ -220,11 +251,12 @@ it('does not certify requested soak time when all clients terminate early', func
 
 it('starts the strict HTTP/1.1 request deadline on first write, not while queued', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($pair)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
     [$socket, $peer] = $pair;
     stream_set_blocking($socket, false);
     stream_set_blocking($peer, false);
-    $client = ['stream' => $socket, 'active' => true];
+    $client = http1SustainedClient($socket);
     $counter = http1SustainedCounters();
     $request = "GET /benchmark HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
@@ -268,7 +300,8 @@ it('reports detailed strict request counters on benchmark correctness failure', 
 
 it('treats transient zero-byte nonblocking writes as bounded retry rather than a failed request', function (): void {
     $sockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($sockets)->toBeArray();
+    \PHPUnit\Framework\Assert::assertIsArray($sockets);
+    \PHPUnit\Framework\Assert::assertCount(2, $sockets);
     [$socket, $peer] = $sockets;
     stream_set_blocking($socket, false);
     stream_set_blocking($peer, false);
@@ -289,7 +322,7 @@ it('treats transient zero-byte nonblocking writes as bounded retry rather than a
         }
         expect($filled)->toBeTrue('The local socket must expose real nonblocking send backpressure.');
 
-        $clients = [0 => ['stream' => $socket, 'active' => true]];
+        $clients = [0 => http1SustainedClient($socket)];
         $counter = http1SustainedCounters();
         http1SustainedPrepareRequest($clients[0], $counter);
         $request = "GET /benchmark HTTP/1.1\r\nHost: localhost\r\n\r\n";

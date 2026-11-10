@@ -25,6 +25,7 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
 
     public function __construct(private readonly int $currentCoroutineId = 17) {}
 
+    #[\Override]
     public function add(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
     {
         if (!is_resource($stream)) {
@@ -40,6 +41,7 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
         return true;
     }
 
+    #[\Override]
     public function after(int $milliseconds, Closure $callback): int
     {
         unset($milliseconds);
@@ -49,6 +51,7 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
         return $id;
     }
 
+    #[\Override]
     public function clearTimer(int $timerId): bool
     {
         if (!isset($this->timers[$timerId])) {
@@ -60,16 +63,19 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
         return true;
     }
 
+    #[\Override]
     public function coroutineId(): int
     {
         return $this->currentCoroutineId;
     }
 
+    #[\Override]
     public function defer(Closure $callback): void
     {
         $this->deferred[] = $callback;
     }
 
+    #[\Override]
     public function delete(mixed $stream): bool
     {
         if (!is_resource($stream)) {
@@ -81,11 +87,13 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
         return true;
     }
 
+    #[\Override]
     public function readFlag(): int
     {
         return 1;
     }
 
+    #[\Override]
     public function repeat(int $milliseconds, Closure $callback): int
     {
         unset($milliseconds);
@@ -95,6 +103,7 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
         return $id;
     }
 
+    #[\Override]
     public function resumeCoroutine(int $coroutineId): bool
     {
         if ($coroutineId !== $this->currentCoroutineId) {
@@ -106,6 +115,7 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
         return true;
     }
 
+    #[\Override]
     public function set(mixed $stream, ?Closure $read, ?Closure $write, int $flags): bool
     {
         if (!is_resource($stream)) {
@@ -121,11 +131,15 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
         return true;
     }
 
+    /**
+     * @throws \RuntimeException
+     */
+    #[\Override]
     public function suspendCoroutine(): void
     {
         $this->resumed = false;
 
-        for ($iterations = 0; !$this->resumed && $iterations < 1_000; ++$iterations) {
+        for ($iterations = 0; !$this->wasResumed() && $iterations < 1_000; ++$iterations) {
             if ($this->deferred !== []) {
                 $callback = array_shift($this->deferred);
                 $callback();
@@ -145,13 +159,18 @@ final class BatchOSwooleReactor implements SwooleReactorInterface
             ($timer['callback'])();
         }
 
-        if (!$this->resumed) {
+        if (!$this->wasResumed()) {
             throw new RuntimeException('Fake Swoole reactor exceeded its bounded dispatch budget.');
         }
     }
 
+    #[\Override]
     public function writeFlag(): int
     {
         return 2;
+    }
+    private function wasResumed(): bool
+    {
+        return $this->resumed;
     }
 }

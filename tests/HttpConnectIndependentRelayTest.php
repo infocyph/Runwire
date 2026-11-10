@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
@@ -9,11 +11,23 @@ use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\Proxy\HttpConnectHandshake;
 use Infocyph\Runwire\Network\Proxy\HttpConnectTunnel;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use RuntimeException;
+use Throwable;
+
+
+require_once __DIR__ . '/Support/TlsFixture.php';
+
+require_once __DIR__ . '/Support/ReferenceProcess.php';
 
 /**
  * Independent Python TLS proxy forwards real bytes through a separately bound TCP origin.
  *
  * @return array{status:int, relayed:bool, authenticated:bool, callbacks:int, error:?Throwable, response:string, verified:?string}
+ * @throws \RuntimeException
+ * @throws \OverflowException
+ * @throws \InvalidArgumentException
+ * @throws \LogicException
+ * @throws \Throwable
  */
 function runwireHttpConnectIndependentRelay(bool $deny): array
 {
@@ -21,10 +35,8 @@ function runwireHttpConnectIndependentRelay(bool $deny): array
     if (!mkdir($dir, 0700)) {
         throw new RuntimeException('Cannot prepare independent CONNECT relay TLS reference.');
     }
-    $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-    $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    $certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
-    expect($key)->not->toBeFalse()->and($csr)->not->toBeFalse()->and($certificate)->not->toBeFalse();
+    [$certificate, $key] = \Infocyph\Runwire\Tests\Support\signingPair('localhost', ['digest_alg' => 'sha256'], ['digest_alg' => 'sha256']);
+    \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($certificate));
     openssl_x509_export($certificate, $pem);
     openssl_pkey_export($key, $privatePem);
     $ca = $dir . '/ca.pem';
@@ -56,18 +68,7 @@ function runwireHttpConnectIndependentRelay(bool $deny): array
     $callbacks = 0;
     $timeout = null;
     try {
-        $ready = '';
-        $start = microtime(true);
-        while (!str_contains($ready, "\n") && microtime(true) - $start < 4) {
-            $ready .= stream_get_contents($pipes[1]);
-            if (str_contains($ready, "\n") || !proc_get_status($process)['running']) {
-                break;
-            }
-            usleep(10_000);
-        }
-        if (preg_match('/^READY ([0-9]+) ([0-9]+)\n/', $ready, $matches) !== 1) {
-            throw new RuntimeException('Independent CONNECT peer startup failed: ' . stream_get_contents($pipes[2]));
-        }
+        $matches = \Infocyph\Runwire\Tests\Support\awaitReferenceReady($process, $pipes[1], $pipes[2], 4.0, '/^READY ([0-9]+) ([0-9]+)\n/', 'Independent CONNECT peer startup failed: ');
         $proxyPort = (int) $matches[1];
         $originPort = (int) $matches[2];
         $expired = false;
@@ -95,25 +96,7 @@ function runwireHttpConnectIndependentRelay(bool $deny): array
                     $handshake,
                     '127.0.0.1',
                     $originPort,
-                    static function (?Connection $tunneled, ?Throwable $proxyError) use (
-                        &$callbacks, &$error, &$response, $loop,
-                    ): void {
-                        ++$callbacks;
-                        if ($proxyError !== null || $tunneled === null) {
-                            $error = $proxyError ?? new RuntimeException('CONNECT failed without error.');
-                            $loop->stop();
-
-                            return;
-                        }
-                        $tunneled->onData(static function (Connection $live) use (&$response, $loop): void {
-                            $response .= $live->read();
-                            $loop->stop();
-                        });
-                        if (!$tunneled->write('ping-from-runwire')->accepted()) {
-                            $error = new RuntimeException('Tunneled payload exceeded the write budget.');
-                            $loop->stop();
-                        }
-                    },
+                    runwireIndependentConnectCompletion($callbacks, $error, $response, $loop),
                     verifiedProxyPeerName: 'localhost',
                 ))->start();
             },
@@ -123,22 +106,13 @@ function runwireHttpConnectIndependentRelay(bool $deny): array
         expect($expired)->toBeFalse();
         $connection?->abort();
 
-        $output = '';
-        $status = null;
-        $start = microtime(true);
-        while (microtime(true) - $start < 3) {
-            $output .= stream_get_contents($pipes[1]);
-            $status = proc_get_status($process);
-            if (!$status['running']) {
-                break;
-            }
-            usleep(10_000);
-        }
-        $output .= stream_get_contents($pipes[1]);
-        expect($status['running'] ?? true)->toBeFalse();
+        $output = \Infocyph\Runwire\Tests\Support\awaitReferenceExit($process, $pipes[1], 3.0);
         $lines = array_values(array_filter(explode("\n", trim($output))));
         $peer = json_decode((string) end($lines), true, 512, JSON_THROW_ON_ERROR);
-        expect($peer)->toBeArray();
+        \PHPUnit\Framework\Assert::assertIsArray($peer);
+        \PHPUnit\Framework\Assert::assertIsInt($peer['status']);
+        \PHPUnit\Framework\Assert::assertIsBool($peer['relayed']);
+        \PHPUnit\Framework\Assert::assertIsBool($peer['authenticated']);
 
         return [
             'status' => $peer['status'],
@@ -189,3 +163,30 @@ it('refuses incorrect CONNECT credentials without contacting the independent ori
         ->and($result['error'])->toBeInstanceOf(RuntimeException::class)
         ->and($result['response'])->toBe('');
 });
+
+
+/**
+ * @return \Closure(?Connection,?Throwable):void
+ */
+function runwireIndependentConnectCompletion(int &$callbacks, ?Throwable &$error, string &$response, SelectLoop $loop): \Closure
+{
+    return static function (?Connection $tunneled, ?Throwable $proxyError) use (
+        &$callbacks, &$error, &$response, $loop,
+    ): void {
+        ++$callbacks;
+        if ($proxyError !== null || $tunneled === null) {
+            $error = $proxyError ?? new RuntimeException('CONNECT failed without error.');
+            $loop->stop();
+
+            return;
+        }
+        $tunneled->onData(static function (Connection $live) use (&$response, $loop): void {
+            $response .= $live->read();
+            $loop->stop();
+        });
+        if (!$tunneled->write('ping-from-runwire')->accepted()) {
+            $error = new RuntimeException('Tunneled payload exceeded the write budget.');
+            $loop->stop();
+        }
+    };
+}

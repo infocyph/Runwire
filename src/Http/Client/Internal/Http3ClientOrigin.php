@@ -16,15 +16,18 @@ final readonly class Http3ClientOrigin
      * Validate the TLS peer and h3 ALPN against one immutable origin.
      *
      * @return array{host:string,port:int}
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
     public static function validate(ClientRequest $request, QuicClientOptions $options): array
     {
         $parts = parse_url($request->uri);
+        $rawHost = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'https'
-            || !is_string($parts['host'] ?? null)) {
+            || !is_string($rawHost)) {
             throw new InvalidArgumentException('HTTP/3 requires a secure absolute HTTPS origin.');
         }
-        $host = trim($parts['host'], '[]');
+        $host = trim($rawHost, '[]');
         if (strcasecmp($options->peerName, $host) !== 0 || $options->alpnProtocols !== ['h3']) {
             throw new InvalidArgumentException('HTTP/3 QUIC must verify the original origin with h3-only ALPN.');
         }
@@ -35,7 +38,10 @@ final readonly class Http3ClientOrigin
         return ['host' => $host, 'port' => $parts['port'] ?? 443];
     }
 
-    /** @param array<string,mixed> $result */
+    /**
+     * @param array<string,mixed> $result
+     * @throws \RuntimeException
+     */
     public static function wireId(array $result): int
     {
         $id = $result['wire_stream_id'] ?? null;

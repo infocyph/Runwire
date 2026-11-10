@@ -17,7 +17,10 @@ trait ConnectionCloseObserverTrait
 
     private int $nextCloseCallbackId = 1;
 
-    /** @param callable(self, CloseReason): void $callback */
+    /**
+     * @param callable(self, CloseReason): void $callback
+     * @throws \OverflowException
+     */
     public function onClose(callable $callback): self
     {
         $this->registerCloseObserver($callback);
@@ -28,6 +31,7 @@ trait ConnectionCloseObserverTrait
     /**
      * Register a close observer with a removable handle.
      * The callback executes immediately for an already closed connection.
+     * @throws \OverflowException
      */
     public function registerCloseObserver(callable $callback): ?int
     {

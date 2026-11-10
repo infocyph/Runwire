@@ -16,6 +16,8 @@ final class NativeDatagramWorker
 {
     /**
      * Attach a datagram worker to an existing loop without taking loop ownership.
+     * @throws \LogicException
+     * @throws \RuntimeException
      */
     public static function attach(
         LoopInterface $loop,
@@ -26,7 +28,6 @@ final class NativeDatagramWorker
         $context->attachLoop($loop);
         $handler = $bound->definition->handlerFor($context);
         $drained = false;
-        $stopWatcher = null;
         $bound->listener->start($loop, $handler);
 
         $stop = static function () use ($context, $bound, $loop, $ownsLoop, &$drained): void {
@@ -75,6 +76,11 @@ final class NativeDatagramWorker
 
     /**
      * Runs the bound datagram listener until worker shutdown is requested.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \OverflowException
+     * @throws \RuntimeException
+     * @throws \Throwable
      */
     public static function run(
         WorkerContext $context,

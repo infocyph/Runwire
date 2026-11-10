@@ -38,16 +38,16 @@ final class Http3Session
         private readonly ?string $peerAddress = null,
         private readonly ?string $localAddress = null,
     ) {
-        /** @var Closure(HttpRequest, ResponseWriterInterface): void $handlerClosure */
         $handlerClosure = Closure::fromCallable($handler);
         $this->handler = $handlerClosure;
-        /** @var Closure(int, string): ResponseWriterInterface $factoryClosure */
         $factoryClosure = Closure::fromCallable($writerFactory);
         $this->writerFactory = $factoryClosure;
     }
 
     /**
      * Cancel and release a tracked request stream.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function cancelRequestStream(int $streamId): void
     {
@@ -57,6 +57,7 @@ final class Http3Session
 
     /**
      * Mark a peer unidirectional stream as finished.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      */
     public function finishPeerUnidirectional(int $streamId): void
     {
@@ -65,7 +66,11 @@ final class Http3Session
 
     /**
      * Mark a request stream as finished and dispatch newly ready requests.
-     */
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \LogicException
+    */
     public function finishRequestStream(int $streamId): void
     {
         $this->state->finishRequestStream($streamId);
@@ -80,6 +85,9 @@ final class Http3Session
 
     /**
      * Feed bytes from a peer unidirectional stream into connection state.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \LogicException
+     * @throws \OverflowException
      */
     public function pushPeerUnidirectional(int $streamId, string $bytes): void
     {
@@ -89,6 +97,10 @@ final class Http3Session
 
     /**
      * Feed bytes from a request stream and dispatch requests when their heads are ready.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     * @throws \LogicException
      */
     public function pushRequestStream(int $streamId, string $bytes): void
     {
@@ -101,6 +113,8 @@ final class Http3Session
 
     /**
      * Release a request stream after response processing completes.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
      */
     public function releaseRequestStream(int $streamId): void
     {
@@ -116,6 +130,9 @@ final class Http3Session
         return $this->state;
     }
 
+    /**
+     * @throws \OverflowException
+     */
     private function dispatchReadyRequests(): void
     {
         foreach (array_keys($this->pendingRequestStreams) as $streamId) {

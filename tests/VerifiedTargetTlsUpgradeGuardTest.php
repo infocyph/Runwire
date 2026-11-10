@@ -2,13 +2,19 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\ConnectionFactory;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use LogicException;
+use RuntimeException;
+use stdClass;
+
 
 it('closes an encrypted proxy connection rather than exposing it as verified origin TLS', function (): void {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$stream, $peer] = runwireVerifiedTargetTlsUpgradeGuardTestSocketPair();
     $loop = new SelectLoop();
     $proxy = ConnectionFactory::accepted($loop, $stream, encrypted: true);
     $completed = 0;
@@ -22,7 +28,7 @@ it('closes an encrypted proxy connection rather than exposing it as verified ori
         ))->toThrow(LogicException::class, 'TLS-over-TLS proxy nesting is unavailable');
 
         expect($proxy->state())->toBe(ConnectionState::CLOSED)
-            ->and(is_resource($stream))->toBeFalse()
+            ->and(get_resource_type($stream))->toBe('Unknown')
             ->and($completed)->toBe(0)
             ->and($loop->diagnostics()->readWatchers)->toBe(0)
             ->and($loop->diagnostics()->writeWatchers)->toBe(0)
@@ -34,7 +40,7 @@ it('closes an encrypted proxy connection rather than exposing it as verified ori
 });
 
 it('refuses an unowned TLS upgrade while another consumer owns the tunnel', function (): void {
-    [$stream, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    [$stream, $peer] = runwireVerifiedTargetTlsUpgradeGuardTestSocketPair();
     $loop = new SelectLoop();
     $tunnel = ConnectionFactory::accepted($loop, $stream);
     $owner = new stdClass();
@@ -51,9 +57,23 @@ it('refuses an unowned TLS upgrade while another consumer owns the tunnel', func
         ))->toThrow(LogicException::class, 'unowned, quiescent cleartext tunnel');
 
         expect($tunnel->state())->not->toBe(ConnectionState::CLOSED)
-            ->and(is_resource($stream))->toBeTrue();
+            ->and(get_resource_type($stream))->toBe('stream');
     } finally {
         $tunnel->abort();
         fclose($peer);
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireVerifiedTargetTlsUpgradeGuardTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

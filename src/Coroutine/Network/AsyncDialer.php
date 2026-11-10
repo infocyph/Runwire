@@ -26,7 +26,11 @@ final readonly class AsyncDialer
         private CoroutineScope $scope,
     ) {}
 
-    /** Await an established connection, honoring both scope and call cancellation. */
+    /**
+     * Await an established connection, honoring both scope and call cancellation.
+     * @throws \LogicException
+     * @throws \Throwable
+     */
     public function connect(DialEndpoint|string $endpoint, ?DialOptions $options = null): AsyncConnection
     {
         $token = $this->scope->cancellation();

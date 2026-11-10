@@ -25,6 +25,10 @@ $loop = new class($actual) implements LoopInterface {
 
     public function __construct(private readonly SelectLoop $actual) {}
 
+    /**
+     * @throws \RuntimeException
+     */
+    #[\Override]
     public function cancel(int $id): bool
     {
         if ($this->injectCancelFailure) {
@@ -34,13 +38,45 @@ $loop = new class($actual) implements LoopInterface {
         return $this->actual->cancel($id);
     }
 
+    /**
+     * @throws \OverflowException
+     */
+    #[\Override]
     public function defer(callable $callback): int { return $this->actual->defer($callback); }
+    /**
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
+     */
+    #[\Override]
     public function delay(float $seconds, callable $callback): int { return $this->actual->delay($seconds, $callback); }
+    #[\Override]
     public function now(): float { return $this->actual->now(); }
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
+    #[\Override]
     public function onReadable(mixed $stream, callable $callback): int { return $this->actual->onReadable($stream, $callback); }
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \OverflowException
+     */
+    #[\Override]
     public function onWritable(mixed $stream, callable $callback): int { return $this->actual->onWritable($stream, $callback); }
+    /**
+     * @throws \OverflowException
+     * @throws \InvalidArgumentException
+     */
+    #[\Override]
     public function repeat(float $interval, callable $callback): int { return $this->actual->repeat($interval, $callback); }
+    /**
+     * @throws \LogicException
+     * @throws \RuntimeException
+     * @throws \Throwable
+     */
+    #[\Override]
     public function run(): void { $this->actual->run(); }
+    #[\Override]
     public function stop(): void { $this->actual->stop(); }
 };
 

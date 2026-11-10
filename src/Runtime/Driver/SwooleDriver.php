@@ -41,7 +41,10 @@ final class SwooleDriver implements HostDriverInterface
 
     private ?object $server = null;
 
-    /** @param callable(string, int): object|null $serverFactory */
+    /**
+     * @param callable(string, int): object|null $serverFactory
+     * @throws \InvalidArgumentException
+     */
     public function __construct(
         private readonly SwooleOptions $options,
         ?callable $serverFactory = null,
@@ -54,7 +57,9 @@ final class SwooleDriver implements HostDriverInterface
 
     /**
      * Configures and starts the host Swoole/OpenSwoole HTTP server.
+     * @throws \Throwable
      */
+    #[\Override]
     public function run(RuntimeApplicationInterface $application): void
     {
         $this->runServer($application);
@@ -64,6 +69,8 @@ final class SwooleDriver implements HostDriverInterface
      * Creates the application inside each host worker, after any fork.
      *
      * @param callable(RuntimeContext): RuntimeApplicationInterface $factory
+     * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function runFactory(callable $factory, RuntimeContext $context): void
     {
@@ -83,7 +90,10 @@ final class SwooleDriver implements HostDriverInterface
 
     /**
      * Requests shutdown of the active Swoole/OpenSwoole server.
+     * @throws \Infocyph\Runwire\Exception\ApplicationShutdownException
+     * @throws \Throwable
      */
+    #[\Override]
     public function stop(): void
     {
         $server = $this->server;
@@ -139,6 +149,12 @@ final class SwooleDriver implements HostDriverInterface
         return strtolower(self::serverString($server, 'request_scheme')) === 'https';
     }
 
+    /** @return class-string|null */
+    private static function existingClass(string $class): ?string
+    {
+        return class_exists($class) ? $class : null;
+    }
+
     /**
      * @param array<string, mixed> $headers
      * @return array<string, string|list<string>>
@@ -169,7 +185,10 @@ final class SwooleDriver implements HostDriverInterface
         };
     }
 
-    /** @return class-string */
+    /**
+     * @return class-string
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private static function serverClass(): string
     {
         $separator = '\\';
@@ -179,8 +198,9 @@ final class SwooleDriver implements HostDriverInterface
         ];
 
         foreach ($classes as $class) {
-            if (class_exists($class)) {
-                return $class;
+            $existing = self::existingClass($class);
+            if ($existing !== null) {
+                return $existing;
             }
         }
 
@@ -206,7 +226,10 @@ final class SwooleDriver implements HostDriverInterface
         return $query === '' || str_contains($target, '?') ? $target : $target . '?' . $query;
     }
 
-    /** @param Closure(?int): RuntimeApplicationInterface|null $factory */
+    /**
+     * @param Closure(?int): RuntimeApplicationInterface|null $factory
+     * @throws \RuntimeException
+     */
     private function configure(object $server, ?Closure $factory): void
     {
         $configured = DynamicHostObject::method($server, 'set')($this->options->serverSettings($this->recyclePolicy));
@@ -217,11 +240,7 @@ final class SwooleDriver implements HostDriverInterface
         $recycleState = null;
         DynamicHostObject::method($server, 'on')(
             'WorkerStart',
-            function (?object $host = null, ?int $workerId = null) use ($factory, &$recycleState): void {
-                unset($host);
-                $this->startApplication($factory, $workerId);
-                $recycleState = new WorkerRecycleState($this->recyclePolicy);
-            },
+            $this->workerStartCallback($factory, $recycleState),
         );
         DynamicHostObject::method($server, 'on')(
             'WorkerStop',
@@ -279,6 +298,9 @@ final class SwooleDriver implements HostDriverInterface
         $this->application->drain();
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function finishApplication(?Throwable $failure = null): void
     {
         $application = $this->application;
@@ -290,6 +312,10 @@ final class SwooleDriver implements HostDriverInterface
         }
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
     private function request(object $request): HttpRequest
     {
         $server = DynamicHostObject::arrayProperty($request, 'server');
@@ -316,7 +342,10 @@ final class SwooleDriver implements HostDriverInterface
         );
     }
 
-    /** @param Closure(?int): RuntimeApplicationInterface|null $factory */
+    /**
+     * @param Closure(?int): RuntimeApplicationInterface|null $factory
+     * @throws \Throwable
+     */
     private function runServer(?RuntimeApplicationInterface $application, ?Closure $factory = null): void
     {
         $server = ($this->serverFactory)($this->options->host, $this->options->port);
@@ -341,7 +370,10 @@ final class SwooleDriver implements HostDriverInterface
         $this->finishApplication($failure);
     }
 
-    /** @param Closure(?int): RuntimeApplicationInterface|null $factory */
+    /**
+     * @param Closure(?int): RuntimeApplicationInterface|null $factory
+     * @throws \Throwable
+     */
     private function startApplication(?Closure $factory, ?int $workerId): void
     {
         try {
@@ -360,6 +392,23 @@ final class SwooleDriver implements HostDriverInterface
         }
     }
 
+    /** @return Closure(mixed...): void */
+    private function workerStartCallback(?Closure $factory, ?WorkerRecycleState &$recycleState): Closure
+    {
+        return function (mixed ...$workerArguments) use ($factory, &$recycleState): void {
+            $workerId = $workerArguments[1] ?? null;
+            if ($workerId !== null && !is_int($workerId)) {
+                throw new RuntimeException('Swoole worker-start event returned an invalid worker identifier.');
+            }
+            $this->startApplication($factory, $workerId);
+            $recycleState = new WorkerRecycleState($this->recyclePolicy);
+        };
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
+     */
     private function writer(object $response, string $method): ResponseWriterInterface
     {
         $status = DynamicHostObject::method($response, 'status');

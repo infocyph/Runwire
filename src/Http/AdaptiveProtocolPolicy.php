@@ -15,6 +15,7 @@ final readonly class AdaptiveProtocolPolicy
 {
     /**
      * Create and validate one protocol's adaptive scheduling policy.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public AdaptivePolicyMode $mode = AdaptivePolicyMode::AUTO,

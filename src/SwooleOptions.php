@@ -14,6 +14,7 @@ final readonly class SwooleOptions
 {
     /**
      * Create Swoole host and protocol options.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public string $host = '127.0.0.1',
@@ -62,6 +63,9 @@ final readonly class SwooleOptions
         return $settings;
     }
 
+    /**
+     * @throws \InvalidArgumentException
+     */
     private static function validateLimit(int $bytes, string $name): void
     {
         if ($bytes < 1 || $bytes > 1_073_741_824) {

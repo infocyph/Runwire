@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Coroutine\CoroutineRuntime;
 use Infocyph\Runwire\Coroutine\CoroutineScope;
 use Infocyph\Runwire\Exception\CancelledException;
@@ -14,114 +16,23 @@ use Infocyph\Runwire\Network\Enum\WriteState;
 use Infocyph\Runwire\Network\WriteResult;
 use Infocyph\Runwire\RequestContext;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use InvalidArgumentException;
 
-function responseTransferWriter(LoopInterface $loop, int $pressureEvery = 0): ResponseWriterInterface
+
+function responseTransferWriter(LoopInterface $loop, int $pressureEvery = 0): \Infocyph\Runwire\Tests\Fixtures\TransferWriter
 {
-    return new class($loop, $pressureEvery) implements ResponseWriterInterface {
-        public string $body = '';
-
-        public bool $ended = false;
-
-        public bool $started = false;
-
-        private $drainCallback = null;
-
-        /** @var list<callable(self): void> */
-        private array $terminal = [];
-
-        private int $writes = 0;
-
-        public function __construct(
-            private readonly LoopInterface $loop,
-            private readonly int $pressureEvery,
-        ) {}
-
-        public function end(string $finalChunk = ''): WriteResult
-        {
-            if ($this->ended) {
-                return new WriteResult(WriteState::CLOSED, 0);
-            }
-
-            $this->started = true;
-            $this->body .= $finalChunk;
-            $this->ended = true;
-            foreach ($this->terminal as $callback) {
-                $callback($this);
-            }
-            $this->terminal = [];
-
-            return new WriteResult(WriteState::ACCEPTED, 0);
-        }
-
-        public function isEnded(): bool
-        {
-            return $this->ended;
-        }
-
-        public function isStarted(): bool
-        {
-            return $this->started;
-        }
-
-        public function onDrain(callable $callback): self
-        {
-            $this->drainCallback = $callback;
-
-            return $this;
-        }
-
-        public function onTerminal(callable $callback): self
-        {
-            if ($this->ended) {
-                $callback($this);
-
-                return $this;
-            }
-
-            $this->terminal[] = $callback;
-
-            return $this;
-        }
-
-        public function start(int $status = 200, ?Headers $headers = null): WriteResult
-        {
-            unset($status, $headers);
-            $this->started = true;
-
-            return new WriteResult(WriteState::ACCEPTED, 0);
-        }
-
-        public function write(string $chunk): WriteResult
-        {
-            if ($this->ended) {
-                return new WriteResult(WriteState::CLOSED, 0);
-            }
-
-            $this->started = true;
-            $this->body .= $chunk;
-            ++$this->writes;
-
-            if ($this->pressureEvery > 0 && $this->writes % $this->pressureEvery === 0) {
-                $this->loop->defer(function (): void {
-                    $callback = $this->drainCallback;
-                    $this->drainCallback = null;
-                    if ($callback !== null) {
-                        $callback($this);
-                    }
-                });
-
-                return new WriteResult(WriteState::PRESSURED, strlen($chunk));
-            }
-
-            return new WriteResult(WriteState::ACCEPTED, 0);
-        }
-    };
+    return new \Infocyph\Runwire\Tests\Fixtures\TransferWriter($loop, $pressureEvery);
 }
 
+/**
+ * @return resource
+ * @throws \PHPUnit\Framework\Exception
+  * @throws \PHPUnit\Framework\ExpectationFailedException
+ */
 function responseTransferSource(string $payload): mixed
 {
     $source = fopen('php://temp', 'w+b');
-    expect($source)->toBeResource();
+    \PHPUnit\Framework\Assert::assertIsResource($source);
     fwrite($source, $payload);
     rewind($source);
 
@@ -157,15 +68,16 @@ it('transfers bounded chunks with backpressure and cooperative fairness', functi
         ->and($writer->body)->toBe($payload)
         ->and($writer->isEnded())->toBeTrue()
         ->and($ticks)->toBeGreaterThan(0)
-        ->and(is_resource($source))->toBeFalse();
+        ->and(get_resource_type($source))->toBe('Unknown');
 });
 
 it('cancels a blocked transfer and closes its source', function (): void {
     $loop = new SelectLoop();
     $runtime = new CoroutineRuntime($loop);
     $context = RequestContext::standalone();
-    [$source, $peer] = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
-    expect($source)->toBeResource()->and($peer)->toBeResource();
+    [$source, $peer] = runwireResponseTransferTestSocketPair();
+    \PHPUnit\Framework\Assert::assertSame('stream', get_resource_type($source));
+    \PHPUnit\Framework\Assert::assertSame('stream', get_resource_type($peer));
     $writer = responseTransferWriter($loop);
 
     $loop->delay(0.01, static function () use ($context): void {
@@ -179,7 +91,7 @@ it('cancels a blocked transfer and closes its source', function (): void {
         );
     })->toThrow(CancelledException::class);
 
-    expect(is_resource($source))->toBeFalse()
+    expect(get_resource_type($source))->toBe('Unknown')
         ->and($writer->isEnded())->toBeFalse();
 
     fclose($peer);
@@ -189,7 +101,11 @@ it('can preserve caller source ownership and blocking mode', function (): void {
     $loop = new SelectLoop();
     $runtime = new CoroutineRuntime($loop);
     $writer = responseTransferWriter($loop);
-    $source = responseTransferSource('preserved-source');
+    $source = tmpfile();
+    \PHPUnit\Framework\Assert::assertIsResource($source);
+    expect(fwrite($source, 'preserved-source'))->toBe(16);
+    expect(rewind($source))->toBeTrue();
+    expect(stream_set_blocking($source, true))->toBeTrue();
     $before = stream_get_meta_data($source);
 
     $transferred = $runtime->run(
@@ -206,8 +122,8 @@ it('can preserve caller source ownership and blocking mode', function (): void {
 
     expect($transferred)->toBe(16)
         ->and($writer->body)->toBe('preserved-source')
-        ->and(is_resource($source))->toBeTrue()
-        ->and((bool) ($after['blocked'] ?? false))->toBe((bool) ($before['blocked'] ?? false));
+        ->and(get_resource_type($source))->not->toBe('Unknown')
+        ->and($after['blocked'])->toBe($before['blocked']);
 
     fclose($source);
 });
@@ -219,7 +135,9 @@ it('rejects invalid transfer sources and unsafe chunk policies', function (): vo
 
     expect(static function () use ($runtime, $writer): void {
         $runtime->run(
-            static fn(CoroutineScope $scope): int => ResponseTransfer::stream($scope, 'not-a-stream', $writer),
+            static function (CoroutineScope $scope) use ($writer): void {
+                (new \ReflectionMethod(ResponseTransfer::class, 'stream'))->invoke(null, $scope, 'not-a-stream', $writer);
+            },
         );
     })->toThrow(InvalidArgumentException::class);
 
@@ -236,8 +154,22 @@ it('rejects invalid transfer sources and unsafe chunk policies', function (): vo
             );
         })->toThrow(InvalidArgumentException::class);
     } finally {
-        if (is_resource($source)) {
+        if (get_resource_type($source) !== 'Unknown') {
             fclose($source);
         }
     }
 });
+
+/**
+ * @return array{resource, resource}
+ * @throws \RuntimeException
+ */
+function runwireResponseTransferTestSocketPair(): array
+{
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    if ($pair === false || !isset($pair[0], $pair[1])) {
+        throw new \RuntimeException('Unable to create a complete test socket pair.');
+    }
+
+    return [$pair[0], $pair[1]];
+}

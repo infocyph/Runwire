@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../benchmarks/adaptive_promotion_matrix.php';
 
-/** @return array<string, array<string, mixed>> */
+/**
+ * @return array<string,array{valid:bool,comparisons:array<string,array{passed:bool,measurement_qualified:bool,phases:array<string,array<string,float>>}>}>
+ * @throws \InvalidArgumentException
+ * @throws \RuntimeException
+ */
 function adaptivePromotionValidResults(string $protocol): array
 {
     $comparison = [
@@ -33,7 +37,10 @@ function adaptivePromotionValidResults(string $protocol): array
     return $results;
 }
 
-/** @return array<string, mixed> */
+/**
+ * @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
+ * @return array{case:array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>},mode:string,trial:int,workload:string,protocol:string,payload_bytes:int,runtime_build:string,environment:string,run_id:string,warmup_seconds:float,phases:array<string,array{requests:int,errors:int,duration_seconds:float,requested_duration_seconds:float,concurrency:int,throughput_rps:float,p50_ms:float,p95_ms:float,p99_ms:float,cpu_percent:float,client_cpu_percent:float,rss_peak_bytes:int,fairness_ratio:float,correctness_passed:bool,observed:array<string,int>}>,correctness_passed:bool}
+ */
 function adaptivePromotionFixtureRecord(array $case, string $mode, int $trial): array
 {
     $phase = [
@@ -56,8 +63,8 @@ function adaptivePromotionFixtureRecord(array $case, string $mode, int $trial): 
     $phases = array_fill_keys(ADAPTIVE_PROMOTION_PHASES, $phase);
     foreach ($phases as $name => &$value) {
         $value['concurrency'] = $name === 'medium'
-            ? (int) $case['medium']
-            : (in_array($name, ['high', 'transition_up'], true) ? (int) $case['high'] : (int) $case['low']);
+            ? $case['medium']
+            : (in_array($name, ['high', 'transition_up'], true) ? $case['high'] : $case['low']);
         if (str_starts_with($name, 'transition_')) {
             $value['requested_duration_seconds'] = 2.0;
             $value['duration_seconds'] = 2.0;
@@ -109,7 +116,9 @@ it('requires complete qualified evidence and a material gain before J10 can pass
         expect($result['performance_gate_passed'])->toBeTrue()
             ->and($result['promotion_certified'])->toBeFalse();
 
-        unset($valid[array_key_first($valid)]);
+        $first = array_key_first($valid);
+        \PHPUnit\Framework\Assert::assertIsString($first);
+        unset($valid[$first]);
         expect(adaptivePromotionEvaluateProtocol($valid, $protocol)['performance_gate_passed'])->toBeFalse();
     }
 
@@ -127,6 +136,7 @@ it('requires complete qualified evidence and a material gain before J10 can pass
 it('rejects transition regressions and noisy apparent gains', function (): void {
     $evidence = adaptivePromotionValidResults('h2');
     $first = array_key_first($evidence);
+    \PHPUnit\Framework\Assert::assertIsString($first);
     $evidence[$first]['comparisons']['fixed']['phases']['transition_up']['throughput_ratio'] = 0.98;
     expect(adaptivePromotionEvaluateProtocol($evidence, 'h2')['performance_gate_passed'])->toBeFalse();
 
@@ -193,6 +203,7 @@ it('recomputes promotion evidence from raw records and rejects failure markers',
             RecursiveIteratorIterator::CHILD_FIRST,
         );
         foreach ($iterator as $item) {
+            \PHPUnit\Framework\Assert::assertInstanceOf(SplFileInfo::class, $item);
             $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
         }
         if (is_dir($directory)) {

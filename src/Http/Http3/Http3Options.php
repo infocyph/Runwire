@@ -18,6 +18,7 @@ final readonly class Http3Options
 
     /**
      * Create and validate HTTP/3 runtime options.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         public Http3Limits $limits = new Http3Limits(),
@@ -52,6 +53,8 @@ final readonly class Http3Options
 
     private static function resolvedPath(string $path): string
     {
-        return realpath($path) ?: $path;
+        $resolved = realpath($path);
+
+        return $resolved === false ? $path : $resolved;
     }
 }

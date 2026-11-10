@@ -22,6 +22,7 @@ final class PhpQuicTransport implements Http3TransportInterface
 
     /**
      * Create a transport around the local QPACK encoder stream.
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         private readonly PhpQuicStream $qpackEncoderStream,
@@ -34,7 +35,9 @@ final class PhpQuicTransport implements Http3TransportInterface
 
     /**
      * Finish the response side of a request stream.
+     * @throws \Throwable
      */
+    #[\Override]
     public function finishRequestStream(int $streamId): void
     {
         $stream = $this->requestStream($streamId);
@@ -53,6 +56,7 @@ final class PhpQuicTransport implements Http3TransportInterface
 
     /**
      * Flush the local QPACK encoder stream preamble.
+     * @throws \UnexpectedValueException
      */
     public function flushQpackEncoderPreamble(): bool
     {
@@ -84,6 +88,9 @@ final class PhpQuicTransport implements Http3TransportInterface
 
     /**
      * Register a client-initiated bidirectional request stream.
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     * @throws \UnexpectedValueException
      */
     public function registerRequestStream(PhpQuicStream $stream): void
     {
@@ -117,7 +124,9 @@ final class PhpQuicTransport implements Http3TransportInterface
 
     /**
      * Write bytes to the local QPACK encoder stream.
+     * @throws \UnexpectedValueException
      */
+    #[\Override]
     public function writeQpackEncoder(string $bytes): int
     {
         if (!$this->flushQpackEncoderPreamble()) {
@@ -129,7 +138,9 @@ final class PhpQuicTransport implements Http3TransportInterface
 
     /**
      * Write response bytes to a registered request stream.
+     * @throws \Throwable
      */
+    #[\Override]
     public function writeRequestStream(int $streamId, string $bytes): int
     {
         $stream = $this->requestStream($streamId);
