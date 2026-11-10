@@ -486,7 +486,7 @@ function wsWorkerResult(mixed $value): array
         'timeouts' => wsCounter($value, 'timeouts'),
         'validation_failures' => wsCounter($value, 'validation_failures'),
         'latencies' => wsLatencies($value['latencies'] ?? null),
-        'error_sample' => $errorSample;
+        'error_sample' => $errorSample,
     ];
     if ($result['successful_messages'] > $result['messages']
         || count($result['latencies']) !== $result['successful_messages']) {

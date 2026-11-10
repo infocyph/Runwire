@@ -162,7 +162,7 @@
                         "reason": "Reviewed allowlisted benchmark protocol and authorized local artifact directory with symlink-resistant atomic publication.",
                         "security": {
                             "sanitizer": "benchmarks/adaptive_promotion_matrix.php",
-                            "sha256": "73e9699af243574dc5b41e41adba9ae23fbc081aa5c39377f8e487022cbe1303",
+                            "sha256": "c60d67673c849db78bff5c68ff6584cc8269aee94eec3ac80c4d43347980ea35",
                             "tests": [
                                 "tests/AdaptivePromotionAtomicWriteTest.php"
                             ]
@@ -177,7 +177,7 @@
                         "reason": "Reviewed allowlisted benchmark protocol and authorized local artifact directory with symlink-resistant atomic publication.",
                         "security": {
                             "sanitizer": "benchmarks/adaptive_promotion_matrix.php",
-                            "sha256": "73e9699af243574dc5b41e41adba9ae23fbc081aa5c39377f8e487022cbe1303",
+                            "sha256": "c60d67673c849db78bff5c68ff6584cc8269aee94eec3ac80c4d43347980ea35",
                             "tests": [
                                 "tests/AdaptivePromotionAtomicWriteTest.php"
                             ]
@@ -192,7 +192,7 @@
                         "reason": "Reviewed allowlisted benchmark protocol and authorized local artifact directory with symlink-resistant atomic publication.",
                         "security": {
                             "sanitizer": "benchmarks/adaptive_promotion_matrix.php",
-                            "sha256": "73e9699af243574dc5b41e41adba9ae23fbc081aa5c39377f8e487022cbe1303",
+                            "sha256": "c60d67673c849db78bff5c68ff6584cc8269aee94eec3ac80c4d43347980ea35",
                             "tests": [
                                 "tests/AdaptivePromotionAtomicWriteTest.php"
                             ]
