@@ -1,6 +1,14 @@
 # Runwire CI / Psalm and PHPStan remediation batches
 
 
+## Batch 156 — secure atomic publication of adaptive promotion JSON
+
+- Parent `f5a7cc00d5d43b2f16224336719d34f07bc6ef2c`, Batch 155. The adaptive benchmark writer previously writes to the **predictable** `$path . '.tmp'` before `rename()`, allowing another process with writable directory access to plant a symlink or collide with parallel runs. This is a concrete write-target vulnerability independent of Psalm's conservative CLI path taint.
+- **Batch 156 candidate:** Reserve a unique temporary file within the canonical, writable destination directory using `tempnam()`; reject fallback paths and errors, serialize and atomically rename, and always clean up on failure. Keep the existing JSON payload and outcome behavior. Preserve small PHPStan complexity budgets by extracting the reserve-and-check logic into its own helper. Add a Pest regression that pre-creates a malicious legacy `.tmp` symlink to an external file, verifies it is untouched, validates two successive result publications and checks that unique temporary files are removed. Two PHP files + tracker, one commit.
+- This is real filesystem hardening, not a taint bypass. Exact-head Psalm, PHPStan, four strict QA lanes, Source Audit, benchmark, hosted/native, Swoole, QUIC and documentation **PENDING**. Any new taint reports caused by the temp file API must be audited, not suppressed. Keep PR draft/open/unmerged; no release tag.
+
+
+
 ## Batch 155 — bound uninterruptible soak sampling to one-second slices
 
 - Parent `1038d607acae69106fdd053305236a1c1ceaefc0`, Batch 154. Last fully verified PHP 8.4/8.5 analyzer baseline prior to source-profile changes was **50 Psalm findings and 0 PHPStan errors**; Batch 153 had four newly induced Psalm diagnostics and Batch 154 corrects their cause, with its exact-head checks still pending at preparation. Do not assume Batch 154 is green before reading those logs.

@@ -122,6 +122,28 @@ function adaptivePromotionLoadJson(string $path): array
 }
 
 /**
+ * Reserve a non-predictable same-directory file for atomic JSON publication.
+ *
+ * @throws \RuntimeException
+ */
+function adaptivePromotionTemporaryFile(string $directory): string
+{
+    $canonicalDirectory = realpath($directory);
+    if ($canonicalDirectory === false || !is_writable($canonicalDirectory)) {
+        throw new RuntimeException('Adaptive promotion directory is not writable.');
+    }
+    $temporary = tempnam($canonicalDirectory, 'runwire-promotion-');
+    if (!is_string($temporary) || dirname($temporary) !== $canonicalDirectory) {
+        if (is_string($temporary) && is_file($temporary)) {
+            unlink($temporary);
+        }
+        throw new RuntimeException('Unable to reserve a local adaptive promotion temporary file.');
+    }
+
+    return $temporary;
+}
+
+/**
  * @param array<string, mixed> $value
  * @throws \RuntimeException
  */
@@ -132,14 +154,17 @@ function adaptivePromotionWriteJson(string $path, array $value): void
         throw new RuntimeException('Unable to create adaptive promotion directory: ' . $directory);
     }
 
-    $temporary = $path . '.tmp';
-    $json = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-    if (file_put_contents($temporary, $json . PHP_EOL) === false || !rename($temporary, $path)) {
+    $temporary = adaptivePromotionTemporaryFile($directory);
+
+    try {
+        $json = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        if (file_put_contents($temporary, $json . PHP_EOL) === false || !rename($temporary, $path)) {
+            throw new RuntimeException('Unable to publish adaptive promotion JSON: ' . $path);
+        }
+    } finally {
         if (is_file($temporary)) {
             unlink($temporary);
         }
-
-        throw new RuntimeException('Unable to publish adaptive promotion JSON: ' . $path);
     }
 }
 
