@@ -34,8 +34,8 @@ Host deployment and resource ownership
      - Real PHP 8.4 and 8.5 worker processes (PHP 8.6 verification is pending) handle multiple distinct requests with persistent worker identity
      - The server owns request dispatch. Persistent pooled outgoing file/socket resources require explicit surviving worker ownership and cleanup.
    * - Swoole and OpenSwoole
-     - Real host-owned coroutine reactors and outgoing TCP dial operations on PHP 8.4 and 8.5; PHP 8.6 is included in the expanded CI matrix
-     - Do not start or terminate another reactor for one request; use the host adapter and its cancellation owner.
+     - Live Swoole/OpenSwoole reactor tests on PHP 8.4 and 8.5; PHP 8.6 is covered by OpenSwoole
+     - Do not start or terminate another reactor for one request; use the host adapter and its cancellation owner. Swoole 6.2.6 cannot build against PHP 8.6; this upstream combination is excluded until a compatible release exists.
    * - Portable PHP CLI without PCNTL
      - Select-based transport and TLS-dependent paths tested without fork/signal functions
      - No prefork or signal-driven autoscaling promise; subprocess file/DNS work separately requires proc_open and process-pipe support.

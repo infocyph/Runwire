@@ -132,6 +132,11 @@ jobs:
         shell: bash
         working-directory: .ci/php-quic
         run: |
+          # PHP 8.6 removed the deprecated XtOffsetOf alias; upstream
+          # php-quic still uses it for the standard struct-offset calculation.
+          if [ "${{ matrix.php-version }}" = "8.6" ]; then
+            export CFLAGS="${CFLAGS:-} -include stddef.h -DXtOffsetOf=offsetof"
+          fi
           phpize
           ./configure --with-quic
           make -j"$(nproc)"
