@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use RuntimeException;
+
 use Infocyph\Runwire\FrankenPhpOptions;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;

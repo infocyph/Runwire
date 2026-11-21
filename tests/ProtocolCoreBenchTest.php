@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use ProtocolCoreBench;
+
 require_once __DIR__ . '/../benchmarks/ProtocolCoreBench.php';
 
 require_once __DIR__ . '/../benchmarks/CoroutineRuntimeBench.php';
