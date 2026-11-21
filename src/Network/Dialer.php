@@ -333,7 +333,6 @@ final class Dialer
             // This intentionally dials a caller-authorized endpoint. When URL
             // input is untrusted, the caller must provide OutboundAddressPolicy;
             // it verifies both resolved candidates and the actual connected peer.
-            /** @psalm-suppress TaintedInput */
             $stream = stream_socket_client(
                 $endpoint->uri,
                 $errorCode,
