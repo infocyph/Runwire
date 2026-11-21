@@ -22,6 +22,12 @@ final class WebSocketUpgradeOwner
     /** @var Closure(): void */
     private readonly Closure $beforeHandoff;
 
+    private readonly Connection $connection;
+
+    private readonly Http1Input $input;
+
+    private readonly LoopInterface $loop;
+
     private ?WebSocketSession $session = null;
 
     /**
@@ -30,13 +36,16 @@ final class WebSocketUpgradeOwner
      * @param callable(): void $beforeHandoff
      */
     public function __construct(
-        private readonly LoopInterface $loop,
-        private readonly Connection $connection,
-        private readonly Http1Input $input,
+        LoopInterface $ownerLoop,
+        Connection $ownedConnection,
+        Http1Input $httpInput,
         callable $beforeHandoff,
     ) {
         $handoff = $beforeHandoff(...);
         $this->beforeHandoff = $handoff;
+        $this->connection = self::retainConnection($ownedConnection);
+        $this->input = self::retainInput($httpInput);
+        $this->loop = self::retainLoop($ownerLoop);
     }
 
     /**
@@ -108,5 +117,20 @@ final class WebSocketUpgradeOwner
         );
 
         return $this->session;
+    }
+
+    private static function retainConnection(Connection $connection): Connection
+    {
+        return $connection;
+    }
+
+    private static function retainInput(Http1Input $input): Http1Input
+    {
+        return $input;
+    }
+
+    private static function retainLoop(LoopInterface $loop): LoopInterface
+    {
+        return $loop;
     }
 }

@@ -78,7 +78,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 ### B03 — HTTP/1 hot connection setup and call hops [implemented; CI pending, P1]
 
 - [x] Inspect per-connection object lifetimes; RequestHeadValidator, ChunkSizeDecoder and Http1Syntax are stateless but shared ownership is deferred pending benchmark evidence; WebSocketUpgradeOwner is only needed for an upgrade.
-- [x] Inline the three identity-only WebSocketUpgradeOwner retain* pass-through methods.
+- [ ] Identity-only WebSocketUpgradeOwner retain* methods were audited but kept: direct assignment triggers Rector, while promoted parameters alter the locked source signature. Revisit only with explicit migration evidence.
 - [x] Instantiate WebSocketUpgradeOwner only in the actual upgrade callback while keeping session owner and handoff order identical; no cross-connection stateless-helper sharing without measurement.
 - [x] Keep Http1Input ByteQueue ownership, protocol parser limits and exact error statuses intact.
 - Gate: HTTP/1 malformed/slowloris/chunks, H1→WebSocket handoff, streaming/backpressure tests and RPM checks.
@@ -124,7 +124,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B02-R | QA remediation | `56e29cc0ae31d572c8223fc6a31f838fb0ff9c47` | Fix PHPCS unused interface parameters in fixtures | B02-R2 resolves PHPStan mixed cast |
 | B02-R2 | Implemented / CI pending | This commit | Explicitly validate PSR attribute type rather than casting mixed | Verify exact-head full PHPForge QA/analysis |
 | B03 | QA remediation needed | `e7ae8ffb472a0a8aa49be5ad57978eacc82af2be` | Lazy WebSocket owner, removal of 3 retain* methods; Pest, PHPCS, Deptrac, syntax and scanner passed | Pint property order and Rector constructor promotion |
-| B03-R | Implemented / CI pending | This commit | Move nullable owner among mutable properties and promote exactly 3 ownership fields | Exact-head full QA/analysis, H1/WS acceptance, PHP 8.4–8.6 |
+| B03-R | Source Audit rejected | `f18b5f5d2f14229b3643d87f4520d12845cabaec` | Fixed Pint and Rector, but changed an audit-locked constructor declaration | B03-R2 restores source signature |
+| B03-R2 | Implemented / CI pending | This commit | Restore original constructor/signature and retain methods; keep lazy H1 WebSocket owner and sorted property | Exact-head source audit, QA/analysis, H1/WS acceptance |
 | B04 | Queued | — | — | HTTP/3 |
 | B05 | Queued | — | — | type budget |
 | B06 | Queued | — | — | memory/observability |
@@ -175,7 +176,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 ### B03 — 2026-11-21
 
 - `Http1Connection` retains no `WebSocketUpgradeOwner` on ordinary HTTP/1 requests; the owner is constructed when the response writer's WebSocket upgrade callback is invoked, before any 101 handoff, and remains connection-owned thereafter. `pump()` and `drain()` handle the absent owner without invoking new callbacks.
-- Inlined 3 identity-only `WebSocketUpgradeOwner::retain*` methods; direct assignments preserve object identity and lifecycle. No named public or protocol-state type was removed.
+- Audited 3 identity-only `WebSocketUpgradeOwner::retain*` methods. Their removal was reverted in B03-R2: Rector requires promotion for direct assignment, but promotion changes the audited constructor declaration. No named public or protocol-state type was removed.
 - Kept ByteQueue/input ownership, parser helper behavior, callback ordering, and existing WebSocket 101 handoff unchanged. **Performance hypothesis:** one helper object + handoff closure avoided for ordinary non-upgrading HTTP/1 connections; effect on successful RPM is not yet benchmarked.
 - Gate: full HTTP/1/WebSocket and hosted/native suite + PHPForge static analysis; benchmark in B07. Source changes are not independently verified until exact-head CI completes.
 
@@ -184,3 +185,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 - PHPForge B03 QA reported `ordered_class_elements` for the nullable `Http1Connection::webSocketOwner` property and `ClassPropertyAssignToConstructorPromotionRector` for three identity assignments in `WebSocketUpgradeOwner`.
 - Moved only the nullable property to its sorted group. Promoted `LoopInterface`, `Connection` and `Http1Input` to readonly constructor properties. Positional construction and ownership semantics are preserved; the internal class's constructor argument names now reflect the owned fields.
 - Previous B03 Pest, PHPCS, Deptrac, scanner, syntax passed; Pint and Rector required remediation. This commit carries **no new functional path**; exact-head CI must still pass before B03 is closed.
+
+### B03-R2 — 2026-11-21
+
+- Source Audit on B03-R `f18b5f5` rejected an unreviewed method declaration change after Rector-style constructor promotion. Preserving positional invocation was insufficient; the migration ledger tracks source-level signatures.
+- Restored `src/Http/Http1/Internal/WebSocketUpgradeOwner.php` exactly from the pre-B03 head `fe7be6e`, including the original constructor argument names and three identity helpers. This deliberately keeps a few tiny hops rather than weakening the locked public-source contract.
+- Preserved the useful B03 optimization: lazy owner creation for actual WebSocket upgrades only, and correctly sorted nullable property in `Http1Connection`.
+- This exact-head commit needs Source Audit and PHPForge QA; there is still no measured throughput/file-load gain. No API bypass was added.
