@@ -69,14 +69,24 @@ final readonly class Http3ClientWireCodec
         return self::parseTrailers($section);
     }
 
-    /** @return array{status:int, headers:Headers} */
+    /**
+     * @return array{status:int, headers:Headers}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function decodeResponseHeaders(string $payload, int $streamId): array
     {
         return $this->tryDecodeResponseHeaders($payload, $streamId)
             ?? throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response QPACK is unsupported.');
     }
 
-    /** Decode finite response trailers without exposing blocked QPACK state. */
+    /**
+     * Decode finite response trailers without exposing blocked QPACK state.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function decodeResponseTrailers(string $payload, int $streamId): Headers
     {
         return $this->tryDecodeResponseTrailers($payload, $streamId)

@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Exception\ApplicationStartupException;
 use Infocyph\Runwire\Runtime\Enum\ApplicationStartupPhase;
 use Infocyph\Runwire\Supervisor\Internal\WorkerChildRuntime;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
+use LogicException;
+use RuntimeException;
 
 it('reports safe worker-fatal cause metadata without changing exit semantics', function (bool $warmup, int $expectedExitCode, bool $anonymous): void {
     $log = tempnam(sys_get_temp_dir(), 'runwire-fatal-log-');
@@ -37,22 +41,33 @@ it('reports safe worker-fatal cause metadata without changing exit semantics', f
         if ($pid === 0) {
             ini_set('log_errors', '1');
             ini_set('error_log', $log);
-            WorkerChildRuntime::run($group, 0, 1, null);
+            $readyStream = fopen('php://temp', 'w+');
+            if ($readyStream === false) {
+                throw new RuntimeException('Unable to open worker readiness fixture.');
+            }
+            WorkerChildRuntime::run($group, 0, 1, $readyStream);
         }
 
         $status = 0;
-        expect(pcntl_waitpid($pid, $status))->toBe($pid)
+        $waitedPid = pcntl_waitpid($pid, $status);
+        if (!is_int($status)) {
+            throw new RuntimeException('Worker wait status must be an integer.');
+        }
+        expect($waitedPid)->toBe($pid)
             ->and(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe($expectedExitCode);
 
         $record = file_get_contents($log);
-        expect($record)->toBeString()
+        if (!is_string($record)) {
+            throw new RuntimeException('Unable to read worker fatal diagnostics.');
+        }
+        expect($record)
             ->toContain('Runwire worker fatal: depth=0 type=')
             ->toContain('file=WorkerChildRuntimeFatalDiagnosticsTest.php')
             ->toContain('type=' . LogicException::class)
             ->not->toContain('private-upstream-credential')
             ->not->toContain('private-request-body')
-            ->not->toContain(realpath(__DIR__) . DIRECTORY_SEPARATOR);
+            ->not->toContain(__DIR__ . DIRECTORY_SEPARATOR);
 
         $entries = preg_match_all('/Runwire worker fatal: depth=\d+/', $record);
         expect($entries)->toBe($warmup ? 3 : 2);

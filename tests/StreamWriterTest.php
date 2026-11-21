@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Network\Internal\StreamWriter;
+use ReflectionMethod;
+use RuntimeException;
+use TypeError;
 
 it('contains expected broken-pipe fwrite notices without leaking them to the caller', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, 0);
@@ -40,7 +45,7 @@ it('restores the previous error handler after a failed fwrite invocation', funct
     });
 
     try {
-        expect(static fn(): int|false => StreamWriter::write(null, 'invalid resource'))
+        expect(static fn(): int|false => (new ReflectionMethod(StreamWriter::class, 'write'))->invoke(null, null, 'invalid resource'))
             ->toThrow(TypeError::class);
 
         trigger_error('error handler restored after exception', E_USER_NOTICE);
