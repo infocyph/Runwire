@@ -24,7 +24,7 @@ function signingPair(string $commonName, array $requestOptions, array $certifica
         throw new RuntimeException('Unable to generate the isolated test signing key.');
     }
     $request = openssl_csr_new(['commonName' => $commonName], $key, $requestOptions);
-    if (!$request instanceof OpenSSLCertificateSigningRequest || !$key instanceof OpenSSLAsymmetricKey) {
+    if (!$request instanceof OpenSSLCertificateSigningRequest) {
         throw new RuntimeException('Unable to generate the isolated test certificate request.');
     }
     $certificate = openssl_csr_sign($request, null, $key, 1, $certificateOptions);

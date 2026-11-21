@@ -36,7 +36,7 @@ function runwireClientTlsIdentity(): array
         throw new \RuntimeException('Unable to generate Tls Client Dialer Test private key.');
     }
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
         throw new \RuntimeException('Unable to create Tls Client Dialer Test certificate request.');
     }
     $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);

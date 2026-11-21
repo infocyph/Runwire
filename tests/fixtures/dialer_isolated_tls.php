@@ -37,7 +37,7 @@ try {
         $key,
         ['config' => $configFile, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
     );
-    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
         throw new \RuntimeException('Unable to create dialer_isolated_tls certificate request.');
     }
     $cert = openssl_csr_sign(
