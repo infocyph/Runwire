@@ -73,19 +73,20 @@ it('runs one real verified TLS h2 GET against a separate reference frame-speakin
     if (!$key instanceof \OpenSSLAsymmetricKey) {
         throw new RuntimeException('Unable to create independent HTTP/2 signing key.');
     }
+    $signingKey = $key;
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, [
         'config' => $config, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256',
     ]);
     if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
         throw new RuntimeException('Unable to construct independent HTTP/2 signing request.');
     }
-    $cert = openssl_csr_sign($csr, null, $key, 1, [
+    $cert = openssl_csr_sign($csr, null, $signingKey, 1, [
         'config' => $config, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256',
     ]);
     if (!$cert instanceof \OpenSSLCertificate) {
         throw new RuntimeException('Unable to sign independent HTTP/2 peer certificate.');
     }
-    if (!openssl_x509_export($cert, $certificate) || !openssl_pkey_export($key, $private)) {
+    if (!openssl_x509_export($cert, $certificate) || !openssl_pkey_export($signingKey, $private)) {
         throw new RuntimeException('Unable to export the independent HTTP/2 TLS identity.');
     }
     file_put_contents($certFile, $certificate);

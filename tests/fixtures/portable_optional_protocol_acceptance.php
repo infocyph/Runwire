@@ -140,17 +140,18 @@ $key = openssl_pkey_new(['private_key_bits' => 2_048, 'private_key_type' => OPEN
 if ($key === false) {
     $fail('Unable to create portable TLS private key.');
 }
+$signingKey = $key;
 $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
 if (! $csr instanceof OpenSSLCertificateSigningRequest) {
     $fail('Unable to create portable TLS certificate request.');
 }
-$certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
+$certificate = openssl_csr_sign($csr, null, $signingKey, 1, ['digest_alg' => 'sha256']);
 if ($certificate === false) {
     $fail('Unable to create portable TLS certificate.');
 }
 $certificatePem = '';
 $keyPem = '';
-if (! openssl_x509_export($certificate, $certificatePem) || ! openssl_pkey_export($key, $keyPem)) {
+if (! openssl_x509_export($certificate, $certificatePem) || ! openssl_pkey_export($signingKey, $keyPem)) {
     $fail('Unable to export portable TLS credentials.');
 }
 file_put_contents($certificatePath, $certificatePem);

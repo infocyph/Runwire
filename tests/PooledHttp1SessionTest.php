@@ -341,17 +341,18 @@ it('verifies an IPv6 IP-SAN TLS peer and retains the bracketed Host through pool
     if ($key === false) {
         throw new \RuntimeException('Unable to generate Pooled Http1Session Test private key.');
     }
+    $signingKey = $key;
     $csr = openssl_csr_new(['commonName' => 'unrelated.example'], $key, ['config' => $config]);
     if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
         throw new \RuntimeException('Unable to create Pooled Http1Session Test certificate request.');
     }
-    $cert = openssl_csr_sign($csr, null, $key, 1, ['config' => $config, 'x509_extensions' => 'v3']);
+    $cert = openssl_csr_sign($csr, null, $signingKey, 1, ['config' => $config, 'x509_extensions' => 'v3']);
     if ($cert === false) {
         throw new \RuntimeException('Unable to sign Pooled Http1Session Test certificate.');
     }
     \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($cert));
     openssl_x509_export($cert, $pem);
-    openssl_pkey_export($key, $keyPem);
+    openssl_pkey_export($signingKey, $keyPem);
     file_put_contents($certificate, $pem);
     file_put_contents($privateKey, $keyPem);
 

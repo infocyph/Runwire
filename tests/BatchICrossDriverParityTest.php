@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Tests;
 
+use ArrayObject;
 use Closure;
-use RuntimeException;
-
 use Infocyph\Runwire\FpmOptions;
 use Infocyph\Runwire\FrankenPhpOptions;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
@@ -36,6 +35,7 @@ use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 use Infocyph\Runwire\SwooleOptions;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleRequest;
 use Infocyph\Runwire\Tests\Fixtures\FakeSwooleResponse;
+use RuntimeException;
 
 /**
  * @throws \InvalidArgumentException

@@ -38,17 +38,18 @@ function responseTransferTlsFiles(): array
     if ($key === false) {
         throw new \RuntimeException('Unable to generate Response Transfer Tls Test private key.');
     }
+    $signingKey = $key;
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
     if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
         throw new \RuntimeException('Unable to create Response Transfer Tls Test certificate request.');
     }
-    $certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
+    $certificate = openssl_csr_sign($csr, null, $signingKey, 1, ['digest_alg' => 'sha256']);
     if ($certificate === false) {
         throw new RuntimeException('Unable to create response-transfer TLS fixture.');
     }
 
     openssl_x509_export($certificate, $certificatePem);
-    openssl_pkey_export($key, $keyPem);
+    openssl_pkey_export($signingKey, $keyPem);
     $certificateFile = $directory . '/cert.pem';
     $keyFile = $directory . '/key.pem';
     file_put_contents($certificateFile, $certificatePem);
