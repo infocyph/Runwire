@@ -315,11 +315,11 @@
                     },
                     {
                         "directive": "@psalm-suppress",
-                        "issue": "TaintedSSRF",
+                        "issue": "TaintedInput",
                         "paths": [
                             "src/Network/Dialer.php"
                         ],
-                        "reason": "Low-level Dialer is an intentionally caller-authorized socket connector, not a URL-fetch endpoint; applications passing untrusted destinations must opt into DialOptions::addressPolicy. OutboundAddressPolicy validates candidate IPs and the actual connected peer, with regression coverage in tests/OutboundAddressPolicyTest.php."
+                        "reason": "Psalm requires TaintedInput (all taint categories) to suppress a taint-analysis finding; this narrow method has exactly one intended caller-authorized socket sink. Low-level Dialer is not a URL-fetch endpoint; applications passing untrusted destinations must opt into DialOptions::addressPolicy. OutboundAddressPolicy validates candidate IPs and the actual connected peer, with regression coverage in tests/OutboundAddressPolicyTest.php."
                     }
                 ]
             }

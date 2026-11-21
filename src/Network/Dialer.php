@@ -322,7 +322,7 @@ final class Dialer
     /**
      * @return resource
      * @throws \RuntimeException
-     * @psalm-suppress TaintedSSRF Caller-authorized low-level endpoint; untrusted targets require OutboundAddressPolicy.
+     * @psalm-suppress TaintedInput Caller-authorized low-level endpoint; untrusted targets require OutboundAddressPolicy.
      */
     private function open(DialEndpoint $endpoint): mixed
     {
