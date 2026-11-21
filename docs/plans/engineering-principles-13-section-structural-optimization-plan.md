@@ -105,10 +105,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Preserve QPACK encoded/decoded state records and all public and lifecycle types; zero class/file removals in B06.
 - Gate: bounded-memory/soak/cancellation/fork and relevant cross-protocol tests.
 
-### B07 — Final measurement, tracker closure, and release handoff [queued, P0 gate]
+### B07 — Final measurement, tracker closure, and release handoff [instrumented; QA/perf evidence pending, P0 gate]
 
-- [ ] Recount production files/interfaces/enums, relevant call hops and autoloaded scripts; summarize actual changes.
-- [ ] Compare baseline vs exact SHA at production-equivalent concurrency with repeatable successful RPM, p95/p99, memory and error budgets.
+- [x] Recount source files and interfaces against PR #16 baseline: 448 production PHP files and 23 Interface-named files unchanged; Internal paths 151 unchanged; source bytes 1,982,567 → 1,982,757 (+190). [ ] Run representative autoloaded/compiled-script profiles; GitHub tree is not a loaded-file measurement.
+- [x] Add a same-process PHPBench reference-vs-optimized PSR-15 32-layer workload with identical middleware/terminal/request and separate setup measurement. [ ] Collect resulting PHP 8.4–8.6 benchmark JSON and run production-equivalent sustained RPM, p95/p99, memory and error-budget comparisons before claiming gains.
 - [ ] Confirm PHP 8.4–8.6, optional extensions, docs, public API, packaging, security and final-source SHA; report any unsupported combination precisely.
 - [ ] Separate completed code work from release certification, main-branch merge or tagging; **never automatically merge**.
 - Gate: all required CI green on final exact SHA; blockers explicit.
@@ -130,7 +130,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B05 | Analyzer regression; remediation committed | `ee51f2c4e0c0f7d6db4677da7baee07ba7802981` | All QA/other workflows passing or executing; PHPStan/Psalm flag 1 non-null token nullsafe at Http3OutboundClient:656 | B05-R fixes narrowing |
 | B05-R | Implemented / exact-head CI pending | This commit | Replace redundant nullsafe on already validated cancellation token | Full PHPStan/Psalm PHP 8.4–8.6, QA and H3 CI |
 | B06 | Implemented / exact-head CI pending | This commit | Skip QPACK retry when no dynamic insertion; reduce temporary allocations initializing metrics; add regressions | Full PHPForge QA/analysis, H3 and B07 measurement |
-| B07 | Queued | — | — | measured final gate |
+| B07 | Benchmark added / CI evidence pending | This commit | Same-runner prebuilt-vs-reconstructed PSR-15 reference, 448 src PHP and 151 Internal unchanged; 23 Interface-named PHP files | Examine JSON benchmark artifacts, final source SHA and exact-head full CI; sustained RPM remains unmeasured |
 
 ### B00 — 2026-11-21
 
@@ -224,3 +224,11 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Added regression assertions in `tests/QpackTest.php` and `tests/MetricsDiagnosticsTest.php` for QPACK empty update/no duplicate ready callback and independent zeroed counters matching enum case order.
 - Reviewed but deliberately retained DNS waiter coalescing, cleanup, cancellation/fork protections, and QPACK blocked queues. No rewrites of stateful streaming/data ownership without workload profiling.
 - **Not measured:** real memory allocations, sustained RPM, or QPACK full benchmark delta. B07 must collect matched evidence before claiming a performance improvement.
+
+### B07 — 2026-11-21 (instrumentation batch)
+
+- Source-tree recount at B06 `a8a3b88`: production PHP 448 → 448, Internal paths 151 → 151, Interface-named paths 23 → 23; total source bytes 1,982,567 → 1,982,757. No new or deleted production class/file; fewer redundant hot-path constructions and one fewer private method.
+- New PHPBench `benchmarks/StructuralWindowBench.php` compares three subjects using the exact same 32 middleware objects, request and terminal: `benchPsrPrebuiltHandle`, `benchPsrReferenceRebuild` (pre-B02 implementation loop reconstructed), and `benchPsrPrebuiltConstruction`. It intentionally separates cold adapter setup from repeated handling.
+- Use PHPForge existing `phpforge / Benchmark` matrix and its raw JSON artifacts. Compare within the **same** job and PHP version; never compare absolute times across unrelated hosts/commits as evidence of throughput. Any measured ratio is a synchronous PSR-15 microbenchmark, not sustained HTTP RPM, memory or end-to-end latency.
+- Source instrumentation itself adds one **non-production** benchmark class/file. No production type removal is justified on 3.0.2: published state/driver type contracts remain intact.
+- **Pending:** exact-head benchmark output and quality CI, representative loaded-script/OPcache measures, matched production-like sustained successful RPM/p95/p99, and FLOW-02 explicit owner review for the existing dialer SSRF exception. Keep the draft PR open and unreleased.
