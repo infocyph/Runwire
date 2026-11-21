@@ -1576,6 +1576,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\LifecycleEmitter",
+      "executableTest": "tests/SupervisorLifecycleTest.php",
+      "behavior": "Supervisor lifecycle listener ordering, event-specific failure counters and error isolation",
+      "migration": "The counters now initialize in enum declaration order with one foreach, preserving every event key and zero initial count. The executable regression verifies continued listener delivery after one callback throws and precise per-event and cumulative failure counts. No caller contract or failure propagation changed.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\PeriodicTaskRegistry",
       "executableTest": "tests/SupervisorLiveAutoscaleTest.php",
       "behavior": "Periodic supervisor sampling/timer cleanup",
