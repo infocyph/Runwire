@@ -131,8 +131,62 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ca-certificates git libevent-dev libssl-dev pkg-config unzip
+          apt-get install -y --no-install-recommends ca-certificates git libevent-dev libonig-dev libssl-dev pkg-config unzip
           docker-php-ext-install pcntl sockets
+          if ! php -m | grep -qi '^mbstring "$PHP_INI_DIR/conf.d/docker-php-ext-sockets.ini" "$PHP_INI_DIR/conf.d/10-sockets.ini"
+          if command -v pecl >/dev/null 2>&1; then
+            printf "\n" | pecl install event
+          else
+            # PHP 8.6 CLI images may ship phpize without PEAR/PECL.
+            # Build the same upstream PECL distribution using the bundled PHP headers.
+            apt-get install -y --no-install-recommends curl make autoconf g++ tar
+            mkdir -p /tmp/runwire-event-build
+            curl --fail --location --show-error --silent https://pecl.php.net/get/event \
+              | tar -xz --strip-components=1 -C /tmp/runwire-event-build
+            (
+              cd /tmp/runwire-event-build
+              phpize
+              ./configure --with-event-core --with-event-extra --with-event-openssl
+              make -j"$(nproc)"
+              make install
+            )
+            rm -rf /tmp/runwire-event-build
+          fi
+          docker-php-ext-enable event
+          rm -rf /var/lib/apt/lists/*
+          php -r 'exit(extension_loaded("event") ? 0 : 1);'
+
+      - name: Checkout Runwire
+        uses: actions/checkout@v7
+
+      - name: Install Composer
+        shell: bash
+        run: |
+          php -r 'copy("https://getcomposer.org/installer", "/tmp/composer-setup.php");'
+          php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+          rm -f /tmp/composer-setup.php
+
+      - name: Install test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if composer install --no-interaction --prefer-dist --no-progress; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo 'Composer dependency download failed after three attempts.' >&2
+              exit 1
+            fi
+            sleep "$((attempt * 5))"
+          done
+
+      - name: Prove accelerated descriptor capacity and HTTP/1 worker budgeting
+        shell: bash
+        run: vendor/bin/pest tests/EventLoopTest.php tests/Http1WorkerBudgetTest.php
+; then
+            docker-php-ext-install -j"$(nproc)" mbstring
+          fi
           mv "$PHP_INI_DIR/conf.d/docker-php-ext-sockets.ini" "$PHP_INI_DIR/conf.d/10-sockets.ini"
           if command -v pecl >/dev/null 2>&1; then
             printf "\n" | pecl install event
