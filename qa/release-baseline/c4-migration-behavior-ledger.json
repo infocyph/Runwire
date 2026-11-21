@@ -1040,6 +1040,14 @@
       "requiresReleaseSignoff": true
     },
     {
+      "symbol": "Infocyph\\Runwire\\Network\\Internal\\StreamWriter",
+      "executableTest": "tests/StreamWriterTest.php",
+      "behavior": "Expected closed-peer stream-write notice handling and caller error-handler restoration",
+      "migration": "StreamWriter continues returning false on closed-peer fwrite errors, now containing both fwrite E_WARNING and E_NOTICE without swallowing unrelated diagnostics. The scoped error-handler stack is restored on both normal and exceptional paths.",
+      "disposition": "documented_test_backed_contract",
+      "requiresReleaseSignoff": true
+    },
+    {
       "symbol": "Infocyph\\Runwire\\Network\\Internal\\TcpSocketTuner",
       "executableTest": "tests/ConnectionSocketPolicyTest.php",
       "behavior": "Socket option precedence and validation",
@@ -1625,9 +1633,9 @@
     },
     {
       "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\WorkerChildRuntime",
-      "executableTest": "tests/SupervisorLifecycleTest.php",
-      "behavior": "Supervisor child startup and shutdown",
-      "migration": "The supervisor child startup and shutdown preserves the original error, validation, lifecycle and resource semantics across the migration; explicit thrown-exception annotations clarify the preexisting tested contract.",
+      "executableTest": "tests/WorkerChildRuntimeFatalDiagnosticsTest.php",
+      "behavior": "Worker fatal exception diagnostics and lifecycle status fidelity",
+      "migration": "Unhandled worker errors still terminate with code 70 and warmup failures with code 78. Fatal-only logs record a bounded class-and-source cause chain without messages, absolute paths, or request data; the regression test verifies exact exit statuses and redaction.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },
