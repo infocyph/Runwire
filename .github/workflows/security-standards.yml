@@ -22,7 +22,6 @@ jobs:
       actions: read
       contents: read
     with:
-      php_versions: '["8.4","8.5"]'
       # Exact per-file skip exceptions and sanitizer evidence are audited in composer.json.
       # PHPForge defaults to a 300-second per-tool limit. Runwire's full
       # integration-heavy Pest suite may exceed that on the slowest QA lane.
