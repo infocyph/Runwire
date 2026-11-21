@@ -5,10 +5,9 @@ declare(strict_types=1);
 use Infocyph\Runwire\Exception\ApplicationStartupException;
 use Infocyph\Runwire\Runtime\Enum\ApplicationStartupPhase;
 use Infocyph\Runwire\Supervisor\Internal\WorkerChildRuntime;
-use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
 
-it('reports safe worker-fatal cause metadata without changing exit semantics', function (bool $warmup, int $expectedExitCode): void {
+it('reports safe worker-fatal cause metadata without changing exit semantics', function (bool $warmup, int $expectedExitCode, bool $anonymous): void {
     $log = tempnam(sys_get_temp_dir(), 'runwire-fatal-log-');
     if ($log === false) {
         throw new RuntimeException('Unable to allocate worker diagnostic log.');
@@ -18,9 +17,12 @@ it('reports safe worker-fatal cause metadata without changing exit semantics', f
         $group = WorkerGroup::callbacks(
             name: 'fatal-diagnostic',
             count: 1,
-            factory: static function (WorkerContext $context) use ($warmup): void {
+            factory: static function () use ($warmup, $anonymous): void {
                 $previous = new LogicException('private-upstream-credential');
-                $failure = new RuntimeException('private-request-body', 0, $previous);
+                $failure = $anonymous
+                    ? new class ('private-request-body', 0, $previous) extends RuntimeException {}
+                : new RuntimeException('private-request-body', 0, $previous);
+
                 throw $warmup
                     ? new ApplicationStartupException(ApplicationStartupPhase::WARMUP, $failure)
                     : $failure;
@@ -54,10 +56,19 @@ it('reports safe worker-fatal cause metadata without changing exit semantics', f
 
         $entries = preg_match_all('/Runwire worker fatal: depth=\d+/', $record);
         expect($entries)->toBe($warmup ? 3 : 2);
+
+        $completeEntries = preg_match_all(
+            '/Runwire worker fatal: depth=\d+ type=[^\s\x00]+ file=WorkerChildRuntimeFatalDiagnosticsTest\.php line=\d+/',
+            $record,
+        );
+        expect($completeEntries)->toBe($entries)
+            ->and($record)->toContain('type=' . ($anonymous ? 'RuntimeException@anonymous' : RuntimeException::class) . ' file=');
     } finally {
         unlink($log);
     }
 })->with([
-    'application fatal preserves exit 70' => [false, 70],
-    'warmup failure preserves exit 78' => [true, 78],
+    'application fatal preserves exit 70' => [false, 70, false],
+    'warmup failure preserves exit 78' => [true, 78, false],
+    'anonymous application fatal preserves metadata and exit 70' => [false, 70, true],
+    'anonymous warmup cause preserves metadata and exit 78' => [true, 78, true],
 ]);
