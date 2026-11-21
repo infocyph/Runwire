@@ -241,3 +241,21 @@ function runwireOwnedHttp3ClientWireCodecTestCase10(): void
     $codec = new Http3ClientWireCodec();
     expect(fn() => $codec->receivePeerDecoderInstructions("\x80"))->toThrow(Http3Exception::class);
 }
+
+it('reuses static QPACK preflight without changing real request frames', function (): void {
+    runwireOwnedHttp3ClientWireCodecPreflightReuse();
+});
+
+/** @throws \Throwable */
+function runwireOwnedHttp3ClientWireCodecPreflightReuse(): void
+{
+    $request = new ClientRequest('GET', 'https://example.com/search',
+        Headers::fromArray(['accept' => 'application/json']), protocol: h3TestPolicy());
+    $codec = new Http3ClientWireCodec(decoderCapacity: 4_096, maxBlocked: 8);
+    $preflight = $codec->encodeRequestHeaders($request, 1);
+    $next = $codec->encodeRequestHeaders($request, 9);
+    $fresh = (new Http3ClientWireCodec(decoderCapacity: 4_096, maxBlocked: 8))->encodeRequestHeaders($request, 9);
+
+    expect($preflight)->toBe($next)
+        ->and($next)->toBe($fresh);
+}

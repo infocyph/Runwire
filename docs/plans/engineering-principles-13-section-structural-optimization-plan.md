@@ -75,7 +75,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [ ] Run repeated cold/warm, memory/allocation and representative successful RPM comparisons. Deterministic new test establishes chain identity reuse and removes up to 32 per-request layer constructions, **not measured throughput gains**.
 - Gate: focused PSR tests + full analysis/QA and parity; no native-reactor synchronous middleware.
 
-### B03 — HTTP/1 hot connection setup and call hops [implemented; CI pending, P1]
+### B03 — HTTP/1 hot connection setup and call hops [CI green; measurement pending, P1]
 
 - [x] Inspect per-connection object lifetimes; RequestHeadValidator, ChunkSizeDecoder and Http1Syntax are stateless but shared ownership is deferred pending benchmark evidence; WebSocketUpgradeOwner is only needed for an upgrade.
 - [ ] Identity-only WebSocketUpgradeOwner retain* methods were audited but kept: direct assignment triggers Rector, while promoted parameters alter the locked source signature. Revisit only with explicit migration evidence.
@@ -83,11 +83,11 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Keep Http1Input ByteQueue ownership, protocol parser limits and exact error statuses intact.
 - Gate: HTTP/1 malformed/slowloris/chunks, H1→WebSocket handoff, streaming/backpressure tests and RPM checks.
 
-### B04 — HTTP/3 duplicate validation and preflight [queued, P1]
+### B04 — HTTP/3 duplicate validation and preflight [implemented; exact-head QA pending, P1]
 
-- [ ] Inspect Http3OutboundClient and sibling callers for duplicate original-origin parse, temporary Http3ClientWireCodec allocation and QPACK encoder state preflight.
-- [ ] Optimize only after ensuring per-sibling origin and h3 ALPN checks still run, and error ordering/atomicity is preserved.
-- [ ] Keep independent QUIC request, GOAWAY, TLS peer, QPACK blocked/unblocked and cancellation invariants.
+- [x] Inspect immutable root-origin revalidation, temporary HTTP/3 codec and static QPACK preflight; reuse the verified origin and preflight codec.
+- [x] Preserve sibling origin/ALPN checks; original root and options are immutable, and preflight still executes before any native session allocation.
+- [ ] Reverify all independent QUIC, GOAWAY, TLS peer, QPACK and cancellation suites on B04 exact head.
 - Gate: independent HTTP/3 QUIC PHP 8.4/8.5/8.6 tests, multiplex/cancellation, security and throughput.
 
 ### B05 — Small internal type and call-chain audit [queued, P2]
@@ -125,8 +125,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B02-R2 | Implemented / CI pending | This commit | Explicitly validate PSR attribute type rather than casting mixed | Verify exact-head full PHPForge QA/analysis |
 | B03 | QA remediation needed | `e7ae8ffb472a0a8aa49be5ad57978eacc82af2be` | Lazy WebSocket owner, removal of 3 retain* methods; Pest, PHPCS, Deptrac, syntax and scanner passed | Pint property order and Rector constructor promotion |
 | B03-R | Source Audit rejected | `f18b5f5d2f14229b3643d87f4520d12845cabaec` | Fixed Pint and Rector, but changed an audit-locked constructor declaration | B03-R2 restores source signature |
-| B03-R2 | Implemented / CI pending | This commit | Restore original constructor/signature and retain methods; keep lazy H1 WebSocket owner and sorted property | Exact-head source audit, QA/analysis, H1/WS acceptance |
-| B04 | Queued | — | — | HTTP/3 |
+| B03-R2 | Fully CI green | `8802a0908ccafb5f70019e29331c3ceb4a0ffb23` | Source Audit, six PHPForge QA lanes, three analysis lanes, three QUIC jobs, portable/hosted and docs | B07 perf measurement |
+| B04 | Implemented / CI pending | This commit | Reuse immutable verified root origin and preflight HTTP/3 codec; QPACK equivalence regression | PHP 8.4–8.6 QUIC, PHPForge QA/analysis and measured RPM |
 | B05 | Queued | — | — | type budget |
 | B06 | Queued | — | — | memory/observability |
 | B07 | Queued | — | — | measured final gate |
@@ -192,3 +192,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Restored `src/Http/Http1/Internal/WebSocketUpgradeOwner.php` exactly from the pre-B03 head `fe7be6e`, including the original constructor argument names and three identity helpers. This deliberately keeps a few tiny hops rather than weakening the locked public-source contract.
 - Preserved the useful B03 optimization: lazy owner creation for actual WebSocket upgrades only, and correctly sorted nullable property in `Http1Connection`.
 - This exact-head commit needs Source Audit and PHPForge QA; there is still no measured throughput/file-load gain. No API bypass was added.
+
+### B04 — 2026-11-21
+
+- `ClientRequest` and `QuicClientOptions` are final readonly. `Http3ClientOrigin::validate()` still validates **each sibling** against the verified TLS peer and `h3`-only policy; the immutable original origin array is saved for comparison, eliminating redundant root parsing.
+- The final `Http3ClientWireCodec` is constructed before native QUIC I/O, performs the existing unsafe-framing preflight, then is owned by the client. Outbound QPACK uses zero dynamic capacity, so no dynamic reference state survives preflight; a new regression compares repeated encoding against a fresh codec with a distinct stream ID.
+- No public API or protocol-state classes removed. Expect one fewer temporary codec instance per root session and one fewer immutable root-origin parse per sibling, **not measured throughput gains**.
+- B03-R2 head `8802a09` passed all required Security & Standards jobs and native/host/docs workflows. B04 exact-head QA and H3 interop are pending.
