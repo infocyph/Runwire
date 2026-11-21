@@ -132,7 +132,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B06 | Complete; eight required workflows green | `a8a3b88abc4b` | Skip QPACK retry when no dynamic insertion; reduce temporary allocations initializing metrics; add regressions | Full PHPForge QA/analysis, H3 and B07 measurement |
 | B07 | Instrumentation only / full CI not triggered | `af16478b143fab33932f1369119113c1084edabe` | New PHPBench subjects for reference vs prebuilt PSR; no production source changes, CodeQL passed | B07-R smoke test and full QA |
 | B07-R | CI blocked; remediation queued | `3dd0eca8b51b` | Test equal PSR responses for all three benchmark subjects plus repeat handle; includes test-path change for QA trigger | Review three-version benchmark JSON and full checks |
-| B07-R2 | Implemented; exact-head QA pending | This commit (B07-R2; SHA recorded at next batch) | Namespace benchmark under Infocyph for legal internal access; initialize in constructor; order members, annotate exceptions, prove middleware element types | Confirm PHP 8.4–8.6 Psalm/PHPStan, Pint, full QA and QUIC; do not declare green before checks |
+| B07-R2 | QA/analysis follow-up required | `66bce1f81b60993932d1faa8fcdd62f1aff3f1a1` | Namespace benchmark under Infocyph for legal internal access; initialize in constructor; order members, annotate exceptions, prove middleware element types | Confirm PHP 8.4–8.6 Psalm/PHPStan, Pint, full QA and QUIC; do not declare green before checks |
+| B07-R3 | Remediation implemented; exact-head checks pending | This commit (SHA to be backfilled next batch) | Remove extra class-close separator; put benchmark smoke test in the Infocyph test namespace to satisfy internal API boundary | Validate PHP 8.4–8.6 QA/analysis, all workflows; no release/throughput claim |
 
 ### B00 — 2026-11-21
 
@@ -249,3 +250,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Production PSR-15 adapter: build a bounded `list<MiddlewareInterface>` while validating, then construct the immutable handler chain from that verified list. This resolves the outstanding `MixedArgument` review root cause without altering named constructor parameters, middleware order, or repeated-request behavior. This introduces only an adapter-construction-time bounded reference list (maximum 32), not per-request work.
 - B07-R PHPBench jobs produced data for PHP 8.4–8.6, but runner used 10 revs/3 iterations despite source attributes requesting 1000 revs/5 iterations. The reported relative ratios are diagnostic only; B07-P must review effective runner configuration, repeatability and steady-state RPM before certification.
 - **Validation pending:** new exact-head 8.4/8.5/8.6 analysis/QA, H3 QUIC, full required workflows. Do not mark B07-R2 green before checks; do not merge/tag. Git commit SHA for this same-commit tracker row must be backfilled from branch history at the next batch.
+
+### B07-R3 — 2026-11-21
+
+- B07-R2 `66bce1f81b60` retained one Pint `class_attributes_separation` failure in `benchmarks/StructuralWindowBench.php`, caused by an extra separator before the final class closing brace. The exact-head PHP 8.6 Psalm analysis reported six `InternalClass`/`InternalMethod` findings in `tests/StructuralWindowBenchmarkTest.php`: the smoke test was in the global namespace while the benchmark is internal to `Infocyph`.
+- Fixes: remove the redundant separator; add the existing `Infocyph\\Runwire\\Tests` namespace to the smoke test, matching library test-suite conventions and keeping production/internal visibility unchanged. No source changes to runtime protocol behavior or benchmark scenarios.
+- Gate: PHPForge Pint/Psalm/PHPStan/Pest on PHP 8.4–8.6 and all eight exact-head workflows; if green, advance to measurement B07-P. No scanner exceptions, merge, tag or release.

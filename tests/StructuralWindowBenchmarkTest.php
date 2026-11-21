@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\Benchmarks\StructuralWindowBench;
 
 require_once __DIR__ . '/../benchmarks/StructuralWindowBench.php';

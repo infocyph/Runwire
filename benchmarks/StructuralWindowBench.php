@@ -98,5 +98,4 @@ final class StructuralWindowBench
 
         return $handler->handle($this->request)->getStatusCode();
     }
-
 }
