@@ -16,22 +16,22 @@ Host deployment and resource ownership
      - Verified existing capability
      - Ownership and portability limitations
    * - Native Select loop
-     - TCP, HTTP/1.1, HTTP/2, bounded worker I/O, and request scopes on PHP 8.4 and 8.5; PHP 8.6 is included in the expanded CI matrix
+     - TCP, HTTP/1.1, HTTP/2, bounded worker I/O, and request scopes verified on PHP 8.4, 8.5 and 8.6 in the exact-source native CI matrix
      - Prefork/supervision requires PCNTL and POSIX. Without those extensions, use the supported single-process mode.
    * - Optional ext-event loop
-     - ext-event descriptor tests and HTTP/1 worker byte-budget tests in the accelerated PHP 8.4 CI lane
-     - ext-event is optional and not required for install. Equivalent coverage across every native protocol or PHP 8.5/8.6 is not yet certified.
+     - ext-event accelerated acceptance and HTTP/1 worker byte-budget tests on PHP 8.4, 8.5 and 8.6
+     - ext-event is optional and not required for install. Accelerated CI passing does not certify every protocol/host combination with ext-event.
    * - Optional native QUIC
      - TLS 1.3 and ALPN verified with independent QUIC peers when ext-quic and the supported crypto stack are present
      - Without ext-quic, QUIC/H3 must fail as unavailable. Native RFC 9221 datagrams, path migration and 0-RTT application dispatch explicitly remain unsupported by the current backend.
    * - PHP-FPM
-     - Actual FastCGI requests through the host-owned process on PHP 8.4 and 8.5; PHP 8.6 is included in the expanded CI matrix
+     - Actual FastCGI requests through host-owned PHP 8.4, 8.5 and 8.6 processes, verified on the exact source SHA
      - Request scopes end with the request; no assumption of inherited persistent application connections or background I/O.
    * - FrankenPHP worker
-     - Real persistent process and separate request contexts on PHP 8.4 and 8.5; PHP 8.6 is included in the expanded CI matrix
+     - Real FrankenPHP workers and separate request contexts verified on PHP 8.4, 8.5 and 8.6
      - Worker lifetime differs from request lifetime; socket/file reuse must have an explicit surviving owner.
    * - RoadRunner worker
-     - Real PHP 8.4 and 8.5 worker processes (PHP 8.6 verification is pending) handle multiple distinct requests with persistent worker identity
+     - Real RoadRunner PHP 8.4, 8.5 and 8.6 workers handle multiple distinct requests with persistent worker identity
      - The server owns request dispatch. Persistent pooled outgoing file/socket resources require explicit surviving worker ownership and cleanup.
    * - Swoole and OpenSwoole
      - Live Swoole/OpenSwoole reactor tests on PHP 8.4 and 8.5; PHP 8.6 is covered by OpenSwoole
@@ -115,10 +115,10 @@ to validate scaling and process-tree cleanup in your environment.
 Proof boundary and operator guidance
 ------------------------------------
 
-The GitHub Actions workflows document each tested source SHA. The PHP 8.4, 8.5 and 8.6 matrix defines verification targets; a version is certified only after its exact-source jobs succeed:
+The GitHub Actions workflows document each tested source SHA. The PHP 8.4, 8.5 and 8.6 matrix defines verification targets; a version is certified only after its exact-source jobs succeed. For Runwire PR #16 head ``f1c99ba``, the native, host and QUIC matrices passed on all three PHP versions; this does not imply optional extension support beyond tested combinations:
 
 * Security & Standards: PHPForge Pest, code-style, analyzers, independent native QUIC and HTTP/3 tests.
-* Portable Native: PHP 8.4/8.5/8.6 CI coverage without PCNTL, optional OpenSSL negative cases, and PHP 8.4 ext-event accelerated checks.
+* Portable Native: PHP 8.4/8.5/8.6 CI coverage without PCNTL, optional OpenSSL negative cases, and ext-event accelerated checks on each version.
 * Real Hosted Runtime Acceptance: actual FPM, FrankenPHP worker and RoadRunner request sequences on the supported PHP version matrix.
 * Swoole/OpenSwoole Coroutine: live host reactor and outbound socket verification.
 * Documentation and Release Candidate: strict Sphinx pages and standalone package archive installation.

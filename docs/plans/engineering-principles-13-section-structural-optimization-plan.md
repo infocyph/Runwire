@@ -59,12 +59,12 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Create a separate optimization branch without modifying PR #16's release-ready head.
 - Gate: plan file exists in the branch and can be updated along with later batches.
 
-### B01 — Security boundary and PHP 8.6 capability truth [queued, P0]
+### B01 — Security boundary and PHP 8.6 capability truth [implemented; exact-head CI pending, P0]
 
-- [ ] Correct stale *verified vs pending* PHP 8.6 host/portable statements to match exact GitHub CI evidence, preserving optional extension limitations.
-- [ ] Document the dialer taint-analysis exception's explicit trust model, narrow scope, independent approval/review requirement and removal trigger without weakening any detector.
-- [ ] Add or verify focused SSRF regression coverage for candidate and kernel-reported peer, without changing public low-level TCP dialing semantics.
-- [ ] Record all affected docs/tests and quality-gate results.
+- [x] Correct stale *verified vs pending* PHP 8.6 host/portable statements to match exact GitHub CI evidence, preserving optional extension limitations.
+- [x] Document the dialer taint-analysis exception's explicit trust model, narrow scope, independent approval/review requirement and removal trigger without weakening any detector.
+- [x] Review existing focused SSRF regression coverage for candidate and kernel-reported peer (no behavior change); tests/OutboundAddressPolicyTest.php includes direct/resolved candidates, mapped IPv6 and connected-peer mismatch.
+- [x] Record affected docs and existing test coverage; branch CI must still verify documentation.
 - Gate: docs/Sphinx, source audit, negative network/SSRF tests, complete required CI on this head.
 
 ### B02 — PSR-15 per-request work [queued, P1]
@@ -117,8 +117,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 | Batch | Status | Commit SHA | Evidence | Residual / next |
 | --- | --- | --- | --- | --- |
-| B00 | Complete | Plan-creation commit | 13-section source inventory and scoped tasks recorded | B01 |
-| B01 | Queued | — | — | docs and SSRF review |
+| B00 | Complete | `ffcde08ad75666bd3f1e874b904c2f86f5ad7e28` | 13-section source inventory and scoped tasks recorded | B01 |
+| B01 | Implemented / CI pending | This commit | PHP 8.4–8.6 hosted/native evidence reconciled with docs; SSRF trust/exception documented; existing regression tests reviewed | Exact-head CI and explicit exception sign-off |
 | B02 | Queued | — | — | PSR chain |
 | B03 | Queued | — | — | HTTP/1 |
 | B04 | Queued | — | — | HTTP/3 |
@@ -132,3 +132,11 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Conclusive hot-path finding: `PsrMiddlewareAdapter::handle()` constructs a bounded chain repeatedly (up to 32 middleware per request).
 - Structural review candidates require caller-graph proof; no production class has been approved for deletion merely by size.
 - Verification status: historical original head passed required CI; this plan-only commit has not independently established fresh CI. No performance improvement has been measured.
+
+### B01 — 2026-11-21
+
+- Changes: `docs/host-compatibility-3.0.rst` and `docs/compatibility-audit-3.0.rst` now separate current PHP 8.6 hosted/native acceptance from the historical PHP 8.4/8.5 2.1.2-versus-3.0 comparison; optional extension coverage is scoped.
+- Security: `docs/security-handbook-3.0.rst` now explains the low-level dialer's intentional private-service capability, required authorization of untrusted destinations, file-scoped Psalm exception and review/removal trigger. No detector or runtime behavior changed.
+- Existing focused tests inspected: `tests/OutboundAddressPolicyTest.php` covers direct/resolved candidates, special-use/mapped IPv6, connected-peer mismatch and zero watchers after rejection. These tests were **not rerun by the GitHub source-edit operation**.
+- Prior verified source: PR #16 `f1c99ba`: RoadRunner, FrankenPHP and FPM on PHP 8.4/8.5/8.6; Portable Native and QUIC all green. New PR #17 commit requires fresh CI.
+- **Outstanding decision:** FLOW-02 calls for explicit engineering approval of the existing SSRF file exception. Documentation is not approval. Do not claim the release security review closed without sign-off.
