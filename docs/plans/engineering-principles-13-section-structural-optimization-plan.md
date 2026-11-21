@@ -75,12 +75,12 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [ ] Run repeated cold/warm, memory/allocation and representative successful RPM comparisons. Deterministic new test establishes chain identity reuse and removes up to 32 per-request layer constructions, **not measured throughput gains**.
 - Gate: focused PSR tests + full analysis/QA and parity; no native-reactor synchronous middleware.
 
-### B03 — HTTP/1 hot connection setup and call hops [queued, P1]
+### B03 — HTTP/1 hot connection setup and call hops [implemented; CI pending, P1]
 
-- [ ] Verify per-connection construction cost, usage and lifetime of RequestHeadValidator, ChunkSizeDecoder, Http1Syntax and WebSocketUpgradeOwner.
-- [ ] Inline the three trivial WebSocketUpgradeOwner retain* pass-through methods where semantics truly unchanged.
-- [ ] Only consider lazy handoff or shared immutable stateless parser helpers if callback/lifetime ordering remains identical and measurement justifies it.
-- [ ] Keep Http1Input ByteQueue ownership, protocol parser limits and exact error statuses.
+- [x] Inspect per-connection object lifetimes; RequestHeadValidator, ChunkSizeDecoder and Http1Syntax are stateless but shared ownership is deferred pending benchmark evidence; WebSocketUpgradeOwner is only needed for an upgrade.
+- [x] Inline the three identity-only WebSocketUpgradeOwner retain* pass-through methods.
+- [x] Instantiate WebSocketUpgradeOwner only in the actual upgrade callback while keeping session owner and handoff order identical; no cross-connection stateless-helper sharing without measurement.
+- [x] Keep Http1Input ByteQueue ownership, protocol parser limits and exact error statuses intact.
 - Gate: HTTP/1 malformed/slowloris/chunks, H1→WebSocket handoff, streaming/backpressure tests and RPM checks.
 
 ### B04 — HTTP/3 duplicate validation and preflight [queued, P1]
@@ -123,7 +123,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B02 | QA failures (PHPCS) | `2868e66931bd8d39785923eaf71dd53d13f6a4ad` | New repeated-request tests + immutable handler reuse; Pest, Pint, Deptrac, syntax passed; PHPCS flagged 5 unused parameters in 3 test fixture methods | B02-R addresses QA warnings |
 | B02-R | QA remediation | `56e29cc0ae31d572c8223fc6a31f838fb0ff9c47` | Fix PHPCS unused interface parameters in fixtures | B02-R2 resolves PHPStan mixed cast |
 | B02-R2 | Implemented / CI pending | This commit | Explicitly validate PSR attribute type rather than casting mixed | Verify exact-head full PHPForge QA/analysis |
-| B03 | Queued | — | — | HTTP/1 |
+| B03 | Implemented / CI pending | This commit | Lazy WebSocket handoff owner for ordinary HTTP/1; inline 3 identity-only methods | HTTP/1 + WS integration, PHPForge analysis/QA and RPM evidence |
 | B04 | Queued | — | — | HTTP/3 |
 | B05 | Queued | — | — | type budget |
 | B06 | Queued | — | — | memory/observability |
@@ -170,3 +170,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Historical B02 analysis on `2868e66` exposed PHPStan `cast.string` in the new PSR test: `ServerRequestInterface::getAttribute()` returns mixed.
 - This one-commit remediation checks `is_string` before producing a response header; invalid test setup raises an explicit runtime exception. No production/runtime changes.
 - B02-R already corrected PHPCS unused PSR interface parameter warnings. Complete B02 QA only after the new exact-head run is green; any earlier run's diagnostic is not final proof.
+
+### B03 — 2026-11-21
+
+- `Http1Connection` retains no `WebSocketUpgradeOwner` on ordinary HTTP/1 requests; the owner is constructed when the response writer's WebSocket upgrade callback is invoked, before any 101 handoff, and remains connection-owned thereafter. `pump()` and `drain()` handle the absent owner without invoking new callbacks.
+- Inlined 3 identity-only `WebSocketUpgradeOwner::retain*` methods; direct assignments preserve object identity and lifecycle. No named public or protocol-state type was removed.
+- Kept ByteQueue/input ownership, parser helper behavior, callback ordering, and existing WebSocket 101 handoff unchanged. **Performance hypothesis:** one helper object + handoff closure avoided for ordinary non-upgrading HTTP/1 connections; effect on successful RPM is not yet benchmarked.
+- Gate: full HTTP/1/WebSocket and hosted/native suite + PHPForge static analysis; benchmark in B07. Source changes are not independently verified until exact-head CI completes.
