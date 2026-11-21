@@ -142,29 +142,38 @@ it('preserves short-circuiting and propagates middleware exceptions', function (
         {
             ++$this->calls;
 
-            return new Response(200);
+            return new Response($request->getMethod() === 'GET' ? 200 : 405);
         }
     };
     $shortCircuit = new class implements MiddlewareInterface {
+        public ?RequestHandlerInterface $next = null;
+
         #[\Override]
         public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
         {
-            return new Response(204);
+            $this->next = $handler;
+
+            return new Response($request->getMethod() === 'GET' ? 204 : 405);
         }
     };
     $throwing = new class implements MiddlewareInterface {
+        public ?RequestHandlerInterface $next = null;
+
         /** @throws \RuntimeException */
         #[\Override]
         public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
         {
-            throw new RuntimeException('middleware failure');
+            $this->next = $handler;
+            throw new RuntimeException('middleware failure: ' . $request->getMethod());
         }
     };
     $request = new ServerRequest('GET', 'https://example.test/');
 
     expect((new PsrMiddlewareAdapter([$shortCircuit], $terminal))->handle($request)->getStatusCode())->toBe(204)
+        ->and($shortCircuit->next)->toBe($terminal)
         ->and($terminal->calls)->toBe(0)
         ->and(fn() => (new PsrMiddlewareAdapter([$throwing], $terminal))->handle($request))
-        ->toThrow(RuntimeException::class, 'middleware failure')
+        ->toThrow(RuntimeException::class, 'middleware failure: GET')
+        ->and($throwing->next)->toBe($terminal)
         ->and($terminal->calls)->toBe(0);
 });

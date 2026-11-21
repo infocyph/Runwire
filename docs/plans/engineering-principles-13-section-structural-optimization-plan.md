@@ -120,7 +120,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B00 | Complete | `ffcde08ad75666bd3f1e874b904c2f86f5ad7e28` | 13-section source inventory and scoped tasks recorded | B01 |
 | B01 | Implemented; doc CI failure | `eb1cf9f4c207b194b3508a65928b04760e2a84e6` | PHP 8.4–8.6 evidence/doc reconciliation and SSRF trust documentation; Source Audit green, RST failed on short heading underline | B01-R repairs Sphinx; approval still required |
 | B01-R | CI green | `71a006e0b99b4e0a9b265f0d0f096526111d2b46` | Sphinx, Source Audit, PHPForge analysis/QA PHP 8.4–8.6, native and hosted workflows passed (conditional jobs skipped) | SSRF exception requires approval |
-| B02 | Implemented / CI pending | This commit | Reuse validated PSR-15 immutable layers; add repeated request, 32-cap, invalid, short-circuit and exception tests | Exact-head tests, performance evidence before declaring throughput gain |
+| B02 | QA failures (PHPCS) | `2868e66931bd8d39785923eaf71dd53d13f6a4ad` | New repeated-request tests + immutable handler reuse; Pest, Pint, Deptrac, syntax passed; PHPCS flagged 5 unused parameters in 3 test fixture methods | B02-R addresses QA warnings |
+| B02-R | Implemented / CI pending | This commit | Make terminal and middleware fixtures use their required PSR arguments meaningfully; assert handler ownership and exact exception request method | Re-run PHPForge QA/analysis and targeted tests |
 | B03 | Queued | — | — | HTTP/1 |
 | B04 | Queued | — | — | HTTP/3 |
 | B05 | Queued | — | — | type budget |
@@ -156,3 +157,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Extended `tests/PsrMiddlewareAdapterTest.php`: the same next-handler identity persists across calls while attributes differ, zero/32 elements work, invalid entries fail, and short-circuit/throw behavior stays intact.
 - Structural outcome: no production files removed; no unsafe protocol/lifecycle fusion. Repeated calls no longer instantiate layer objects; setup occurs once per adapter. **No measured throughput/allocation delta yet**; B07 must benchmark it against the pinned baseline.
 - Previous B01-R code at `71a006e` passed all required workflows; B02's exact-head gates must be verified before closing this batch.
+
+### B02-R — 2026-11-21
+
+- CI feedback on B02 `2868e66`: PHPForge Pest, Pint, Deptrac, syntax, reference integrity and scanner all passed; PHPCS failed on five unused required PSR-15 interface parameters in new test fixtures (three lines).
+- This one-commit remediation makes the terminal and middleware fixture parameters behaviorally meaningful: request methods influence responses/exception messages and the original next-handler reference is asserted in short-circuit and exceptional paths.
+- No changes to runtime production code, public API or lifecycle. Do not count B02 as green until exact-head PHPForge analysis/QA passes. Throughput remains unmeasured.
