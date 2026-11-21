@@ -133,7 +133,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B07 | Instrumentation only / full CI not triggered | `af16478b143fab33932f1369119113c1084edabe` | New PHPBench subjects for reference vs prebuilt PSR; no production source changes, CodeQL passed | B07-R smoke test and full QA |
 | B07-R | CI blocked; remediation queued | `3dd0eca8b51b` | Test equal PSR responses for all three benchmark subjects plus repeat handle; includes test-path change for QA trigger | Review three-version benchmark JSON and full checks |
 | B07-R2 | QA/analysis follow-up required | `66bce1f81b60993932d1faa8fcdd62f1aff3f1a1` | Namespace benchmark under Infocyph for legal internal access; initialize in constructor; order members, annotate exceptions, prove middleware element types | Confirm PHP 8.4–8.6 Psalm/PHPStan, Pint, full QA and QUIC; do not declare green before checks |
-| B07-R3 | Remediation implemented; exact-head checks pending | This commit (SHA to be backfilled next batch) | Remove extra class-close separator; put benchmark smoke test in the Infocyph test namespace to satisfy internal API boundary | Validate PHP 8.4–8.6 QA/analysis, all workflows; no release/throughput claim |
+| B07-R3 | Complete; eight required workflows green | `719f82ca56954e609a6e6d74f0e663912b9d344b` | Remove extra class-close separator; put benchmark smoke test in the Infocyph test namespace to satisfy internal API boundary | Validate PHP 8.4–8.6 QA/analysis, all workflows; no release/throughput claim |
+| B07-P1 | Instrumented; opt-in certification/evidence pending | This commit (SHA recorded in next batch) | Capture six cold PHP/OPcache profiles (baseline/candidate x bootstrap/lifecycle/coroutine) on one PHP 8.6 runner; record counts and source identity | B07-P2 evaluate matched structural profiles and sustained successful RPM, errors/latency; no speed claim from file counts |
 
 ### B00 — 2026-11-21
 
@@ -256,3 +257,17 @@ Do not present source size or file count as direct runtime gains. The small-file
 - B07-R2 `66bce1f81b60` retained one Pint `class_attributes_separation` failure in `benchmarks/StructuralWindowBench.php`, caused by an extra separator before the final class closing brace. The exact-head PHP 8.6 Psalm analysis reported six `InternalClass`/`InternalMethod` findings in `tests/StructuralWindowBenchmarkTest.php`: the smoke test was in the global namespace while the benchmark is internal to `Infocyph`.
 - Fixes: remove the redundant separator; add the existing `Infocyph\\Runwire\\Tests` namespace to the smoke test, matching library test-suite conventions and keeping production/internal visibility unchanged. No source changes to runtime protocol behavior or benchmark scenarios.
 - Gate: PHPForge Pint/Psalm/PHPStan/Pest on PHP 8.4–8.6 and all eight exact-head workflows; if green, advance to measurement B07-P. No scanner exceptions, merge, tag or release.
+
+### B07-P1 — 2026-11-21
+
+- The existing opt-in `release-certification.yml` already executes a proper matched five-trial sustained successful-RPM comparison between published 3.0 and candidate, using pinned distinct physical cores and five 180-second trials. Rather than adding another workflow or an invented absolute performance result, reuse that certification.
+- Add a **separate pinned structural baseline** `f1c99ba83140bf9829406c600296ebe1a78be491` (pre-B00/PR #16 certified head) alongside the published release baseline. Same job and PHP 8.6/OPcache environment profile `bootstrap`, `lifecycle`, `coroutine` from each structural-baseline/candidate checkout via the existing `benchmarks/opcache_footprint.php`.
+- Write raw JSON for all six runs plus a compact comparison with exact commit identities into the already uploaded matched-performance artifact. Ensure valid output, successful request execution, enabled OPcache, nonzero included/compiled script counts and byte usage. The comparison is **cold, isolated CLI process** evidence; it does not prove request RPM or warm worker allocations.
+- No production classes/files changed; PHPForge quick benchmark's 10 revs/3 iterations remains a microbenchmark and is not confused with the opt-in matched 180-second sustained test. This batch does not run opt-in release certification while the plan is still in `docs/plans` (release preflight deliberately forbids unremoved plan directories).
+- **Pending:** new exact-head QA, structural comparison artifact and release certification. Finish B07-R3 QA before landing this batch; continue B07-P2 only after evidence exists. Keep draft, do not merge/tag.
+
+### B07-R3 exact-head QA closure — 2026-11-21
+
+- Exact commit `719f82ca56954e609a6e6d74f0e663912b9d344b` passed all eight required workflow families: Source Audit, Documentation, Release Candidate, Portable Native, Real Hosted, Swoole/OpenSwoole, HTTP/2 independent reference, Security & Standards.
+- Security & Standards: all PHP 8.4–8.6 PHPForge QA matrix lanes, three PHPStan/Psalm analysis jobs, three benchmark jobs, all three independent HTTP/3 + QUIC runs passed. No failing required jobs (release-on-tag correctly skipped).
+- This certifies the **B07-R3** source only, not B07-P1 or final release. Performance and SSRF sign-off remain separate.

@@ -24,6 +24,7 @@ permissions:
 
 env:
   BASELINE_SHA: 054737bc6a8d4025a8d05fabb8ad390f66ee47ae
+  STRUCTURAL_BASELINE_SHA: f1c99ba83140bf9829406c600296ebe1a78be491
   CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha }}
 
 jobs:
@@ -95,6 +96,12 @@ jobs:
           ref: ${{ env.BASELINE_SHA }}
           path: baseline
 
+      - name: Checkout verified pre-optimization structural baseline
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.STRUCTURAL_BASELINE_SHA }}
+          path: structural-baseline
+
       - name: Validate explicit candidate SHA before immutable comparison
         shell: bash
         run: |
@@ -137,6 +144,7 @@ jobs:
         run: |
           composer install --working-dir=candidate --no-interaction --prefer-dist --no-progress
           composer install --working-dir=baseline --no-interaction --prefer-dist --no-progress
+          composer install --working-dir=structural-baseline --no-interaction --prefer-dist --no-progress
 
       - name: Test sustained benchmark accounting
         working-directory: candidate
@@ -145,6 +153,63 @@ jobs:
           cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest-benchmark.xml
           trap 'rm -f .phpforge-pest-benchmark.xml' EXIT
           vendor/bin/pest --configuration=.phpforge-pest-benchmark.xml tests/Http1SustainedBenchTest.php
+
+      - name: Capture matched PHP/OPcache structural-window footprints
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="release-certification/matched"
+          mkdir -p "$output"
+          # Two immutable checkouts on this exact runner and PHP/OPcache configuration.
+          # Each mode is a separate cold CLI process, not a persistent-worker RPM result.
+          for revision in structural-baseline candidate; do
+            for mode in bootstrap lifecycle coroutine; do
+              evidence="$output/footprint-$revision-$mode.json"
+              (
+                cd "$revision"
+                php -d opcache.enable_cli=1 benchmarks/opcache_footprint.php "$mode"
+              ) > "$evidence"
+              jq -e --arg mode "$mode" '
+                .mode == $mode
+                and .correctness_passed == true
+                and .opcache_enabled == true
+                and .source_php_files > 0
+                and .included_runwire_files >= 0
+                and .cached_runwire_files >= 0
+                and .runwire_script_cache_memory_bytes >= 0
+                and ($mode == "bootstrap" or .included_runwire_files > 0)
+              ' "$evidence" >/dev/null
+            done
+          done
+          jq -s \
+            --arg baseline_sha "$STRUCTURAL_BASELINE_SHA" \
+            --arg candidate_sha "$CANDIDATE_SHA" '
+            def counts: {
+              source_php_files,
+              source_bytes,
+              included_runwire_files,
+              cached_runwire_files,
+              runwire_script_cache_memory_bytes
+            };
+            . as $samples
+            | {
+                schema: "runwire-structural-footprint-v1",
+                baseline_sha: $baseline_sha,
+                candidate_sha: $candidate_sha,
+                scope: "cold-cli-single-process-not-throughput-certification",
+                modes: [
+                  range(0;3) as $index
+                  | {
+                      mode: $samples[$index].mode,
+                      baseline: ($samples[$index] | counts),
+                      candidate: ($samples[$index + 3] | counts)
+                    }
+                ]
+              }' \
+            "$output"/footprint-structural-baseline-{bootstrap,lifecycle,coroutine}.json \
+            "$output"/footprint-candidate-{bootstrap,lifecycle,coroutine}.json \
+            > "$output/structural-footprint-comparison.json"
+          jq -e '.modes | length == 3' "$output/structural-footprint-comparison.json" >/dev/null
 
       - name: Run matched sustained comparison
         shell: bash
