@@ -373,19 +373,23 @@ final class RuntimeMetrics implements MetricsProviderInterface
     /** @return array<string, int> */
     private static function zeroedErrors(): array
     {
-        return array_fill_keys(
-            array_map(static fn(ApplicationErrorClass $error): string => $error->value, ApplicationErrorClass::cases()),
-            0,
-        );
+        $counts = [];
+        foreach (ApplicationErrorClass::cases() as $error) {
+            $counts[$error->value] = 0;
+        }
+
+        return $counts;
     }
 
     /** @return array<string, int> */
     private static function zeroedProtocol(): array
     {
-        return array_fill_keys(
-            array_map(static fn(ProtocolMetric $metric): string => $metric->value, ProtocolMetric::cases()),
-            0,
-        );
+        $counts = [];
+        foreach (ProtocolMetric::cases() as $metric) {
+            $counts[$metric->value] = 0;
+        }
+
+        return $counts;
     }
 
     private function busySeconds(int $now): float

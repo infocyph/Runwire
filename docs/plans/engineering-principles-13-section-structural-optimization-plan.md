@@ -98,11 +98,11 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Record unchanged source-file count 448 and one fewer private method in Http3OutboundClient. [ ] Measure actual loaded/compiled file count with representative autoload/OPcache scenarios in B07.
 - Gate: public-api manifest, classmap, cross-protocol suites and negative cases.
 
-### B06 — Memory, observability and ownership pass [queued, P2]
+### B06 — Memory, observability and ownership pass [implemented; exact-head CI pending, P2]
 
-- [ ] Profile QPACK result/state allocation and avoid unnecessary copies without erasing protocol state.
-- [ ] Review metrics, idle callback/trace paths, DNS/cache refresh and pool lifetimes for repeated work, stale generations and leaked resources.
-- [ ] Keep useful immutable value objects and security/lifecycle constraints even if that leaves file count unchanged.
+- [x] Review QPACK blocked-stream retry work; skip retry scans when no dynamic inserts were processed or no streams are blocked. No state transition/cancellation changes. **Allocation profiling is pending B07.**
+- [x] Review metrics, DNS/cache and pool ownership paths: initialize enum counters using one pass without transient mapped-key arrays; retain DNS watcher/TTL and QPACK state ownership. Full runtime leak/throughput profiling remains B07.
+- [x] Preserve QPACK encoded/decoded state records and all public and lifecycle types; zero class/file removals in B06.
 - Gate: bounded-memory/soak/cancellation/fork and relevant cross-protocol tests.
 
 ### B07 — Final measurement, tracker closure, and release handoff [queued, P0 gate]
@@ -129,7 +129,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B04 | All required CI green | `f39fd2385a399f61874a994542dae8cb3534802b` | 19 Security & Standards jobs passed, PHP 8.4–8.6 independent H3, six QA, three analysis, all other workflows | B07 RPM measurement |
 | B05 | Analyzer regression; remediation committed | `ee51f2c4e0c0f7d6db4677da7baee07ba7802981` | All QA/other workflows passing or executing; PHPStan/Psalm flag 1 non-null token nullsafe at Http3OutboundClient:656 | B05-R fixes narrowing |
 | B05-R | Implemented / exact-head CI pending | This commit | Replace redundant nullsafe on already validated cancellation token | Full PHPStan/Psalm PHP 8.4–8.6, QA and H3 CI |
-| B06 | Queued | — | — | memory/observability |
+| B06 | Implemented / exact-head CI pending | This commit | Skip QPACK retry when no dynamic insertion; reduce temporary allocations initializing metrics; add regressions | Full PHPForge QA/analysis, H3 and B07 measurement |
 | B07 | Queued | — | — | measured final gate |
 
 ### B00 — 2026-11-21
@@ -215,3 +215,12 @@ Do not present source size or file count as direct runtime gains. The small-file
 - B05 head `ee51f2c` failed PHPStan `nullsafe.neverNull` (1) and Psalm `TypeDoesNotContainNull`/`RedundantCondition` (2) at `Http3OutboundClient.php:656` in the cancellation-true branch. Token existence follows from `$token?->isCancelled() === true`.
 - Single narrow correction: use `$token->reason()` instead of `$token?->reason()` inside the guarded branch; leave fallback `CancellationReason::HOST_CANCELLED`, cancellation ordering, deadlines, and other null-safe access unchanged.
 - No files/types added or deleted; no behavior/contract change. B05-R analyzer and all required exact-head jobs must run before marking green.
+
+### B06 — 2026-11-21
+
+- B05-R fix on `e3c23a0` passed docs/source/host/native preliminary workflows; full PHPForge analysis/QA and QUIC were still running when B06 was prepared. Do not mark B05-R fully green until exact-head checks complete.
+- QPACK: `Decoder::pushEncoderInstructions()` now avoids `retryBlocked()` when the encoder stream produced zero dynamic insertions or no sections are blocked. This prevents useless blocked-state scans and avoids allocating a `ReadyFieldSection` list for an unproductive retry; insert-bearing instructions still retry in original stream order.
+- Metrics: replace `array_map` plus `array_fill_keys` temporary key arrays for `RuntimeMetrics` enum counters with direct ordered `foreach` initialization; snapshots and error/protocol key order are unchanged.
+- Added regression assertions in `tests/QpackTest.php` and `tests/MetricsDiagnosticsTest.php` for QPACK empty update/no duplicate ready callback and independent zeroed counters matching enum case order.
+- Reviewed but deliberately retained DNS waiter coalescing, cleanup, cancellation/fork protections, and QPACK blocked queues. No rewrites of stateful streaming/data ownership without workload profiling.
+- **Not measured:** real memory allocations, sustained RPM, or QPACK full benchmark delta. B07 must collect matched evidence before claiming a performance improvement.

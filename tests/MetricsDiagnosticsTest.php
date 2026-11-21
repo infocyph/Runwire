@@ -180,3 +180,22 @@ it('generates unpredictable fixed-width request identifiers', function (): void 
 
     expect(array_unique($ids))->toHaveCount(64);
 });
+
+it('initializes separate metrics accumulators without sharing enum counter state', function (): void {
+    $first = new RuntimeMetrics();
+    $second = new RuntimeMetrics();
+    $first->connectionOpened(ProtocolVersion::HTTP_2);
+    $first->recordError(ApplicationErrorClass::PROTOCOL_ERROR);
+
+    $initial = $second->snapshot();
+    expect($initial->protocol[ProtocolMetric::HTTP2_CONNECTIONS_TOTAL->value])->toBe(0)
+        ->and($initial->errors[ApplicationErrorClass::PROTOCOL_ERROR->value])->toBe(0)
+        ->and(array_keys($initial->protocol))->toBe(array_map(
+            static fn(ProtocolMetric $metric): string => $metric->value,
+            ProtocolMetric::cases(),
+        ))
+        ->and(array_keys($initial->errors))->toBe(array_map(
+            static fn(ApplicationErrorClass $error): string => $error->value,
+            ApplicationErrorClass::cases(),
+        ));
+});
