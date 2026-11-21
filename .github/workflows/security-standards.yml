@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ["8.4", "8.5"]
+        php-version: ["8.4", "8.5", "8.6"]
     permissions:
       contents: read
 
@@ -90,7 +90,7 @@ jobs:
           path: .ci/php-quic
 
       - name: Checkout nghttp3 interoperability dependency
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         uses: actions/checkout@v7 # v7.0.1
         with:
           repository: ngtcp2/nghttp3
@@ -99,7 +99,7 @@ jobs:
           submodules: recursive
 
       - name: Checkout ngtcp2 interoperability client
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         uses: actions/checkout@v7 # v7.0.1
         with:
           repository: ngtcp2/ngtcp2
@@ -139,7 +139,7 @@ jobs:
           docker-php-ext-enable quic
 
       - name: Build independent ngtcp2 HTTP/3 client
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           pushd .ci/nghttp3
@@ -313,7 +313,7 @@ jobs:
           server_pid=""
 
       - name: Verify off-loop outbound QUIC TLS handshake against independent aioquic
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           tmpdir="$(mktemp -d)"
@@ -367,7 +367,7 @@ jobs:
           php tests/fixtures/quic_probe_client.php 127.0.0.1 "$port" "$tmpdir/ca.pem"
 
       - name: Verify persistent outbound QUIC worker streams against aioquic echo
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           tmpdir="$(mktemp -d)"
@@ -467,7 +467,7 @@ jobs:
           RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python \
             bash tests/interop/quic_stalled_sibling.sh "benchmark-results/native-quic-stall-php-${{ matrix.php-version }}.json"
       - name: Recover native QUIC sibling streams under real independent UDP loss and reorder
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           /tmp/runwire-aioquic/bin/python -m py_compile tests/interop/aioquic_quic_echo_server.py
@@ -499,19 +499,19 @@ jobs:
           RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/http3_fault_acceptance.sh
 
       - name: Install independent HTTP/2 client in aioquic environment
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           /tmp/runwire-aioquic/bin/pip install --disable-pip-version-check --no-cache-dir 'h2==4.3.0'
 
       - name: Verify strict GOAWAY filtering and post-GOAWAY accepted DATA
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           /tmp/runwire-aioquic/bin/python benchmarks/test_mixed_native_goaway.py
 
       - name: Real simultaneous H1/H2/H3/TCP/UDP native crash and rolling recycle
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           mkdir -p benchmark-results
@@ -526,7 +526,7 @@ jobs:
                  or .cancelled_h2_streams != 1 or .cancelled_h3_streams != 1)] | length) == 0' benchmark-results/mixed-native-lifecycle.json >/dev/null
 
       - name: Upload mixed native listener lifecycle evidence
-        if: always() && matrix.php-version == '8.5'
+        if: always() && matrix.php-version != '8.4'
         uses: actions/upload-artifact@v7
         with:
           name: runwire-mixed-native-lifecycle
@@ -534,13 +534,13 @@ jobs:
           retention-days: 90
 
       - name: Real independent H3 QPACK, upload and connection-churn pressure
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           RUNWIRE_AIOQUIC_PYTHON=/tmp/runwire-aioquic/bin/python bash benchmarks/real_protocol_pressure.sh h3 benchmark-results/real-h3-pressure
 
       - name: Upload independent H3 pressure artifacts
-        if: always() && matrix.php-version == '8.5'
+        if: always() && matrix.php-version != '8.4'
         uses: actions/upload-artifact@v7
         with:
           name: runwire-real-h3-pressure
@@ -548,13 +548,13 @@ jobs:
           retention-days: 90
 
       - name: Run diagnostic AUTO vs FIXED HTTP/3 matrix
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           bash benchmarks/adaptive_http3_certify.sh 5 benchmark-results/adaptive-http3
 
       - name: Upload adaptive HTTP/3 evidence
-        if: always() && matrix.php-version == '8.5'
+        if: always() && matrix.php-version != '8.4'
         uses: actions/upload-artifact@v7
         with:
           name: runwire-adaptive-http3
@@ -628,7 +628,7 @@ jobs:
           server_pid=""
 
       - name: Run independent ngtcp2 HTTP/3 interoperability
-        if: matrix.php-version == '8.5'
+        if: matrix.php-version != '8.4'
         shell: bash
         run: |
           tmpdir="$(mktemp -d)"

@@ -62,7 +62,7 @@ jobs:
           echo "Immutable source and release documentation verified."
 
   matched-performance:
-    name: "Matched baseline/candidate - PHP 8.5"
+    name: "Matched baseline/candidate - PHP 8.6"
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     needs: release-preflight
     runs-on: ubuntu-latest
@@ -116,7 +116,7 @@ jobs:
       - name: Setup matched PHP runtime
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.5"
+          php-version: "8.6"
           tools: composer:v2
           extensions: pcntl, posix, event, opcache
           coverage: none
@@ -163,7 +163,7 @@ jobs:
           retention-days: 90
 
   candidate-soak:
-    name: "Candidate 30-minute HTTP soak - PHP 8.5"
+    name: "Candidate 30-minute HTTP soak - PHP 8.6"
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     needs: release-preflight
     runs-on: ubuntu-latest
@@ -193,7 +193,7 @@ jobs:
       - name: Setup release PHP runtime
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.5"
+          php-version: "8.6"
           tools: composer:v2
           extensions: pcntl, posix, event, opcache
           coverage: none
@@ -334,7 +334,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ["8.4", "8.5"]
+        php-version: ["8.4", "8.5", "8.6"]
 
     steps:
       - name: Checkout exact Runwire candidate
@@ -528,7 +528,7 @@ jobs:
       - name: Setup release-analysis runtime
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.5"
+          php-version: "8.6"
           tools: composer:v2
           extensions: pcntl, posix, event, opcache
           coverage: none
