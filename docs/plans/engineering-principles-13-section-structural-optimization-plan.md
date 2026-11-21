@@ -67,12 +67,12 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Record affected docs and existing test coverage; branch CI must still verify documentation.
 - Gate: docs/Sphinx, source audit, negative network/SSRF tests, complete required CI on this head.
 
-### B02 — PSR-15 per-request work [queued, P1]
+### B02 — PSR-15 per-request work [implemented; exact-head QA pending, P1]
 
-- [ ] Inventory adapter callers and terminal behavior, including empty, one and 32 middleware.
-- [ ] Evaluate immutable handler-chain construction **once per adapter** rather than rebuilding up to 32 layers on each request. Preserve middleware order, short-circuit, exception and per-request attributes.
-- [ ] Add multi-request, reentrant and exception/short-circuit tests before considering reduction.
-- [ ] Measure repeated handling at identical configuration, cold setup, memory/allocation and representative successful RPM; report observations, not assumed gains.
+- [x] Inspect adapter and terminal behavior; verify empty, one, 32 and invalid middleware limits in regression tests.
+- [x] Build immutable handler layers **once per adapter** after constructor validation. Preserve order, short-circuit, exceptions and request-specific attributes.
+- [x] Add repeated-request handler identity, separate request attributes, empty and full 32-layer stack, invalid list, exception and short-circuit tests. Nested/reentrant behavior remains part of QA review.
+- [ ] Run repeated cold/warm, memory/allocation and representative successful RPM comparisons. Deterministic new test establishes chain identity reuse and removes up to 32 per-request layer constructions, **not measured throughput gains**.
 - Gate: focused PSR tests + full analysis/QA and parity; no native-reactor synchronous middleware.
 
 ### B03 — HTTP/1 hot connection setup and call hops [queued, P1]
@@ -119,8 +119,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | --- | --- | --- | --- | --- |
 | B00 | Complete | `ffcde08ad75666bd3f1e874b904c2f86f5ad7e28` | 13-section source inventory and scoped tasks recorded | B01 |
 | B01 | Implemented; doc CI failure | `eb1cf9f4c207b194b3508a65928b04760e2a84e6` | PHP 8.4–8.6 evidence/doc reconciliation and SSRF trust documentation; Source Audit green, RST failed on short heading underline | B01-R repairs Sphinx; approval still required |
-| B01-R | Implemented / CI pending | This commit | Correct RST heading and record PR #16→#17 consolidation, main-base ancestry | Fresh exact-head Sphinx + full PR checks |
-| B02 | Queued | — | — | PSR chain |
+| B01-R | CI green | `71a006e0b99b4e0a9b265f0d0f096526111d2b46` | Sphinx, Source Audit, PHPForge analysis/QA PHP 8.4–8.6, native and hosted workflows passed (conditional jobs skipped) | SSRF exception requires approval |
+| B02 | Implemented / CI pending | This commit | Reuse validated PSR-15 immutable layers; add repeated request, 32-cap, invalid, short-circuit and exception tests | Exact-head tests, performance evidence before declaring throughput gain |
 | B03 | Queued | — | — | HTTP/1 |
 | B04 | Queued | — | — | HTTP/3 |
 | B05 | Queued | — | — | type budget |
@@ -149,3 +149,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Retained original `fix/worker-fatal-diagnostics-and-streamwriter-notices` branch for historical traceability; do not delete or merge automatically.
 - [ ] Exact-head docs/source audit and required PR checks must pass after this commit. Previous green checks refer to PR #16 SHA, not the consolidated latest SHA.
 - [ ] Explicit security sign-off for file-scoped dialer `TaintedSSRF` exception remains an approval gate.
+
+### B02 — 2026-11-21
+
+- Changed `src/Interop/Psr/PsrMiddlewareAdapter.php`: bounded middleware list is validated before building an immutable chain in the constructor, instead of allocating a fresh chain inside `handle()` for every request. The public constructor names and PSR interfaces remain unchanged.
+- Extended `tests/PsrMiddlewareAdapterTest.php`: the same next-handler identity persists across calls while attributes differ, zero/32 elements work, invalid entries fail, and short-circuit/throw behavior stays intact.
+- Structural outcome: no production files removed; no unsafe protocol/lifecycle fusion. Repeated calls no longer instantiate layer objects; setup occurs once per adapter. **No measured throughput/allocation delta yet**; B07 must benchmark it against the pinned baseline.
+- Previous B01-R code at `71a006e` passed all required workflows; B02's exact-head gates must be verified before closing this batch.

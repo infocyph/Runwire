@@ -19,8 +19,8 @@ use Psr\Http\Server\RequestHandlerInterface;
  */
 final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
 {
-    /** @var list<MiddlewareInterface> */
-    private array $middleware;
+    /** The verified, immutable handler chain is constructed once per adapter. */
+    private RequestHandlerInterface $handler;
 
     /**
      * @param array<array-key,mixed> $middleware
@@ -28,7 +28,7 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
      */
     public function __construct(
         array $middleware,
-        private RequestHandlerInterface $terminal,
+        RequestHandlerInterface $terminal,
     ) {
         if (count($middleware) > 32 || !array_is_list($middleware)) {
             throw new InvalidArgumentException('PSR-15 middleware must be a bounded ordered list.');
@@ -38,19 +38,17 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
                 throw new InvalidArgumentException('Every PSR-15 middleware must implement MiddlewareInterface.');
             }
         }
-        $this->middleware = $middleware;
+        $handler = $terminal;
+        for ($index = count($middleware) - 1; $index >= 0; --$index) {
+            $handler = new PsrMiddlewareHandlerLayer($middleware[$index], $handler);
+        }
+        $this->handler = $handler;
     }
 
-    /** Execute a bounded host-side PSR-15 middleware stack. */
+    /** Execute the prebuilt, bounded host-side PSR-15 middleware stack. */
     #[\Override]
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $handler = $this->terminal;
-        for ($index = count($this->middleware) - 1; $index >= 0; --$index) {
-            $middleware = $this->middleware[$index];
-            $handler = new PsrMiddlewareHandlerLayer($middleware, $handler);
-        }
-
-        return $handler->handle($request);
+        return $this->handler->handle($request);
     }
 }
