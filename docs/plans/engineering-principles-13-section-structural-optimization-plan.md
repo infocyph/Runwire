@@ -83,19 +83,19 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Keep Http1Input ByteQueue ownership, protocol parser limits and exact error statuses intact.
 - Gate: HTTP/1 malformed/slowloris/chunks, H1→WebSocket handoff, streaming/backpressure tests and RPM checks.
 
-### B04 — HTTP/3 duplicate validation and preflight [implemented; exact-head QA pending, P1]
+### B04 — HTTP/3 duplicate validation and preflight [CI green; perf pending, P1]
 
 - [x] Inspect immutable root-origin revalidation, temporary HTTP/3 codec and static QPACK preflight; reuse the verified origin and preflight codec.
 - [x] Preserve sibling origin/ALPN checks; original root and options are immutable, and preflight still executes before any native session allocation.
 - [ ] Reverify all independent QUIC, GOAWAY, TLS peer, QPACK and cancellation suites on B04 exact head.
 - Gate: independent HTTP/3 QUIC PHP 8.4/8.5/8.6 tests, multiplex/cancellation, security and throughput.
 
-### B05 — Small internal type and call-chain audit [queued, P2]
+### B05 — Small internal type and call-chain audit [implemented; QA pending, P2]
 
-- [ ] Map real use count and reason-to-change for Http3ClientGoawayState, small HTTP/3 helpers, CallbackDispatcher, PreparedCommand, HostDriverFactory, RuntimeSelection, one-off internal state holders.
-- [ ] Remove only verified redundant wrappers, private delegation, or trivial classes when no independent policy, state, public API or lifecycle exists.
-- [ ] Preserve BoundServer/BoundStreamServer/BoundDatagramServer type constraints unless proof permits a narrower replacement.
-- [ ] Report exact before/after file/class/interface count and actually loaded files; do not create an artificial target.
+- [x] Review actual producer/owner/caller relationships for Http3ClientGoawayState, Http3ClientPeerStreamType, Http3ClientOrigin, callback dispatcher, PreparedCommand, HostDriverFactory, RuntimeSelection and bound servers.
+- [x] Inline one single-use private token-cancellation predicate in the H3 client; do not remove any class already shipped in 3.0.1. Class removals are deferred pending major-release public-contract review.
+- [x] Preserve BoundServer/BoundStreamServer/BoundDatagramServer because stream/datagram listener ownership and definitions are distinct; retain GOAWAY, fragmented peer-stream and callback failure states.
+- [x] Record unchanged source-file count 448 and one fewer private method in Http3OutboundClient. [ ] Measure actual loaded/compiled file count with representative autoload/OPcache scenarios in B07.
 - Gate: public-api manifest, classmap, cross-protocol suites and negative cases.
 
 ### B06 — Memory, observability and ownership pass [queued, P2]
@@ -126,8 +126,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B03 | QA remediation needed | `e7ae8ffb472a0a8aa49be5ad57978eacc82af2be` | Lazy WebSocket owner, removal of 3 retain* methods; Pest, PHPCS, Deptrac, syntax and scanner passed | Pint property order and Rector constructor promotion |
 | B03-R | Source Audit rejected | `f18b5f5d2f14229b3643d87f4520d12845cabaec` | Fixed Pint and Rector, but changed an audit-locked constructor declaration | B03-R2 restores source signature |
 | B03-R2 | Fully CI green | `8802a0908ccafb5f70019e29331c3ceb4a0ffb23` | Source Audit, six PHPForge QA lanes, three analysis lanes, three QUIC jobs, portable/hosted and docs | B07 perf measurement |
-| B04 | Implemented / CI pending | This commit | Reuse immutable verified root origin and preflight HTTP/3 codec; QPACK equivalence regression | PHP 8.4–8.6 QUIC, PHPForge QA/analysis and measured RPM |
-| B05 | Queued | — | — | type budget |
+| B04 | All required CI green | `f39fd2385a399f61874a994542dae8cb3534802b` | 19 Security & Standards jobs passed, PHP 8.4–8.6 independent H3, six QA, three analysis, all other workflows | B07 RPM measurement |
+| B05 | Implemented / CI pending | This commit | Audit public-shipped small types and keep semantic boundaries; inline one trivial private method; 448 production PHP files remain | Source Audit, QA and B07 loaded-file measurements |
 | B06 | Queued | — | — | memory/observability |
 | B07 | Queued | — | — | measured final gate |
 
@@ -199,3 +199,12 @@ Do not present source size or file count as direct runtime gains. The small-file
 - The final `Http3ClientWireCodec` is constructed before native QUIC I/O, performs the existing unsafe-framing preflight, then is owned by the client. Outbound QPACK uses zero dynamic capacity, so no dynamic reference state survives preflight; a new regression compares repeated encoding against a fresh codec with a distinct stream ID.
 - No public API or protocol-state classes removed. Expect one fewer temporary codec instance per root session and one fewer immutable root-origin parse per sibling, **not measured throughput gains**.
 - B03-R2 head `8802a09` passed all required Security & Standards jobs and native/host/docs workflows. B04 exact-head QA and H3 interop are pending.
+
+### B05 — 2026-11-21
+
+- Compatibility baseline: PR #17 starts with 448 production PHP source files; all six major candidates (`Http3ClientGoawayState`, `Http3ClientPeerStreamType`, `ConnectionCallbackDispatcher`, `PreparedCommand`, `HostDriverFactory`, `RuntimeSelection`) **already shipped in tag 3.0.1**. Deleting an autoloadable class for a 3.0.2 patch is not justified by its size or `@internal` annotation alone.
+- Ownership/callers: peer-stream varint parser belongs to registry, but its independent fragmented/empty/payload tests and published class mean a deletion would cost BC. GOAWAY owns rejection cutoff; callbacks preserve first failure after deterministic cleanup; prepared commands preserve argument/environment types; host factory maps lifecycle-owned runtime drivers; RuntimeSelection carries driver, capabilities and warnings. BoundServer/BoundStreamServer/BoundDatagramServer reflect independent listener contracts.
+- Safe code change: `Http3OutboundClient::tokenCancelled` had exactly one caller and only forwarded a nullable token check. Inlined the identical expression into `start()` and removed the private method (one fewer method/call hop, zero class removals). Root cancellation/error behavior remains the same.
+- Structural counts: 448 production PHP files before and after B05; no added or removed public classes, enums or interfaces. **Actual per-request included-file count, OPcache bytecode and throughput have not been measured**; B07 remains responsible.
+- Do not refactor types solely to hit a deletion quota. If class removal is still desired, explicitly scope a major-version migration with public API diff and consumer impact first.
+- B04 head `f39fd23` passed all 19 Security & Standards jobs and all required workflows. B05 exact-head quality/source/cross-protocol checks are pending.

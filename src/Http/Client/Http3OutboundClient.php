@@ -230,11 +230,6 @@ final class Http3OutboundClient
         return $stream;
     }
 
-    private static function tokenCancelled(?\Infocyph\Runwire\CancellationToken $token): bool
-    {
-        return $token?->isCancelled() === true;
-    }
-
     /**
      * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
      * @throws \LogicException
@@ -657,7 +652,7 @@ final class Http3OutboundClient
     private function start(string $host, int $port): void
     {
         $token = $this->request->cancellation;
-        if (self::tokenCancelled($token)) {
+        if ($token?->isCancelled() === true) {
             $this->finish(new CancelledException($token?->reason() ?? CancellationReason::HOST_CANCELLED));
 
             return;
