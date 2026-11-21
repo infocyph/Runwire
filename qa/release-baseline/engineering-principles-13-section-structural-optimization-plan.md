@@ -1,5 +1,7 @@
 # Runwire — PHPForge 13-section engineering and structural optimization plan
 
+> **Archive location:** This complete plan/tracker moved from `docs/plans/` to `qa/release-baseline/` to satisfy the existing immutable release-certification preflight. The audit history and unresolved sign-off gates are retained; it is not a release approval.
+
 > Scope: Runwire production PHP plus configuration, CI, and tests. Baseline `f1c99ba83140bf9829406c600296ebe1a78be491` (the CI-green head of PR #16). Read-only source sweep informed this plan; it does **not** certify that every function meets every PHPForge rule.
 >
 > Principles: `infocyph/PHPForge/resources/engineering-principles.md` at `c1f68be02b22a4d3377b7be91f563b12e7f68955`. Source of authority: rule IDs, not intuition.
@@ -134,7 +136,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B07-R | CI blocked; remediation queued | `3dd0eca8b51b` | Test equal PSR responses for all three benchmark subjects plus repeat handle; includes test-path change for QA trigger | Review three-version benchmark JSON and full checks |
 | B07-R2 | QA/analysis follow-up required | `66bce1f81b60993932d1faa8fcdd62f1aff3f1a1` | Namespace benchmark under Infocyph for legal internal access; initialize in constructor; order members, annotate exceptions, prove middleware element types | Confirm PHP 8.4–8.6 Psalm/PHPStan, Pint, full QA and QUIC; do not declare green before checks |
 | B07-R3 | Complete; eight required workflows green | `719f82ca56954e609a6e6d74f0e663912b9d344b` | Remove extra class-close separator; put benchmark smoke test in the Infocyph test namespace to satisfy internal API boundary | Validate PHP 8.4–8.6 QA/analysis, all workflows; no release/throughput claim |
-| B07-P1 | Instrumented; opt-in certification/evidence pending | This commit (SHA recorded in next batch) | Capture six cold PHP/OPcache profiles (baseline/candidate x bootstrap/lifecycle/coroutine) on one PHP 8.6 runner; record counts and source identity | B07-P2 evaluate matched structural profiles and sustained successful RPM, errors/latency; no speed claim from file counts |
+| B07-P1 | Complete implementation; eight required workflows green (opt-in evidence pending) | `a2d2ff14a00a646d05e34844aabfc6f64b99a303` | Capture six cold PHP/OPcache profiles (baseline/candidate x bootstrap/lifecycle/coroutine) on one PHP 8.6 runner; record counts and source identity | B07-P2 evaluate matched structural profiles and sustained successful RPM, errors/latency; no speed claim from file counts |
+| B07-S1 | Release-preflight archiving; exact-head QA pending | This commit (SHA recorded at next batch) | Preserve audit plan and tracker under qa/release-baseline instead of docs/plans; maintain release preflight contract | Validate all required workflows; opt-in perf and security sign-off still pending |
 
 ### B00 — 2026-11-21
 
@@ -271,3 +274,14 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Exact commit `719f82ca56954e609a6e6d74f0e663912b9d344b` passed all eight required workflow families: Source Audit, Documentation, Release Candidate, Portable Native, Real Hosted, Swoole/OpenSwoole, HTTP/2 independent reference, Security & Standards.
 - Security & Standards: all PHP 8.4–8.6 PHPForge QA matrix lanes, three PHPStan/Psalm analysis jobs, three benchmark jobs, all three independent HTTP/3 + QUIC runs passed. No failing required jobs (release-on-tag correctly skipped).
 - This certifies the **B07-R3** source only, not B07-P1 or final release. Performance and SSRF sign-off remain separate.
+
+### B07-S1 — 2026-11-21
+
+- Preserve the full B00–B07 audit, dated history and live tracker in the non-packaged `qa/release-baseline/` archive while removing the sole file in `docs/plans`. This satisfies the pre-existing `release-certification.yml` preflight rule `test ! -d docs/plans` without weakening its release guard or erasing evidence.
+- `qa` is already excluded from the Composer release package; no production class, autoload configuration, or protocol file changes. PR summary links must point at the new ledger location after this batch is pushed.
+- This archival step is **not** release certification. B07-P1 exact-head QA, opt-in matched sustained RPM + structural file-load profiles, and independent engineering approval of the dialer SSRF taint exception are still required before release-ready status.
+
+### B07-P1 exact-head QA closure — 2026-11-21
+
+- Exact commit `a2d2ff14a00a646d05e34844aabfc6f64b99a303` passed all eight required workflow families, including six PHPForge QA lanes, three PHPStan/Psalm analyses, three PHPBench jobs and three independent HTTP/3/QUIC PHP 8.4–8.6 jobs. No required CI failures; release-on-tag appropriately skipped.
+- This verifies the *instrumentation commit* only. The opt-in release-certification workflow has not yet been triggered; its new cold CLI/OPcache comparison JSON, matched sustained RPM, and 30-minute soak data are not available. Keep B07-P2 evidence gate open.
