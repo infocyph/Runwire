@@ -155,6 +155,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
         throw new RuntimeException('Executor received an oversized or unterminated request.');
     }
 
+    $request = null;
     try {
         // Never interpret a request from a process that does not own this worker.
         $signature = substr($line, 0, 64);
@@ -301,8 +302,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                     throw new RuntimeException('File write could not open the destination.');
                 }
 
-                $request = null;
-    try {
+                try {
                     if (fseek($stream, $offset, SEEK_SET) !== 0) {
                         throw new RuntimeException('File write offset cannot be positioned.');
                     }
