@@ -123,7 +123,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B02 | QA failures (PHPCS) | `2868e66931bd8d39785923eaf71dd53d13f6a4ad` | New repeated-request tests + immutable handler reuse; Pest, Pint, Deptrac, syntax passed; PHPCS flagged 5 unused parameters in 3 test fixture methods | B02-R addresses QA warnings |
 | B02-R | QA remediation | `56e29cc0ae31d572c8223fc6a31f838fb0ff9c47` | Fix PHPCS unused interface parameters in fixtures | B02-R2 resolves PHPStan mixed cast |
 | B02-R2 | Implemented / CI pending | This commit | Explicitly validate PSR attribute type rather than casting mixed | Verify exact-head full PHPForge QA/analysis |
-| B03 | Implemented / CI pending | This commit | Lazy WebSocket handoff owner for ordinary HTTP/1; inline 3 identity-only methods | HTTP/1 + WS integration, PHPForge analysis/QA and RPM evidence |
+| B03 | QA remediation needed | `e7ae8ffb472a0a8aa49be5ad57978eacc82af2be` | Lazy WebSocket owner, removal of 3 retain* methods; Pest, PHPCS, Deptrac, syntax and scanner passed | Pint property order and Rector constructor promotion |
+| B03-R | Implemented / CI pending | This commit | Move nullable owner among mutable properties and promote exactly 3 ownership fields | Exact-head full QA/analysis, H1/WS acceptance, PHP 8.4–8.6 |
 | B04 | Queued | — | — | HTTP/3 |
 | B05 | Queued | — | — | type budget |
 | B06 | Queued | — | — | memory/observability |
@@ -177,3 +178,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Inlined 3 identity-only `WebSocketUpgradeOwner::retain*` methods; direct assignments preserve object identity and lifecycle. No named public or protocol-state type was removed.
 - Kept ByteQueue/input ownership, parser helper behavior, callback ordering, and existing WebSocket 101 handoff unchanged. **Performance hypothesis:** one helper object + handoff closure avoided for ordinary non-upgrading HTTP/1 connections; effect on successful RPM is not yet benchmarked.
 - Gate: full HTTP/1/WebSocket and hosted/native suite + PHPForge static analysis; benchmark in B07. Source changes are not independently verified until exact-head CI completes.
+
+### B03-R — 2026-11-21
+
+- PHPForge B03 QA reported `ordered_class_elements` for the nullable `Http1Connection::webSocketOwner` property and `ClassPropertyAssignToConstructorPromotionRector` for three identity assignments in `WebSocketUpgradeOwner`.
+- Moved only the nullable property to its sorted group. Promoted `LoopInterface`, `Connection` and `Http1Input` to readonly constructor properties. Positional construction and ownership semantics are preserved; the internal class's constructor argument names now reflect the owned fields.
+- Previous B03 Pest, PHPCS, Deptrac, scanner, syntax passed; Pint and Rector required remediation. This commit carries **no new functional path**; exact-head CI must still pass before B03 is closed.

@@ -53,8 +53,6 @@ final class Http1Connection
 
     private readonly Http1Syntax $syntax;
 
-    private ?WebSocketUpgradeOwner $webSocketOwner = null;
-
     private ?StreamingRequestBody $body = null;
 
     private bool $bodyPressured = false;
@@ -110,6 +108,8 @@ final class Http1Connection
     private array $trailerFields = [];
 
     private bool $waitingResponse = false;
+
+    private ?WebSocketUpgradeOwner $webSocketOwner = null;
 
     private ?Http1ResponseWriter $writer = null;
 

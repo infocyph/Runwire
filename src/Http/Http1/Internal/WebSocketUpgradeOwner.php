@@ -22,12 +22,6 @@ final class WebSocketUpgradeOwner
     /** @var Closure(): void */
     private readonly Closure $beforeHandoff;
 
-    private readonly Connection $connection;
-
-    private readonly Http1Input $input;
-
-    private readonly LoopInterface $loop;
-
     private ?WebSocketSession $session = null;
 
     /**
@@ -36,16 +30,13 @@ final class WebSocketUpgradeOwner
      * @param callable(): void $beforeHandoff
      */
     public function __construct(
-        LoopInterface $ownerLoop,
-        Connection $ownedConnection,
-        Http1Input $httpInput,
+        private readonly LoopInterface $loop,
+        private readonly Connection $connection,
+        private readonly Http1Input $input,
         callable $beforeHandoff,
     ) {
         $handoff = $beforeHandoff(...);
         $this->beforeHandoff = $handoff;
-        $this->connection = $ownedConnection;
-        $this->input = $httpInput;
-        $this->loop = $ownerLoop;
     }
 
     /**
