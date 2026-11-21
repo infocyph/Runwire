@@ -83,10 +83,16 @@ it('reuses one verified handler chain across distinct request contexts', functio
         }
     };
     $terminal = new class implements RequestHandlerInterface {
+        /** @throws \RuntimeException */
         #[\Override]
         public function handle(ServerRequestInterface $request): ResponseInterface
         {
-            return new Response(200, ['x-seen-id' => (string) $request->getAttribute('request-id', '')]);
+            $id = $request->getAttribute('request-id');
+            if (!is_string($id)) {
+                throw new RuntimeException('PSR middleware must provide a string request ID.');
+            }
+
+            return new Response(200, ['x-seen-id' => $id]);
         }
     };
     $adapter = new PsrMiddlewareAdapter([$middleware], $terminal);

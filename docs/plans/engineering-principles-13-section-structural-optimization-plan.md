@@ -121,7 +121,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B01 | Implemented; doc CI failure | `eb1cf9f4c207b194b3508a65928b04760e2a84e6` | PHP 8.4–8.6 evidence/doc reconciliation and SSRF trust documentation; Source Audit green, RST failed on short heading underline | B01-R repairs Sphinx; approval still required |
 | B01-R | CI green | `71a006e0b99b4e0a9b265f0d0f096526111d2b46` | Sphinx, Source Audit, PHPForge analysis/QA PHP 8.4–8.6, native and hosted workflows passed (conditional jobs skipped) | SSRF exception requires approval |
 | B02 | QA failures (PHPCS) | `2868e66931bd8d39785923eaf71dd53d13f6a4ad` | New repeated-request tests + immutable handler reuse; Pest, Pint, Deptrac, syntax passed; PHPCS flagged 5 unused parameters in 3 test fixture methods | B02-R addresses QA warnings |
-| B02-R | Implemented / CI pending | This commit | Make terminal and middleware fixtures use their required PSR arguments meaningfully; assert handler ownership and exact exception request method | Re-run PHPForge QA/analysis and targeted tests |
+| B02-R | QA remediation | `56e29cc0ae31d572c8223fc6a31f838fb0ff9c47` | Fix PHPCS unused interface parameters in fixtures | B02-R2 resolves PHPStan mixed cast |
+| B02-R2 | Implemented / CI pending | This commit | Explicitly validate PSR attribute type rather than casting mixed | Verify exact-head full PHPForge QA/analysis |
 | B03 | Queued | — | — | HTTP/1 |
 | B04 | Queued | — | — | HTTP/3 |
 | B05 | Queued | — | — | type budget |
@@ -163,3 +164,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 - CI feedback on B02 `2868e66`: PHPForge Pest, Pint, Deptrac, syntax, reference integrity and scanner all passed; PHPCS failed on five unused required PSR-15 interface parameters in new test fixtures (three lines).
 - This one-commit remediation makes the terminal and middleware fixture parameters behaviorally meaningful: request methods influence responses/exception messages and the original next-handler reference is asserted in short-circuit and exceptional paths.
 - No changes to runtime production code, public API or lifecycle. Do not count B02 as green until exact-head PHPForge analysis/QA passes. Throughput remains unmeasured.
+
+### B02-R2 — 2026-11-21
+
+- Historical B02 analysis on `2868e66` exposed PHPStan `cast.string` in the new PSR test: `ServerRequestInterface::getAttribute()` returns mixed.
+- This one-commit remediation checks `is_string` before producing a response header; invalid test setup raises an explicit runtime exception. No production/runtime changes.
+- B02-R already corrected PHPCS unused PSR interface parameter warnings. Complete B02 QA only after the new exact-head run is green; any earlier run's diagnostic is not final proof.
