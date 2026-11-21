@@ -301,7 +301,8 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                     throw new RuntimeException('File write could not open the destination.');
                 }
 
-                try {
+                $request = null;
+    try {
                     if (fseek($stream, $offset, SEEK_SET) !== 0) {
                         throw new RuntimeException('File write offset cannot be positioned.');
                     }

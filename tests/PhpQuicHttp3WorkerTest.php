@@ -267,9 +267,7 @@ function workerHttp3Connect(int $port): PhpQuicConnection
     }
 
     $message = 'Unable to connect to the native HTTP/3 runtime.';
-    if ($lastError instanceof Throwable) {
-        $message .= ' Last QUIC error: '.$lastError->getMessage();
-    }
+    $message .= ' Last QUIC error: '.$lastError->getMessage();
 
     throw new RuntimeException($message, 0, $lastError);
 }
@@ -458,14 +456,24 @@ it('polls one worker-wide QUIC set, defers incomplete handshakes, and removes li
         ->and($calls)->toHaveCount(1);
 
     $worker->tick(0.0);
+    if (!isset($calls[1][0])) {
+        throw new RuntimeException('Second poll results are missing.');
+    }
     $secondItems = $calls[1][0];
+    $connectionId = spl_object_id($connectionRaw);
+    if (!isset($secondItems[$connectionId][1])) {
+        throw new RuntimeException('QUIC connection event flags are missing.');
+    }
     expect($calls)->toHaveCount(2)
         ->and($secondItems)->toHaveCount(1)
         ->and($secondItems)->not->toHaveKey(spl_object_id($listenerRaw))
-        ->and($secondItems[spl_object_id($connectionRaw)][1] & $events->acceptStream)->not->toBe(0)
-        ->and($secondItems[spl_object_id($connectionRaw)][1] & $events->error)->not->toBe(0);
+        ->and($secondItems[$connectionId][1] & $events->acceptStream)->not->toBe(0)
+        ->and($secondItems[$connectionId][1] & $events->error)->not->toBe(0);
 
     $worker->tick(0.0);
+    if (!isset($calls[2][0])) {
+        throw new RuntimeException('Third poll results are missing.');
+    }
     $thirdItems = $calls[2][0];
     expect($calls)->toHaveCount(3)
         ->and(count($thirdItems))->toBeGreaterThan(1)

@@ -70,7 +70,7 @@ function wsConnect(int $port): mixed
 function wsCheckEmptyRead(mixed $socket, string $timeout, string $closed): void
 {
     $metadata = stream_get_meta_data($socket);
-    if ($metadata['timed_out']) {
+    if (($metadata['timed_out'] ?? false)) {
         throw new WebSocketEvidenceTimeout($timeout);
     }
     if (feof($socket)) {
@@ -258,7 +258,7 @@ function wsWriteAll(mixed $socket, string $wire): void
         }
         if ($written === 0) {
             $metadata = stream_get_meta_data($socket);
-            if ($metadata['timed_out'] === true) {
+            if (($metadata['timed_out'] ?? false) === true) {
                 throw new WebSocketEvidenceTimeout('Timed out writing WebSocket bytes.');
             }
 

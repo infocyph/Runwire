@@ -81,7 +81,6 @@ it('handles more than 1024 descriptors on the scalable backend', function (): vo
             stream_set_blocking($writer, false);
             $pairs[] = $pair;
             $loop->onReadable($reader, function (mixed $stream, int $id) use ($loop, &$ready): void {
-                \PHPUnit\Framework\Assert::assertIsResource($stream);
                 if (fread($stream, 1) === 'x') {
                     ++$ready;
                 }

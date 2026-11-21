@@ -70,7 +70,7 @@ $request = static function (int $port, string $path = '/probe') use ($check): ar
         $check(is_string($status) && preg_match('/^HTTP\/\S+ 200\b/', $status) === 1, 'Unexpected HTTP status.');
         $body = stream_get_contents($stream);
         $metadata = stream_get_meta_data($stream);
-        if (! is_string($body) || $metadata['timed_out']) {
+        if (! is_string($body) || ($metadata['timed_out'] ?? false)) {
             throw new RuntimeException('Incomplete HTTP response.');
         }
         $result = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
