@@ -125,9 +125,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 ### B09 — StreamWriter per-write handler allocation [planned, P1]
 
-- [ ] Profile the repeated `StreamWriter::write()` warning-handler construction on the connection send/flush path; current `self::writeWarning(...)` creates a first-class callable per write.
-- [ ] If justified, reuse a statically held handler closure *without* changing the per-call `set_error_handler`/`finally restore_error_handler` safety contract, notices/warnings, partial writes, nesting, or callback semantics.
-- [ ] Focused tests for repeated valid writes, invalid/closed resource warnings, and restoration of an existing error handler; run PHPForge QA, native/hosted lifecycle and supported PHP matrix.
+- [x] Source hot-path audit: `Connection` calls `StreamWriter::write` from both immediate writes and flush loops; previous `self::writeWarning(...)` constructs a first-class Closure per call. Runtime microprofile and sustained RPM delta remain pending.
+- [x] Reuse a statically held handler closure *without* changing the per-call `set_error_handler`/`finally restore_error_handler` safety contract, notices/warnings, partial writes, nesting, or callback semantics.
+- [x] Extend repeated valid writes and external handler restoration test; existing invalid/closed resource notice tests remain. [ ] Run PHPForge QA, native/hosted lifecycle and supported PHP matrix.
 - Gate: benchmark setup and measured workload delta clearly distinguish closure allocation from actual request RPM.
 
 ### B10 — Class/method consolidation and compatibility disposition [planned, P2]
@@ -171,7 +171,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B07-S1 | Complete; eight required workflows green, immutable preflight and package PHP 8.4–8.6 passed | `5d3a2cabc0ce1dde3509e051a75a23dd15b639d7` | Preserve audit plan and tracker under qa/release-baseline instead of docs/plans; maintain release preflight contract | Validate all required workflows; opt-in perf and security sign-off still pending |
 | B07-S2 | Exact-head Psalm failed: 1 `TaintedSSRF` (PHP 8.4–8.6), other gates green | `12451992e75e6f5cbb7a7bad032269aa87ebf7be` | Remove root `psalm.xml` without replacement, override or suppression; PHPForge's default Psalm config is authoritative | Verify PHP 8.4–8.6 Psalm with unsuppressed TaintedSSRF, full CI; address real findings in code, then re-certify frozen SHA |
 | B08-P | Plan and issue log committed; unsuppressed Psalm identified one SSRF path | `7ff65b501e439accf561084605a91de018a1cf96` | B08 QUIC polling, B09 write path, B10 class/method compatibility, B11 measured acceptance | Work in one-commit batches with exact-head QA and no automatic merge/tag |
-| B08 | QUIC poll allocation change implemented; exact-head QA pending | This commit (backfill next batch) | Direct foreach for pending, no array_values for sparse active IDs, retain poll semantics; add multi-connection disappearance test | PHPForge default Psalm SSRF remains blocker; run QUIC PHP 8.4–8.6 and all required QA |
+| B08 | Runtime/QUIC/QA green; only pre-existing Psalm SSRF red across PHP 8.4–8.6 | `a641b0bbfaf597fd1451647a99fdafc6f2561f44` | Direct foreach for pending, no array_values for sparse active IDs, retain poll semantics; add multi-connection disappearance test | PHPForge default Psalm SSRF remains blocker; run QUIC PHP 8.4–8.6 and all required QA |
+| B09 | Stream write callback caching implemented; exact-head QA pending | This commit (SHA backfill next batch) | Reuse a cached warning handler closure on every fwrite without changing set/restore boundaries; add repeated-write/restoration test | Need benchmark evidence, full QA + resolve default Psalm SSRF separately |
 
 ### B00 — 2026-11-21
 
@@ -348,3 +349,14 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Replace two separate temporary arrays (`array_values` followed by `array_map`) for pending QUIC connections with one linear `foreach` that builds the exact same ordered pending object list. No transport state, caps or callback names changed.
 - Add native worker regression with two active QUIC peers, error-removal of one, and verify surviving peer remains polled under a sparse key. Exact-head QA and independent QUIC (PHP 8.4–8.6) **pending**.
 - Production classes/files remain 448. Existing B07-S2 default Psalm `TaintedSSRF` remains **red** and is separately tracked; this batch deliberately does not add a suppression or otherwise change outbound security policy.
+
+### B09 — 2026-11-21
+
+- Reused the same lazily created `StreamWriter::writeWarning(...)` closure through a local static variable in `StreamWriter::write`. This avoids allocating a new callback closure for each buffered/immediate `fwrite` attempt; still installs and restores the exact warning handler **per write** in `finally`.
+- No change to warnings/notices, short writes, or write-buffer/finalize semantics. Existing disconnected peer, outer handler, wrong-resource and underlying Connection tests retained. New repeated `php://temp` writes with explicit lengths and caller notice restoration guard.
+- No class/file removal; `StreamWriter` remains a published patch symbol. No measured per-request throughput gain asserted; source evidence only. Exact-head QA pending; PHPForge's unsuppressed SSRF finding is tracked separately and never suppressed.
+
+### B08 exact-head verification — 2026-11-21
+
+- On exact B08 SHA `a641b0bbfaf597fd1451647a99fdafc6f2561f44`: all seven non-Security required workflows green; inside Security & Standards run `44929656757`, native QUIC 8.4/8.5/8.6, six PHPForge QA lanes, three benchmarks, clean install and service prep all passed. The three PHPForge *analysis* lanes failed on the exact same existing unsuppressed `TaintedSSRF` flow `PsrMessageBridge::outboundRequest → Http2OutboundClient → Dialer::open`, with no newly reported B08 issue. This is **not** an all-green source SHA.
+- B08's sparse-key regression passed and production source files remain 448. B09 is a separate code/QA batch. Keep Psalm's default security analysis active; do not merge/tag/release until SSRF is correctly resolved.

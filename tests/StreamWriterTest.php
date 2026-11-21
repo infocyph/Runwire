@@ -55,6 +55,32 @@ it('restores the previous error handler after a failed fwrite invocation', funct
     }
 });
 
+it('reuses the write handler across bounded writes and restores the caller handler', function (): void {
+    $stream = fopen('php://temp', 'w+');
+    if (!is_resource($stream)) {
+        throw new RuntimeException('Unable to open temporary stream for writer regression.');
+    }
+    $captured = [];
+    set_error_handler(static function (int $severity, string $message) use (&$captured): bool {
+        $captured[] = [$severity, $message];
+
+        return true;
+    });
+
+    try {
+        expect(StreamWriter::write($stream, 'abc'))->toBe(3)
+            ->and(StreamWriter::write($stream, 'def', 2))->toBe(2);
+        rewind($stream);
+        expect(stream_get_contents($stream))->toBe('abcde');
+
+        trigger_error('original handler persists after repeated writes', E_USER_NOTICE);
+        expect($captured)->toBe([[E_USER_NOTICE, 'original handler persists after repeated writes']]);
+    } finally {
+        restore_error_handler();
+        fclose($stream);
+    }
+});
+
 it('only recognizes fwrite warnings and notices as expected transport write diagnostics', function (): void {
     $handler = new ReflectionMethod(StreamWriter::class, 'writeWarning');
 

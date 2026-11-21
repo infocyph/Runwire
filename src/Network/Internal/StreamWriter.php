@@ -17,7 +17,10 @@ final class StreamWriter
      */
     public static function write(mixed $stream, string $data, ?int $length = null): int|false
     {
-        set_error_handler(self::writeWarning(...));
+        /** @var ?\Closure(int, string): bool $warningHandler */
+        static $warningHandler = null;
+        $warningHandler ??= self::writeWarning(...);
+        set_error_handler($warningHandler);
 
         try {
             return $length === null
