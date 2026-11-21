@@ -194,7 +194,7 @@ Real 2.1.2 versus 3.0 HTTP behavioral check on GitHub workers
 An independent regression compares Runwire 2.1.2 and 3.0 from separate
 checked-out sources. It verifies
 real HTTP/1.1 GET, valid subpath, bad path and disallowed POST
-status, body, Content-Length and Content-Type on PHP 8.4 and 8.5.
+status, body, Content-Length and Content-Type on PHP 8.4 and 8.5, with PHP 8.6 added to the CI acceptance matrix.
 The immutable GitHub `workflow run #40508637661
 <https://github.com/infocyph/Runwire/actions/runs/40508637661>`_
 passed both runtime versions with saved source-pinned evidence.
