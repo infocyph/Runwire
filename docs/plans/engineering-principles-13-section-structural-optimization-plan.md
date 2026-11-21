@@ -130,7 +130,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B05 | Analyzer regression; remediation committed | `ee51f2c4e0c0f7d6db4677da7baee07ba7802981` | All QA/other workflows passing or executing; PHPStan/Psalm flag 1 non-null token nullsafe at Http3OutboundClient:656 | B05-R fixes narrowing |
 | B05-R | Implemented / exact-head CI pending | This commit | Replace redundant nullsafe on already validated cancellation token | Full PHPStan/Psalm PHP 8.4–8.6, QA and H3 CI |
 | B06 | Implemented / exact-head CI pending | This commit | Skip QPACK retry when no dynamic insertion; reduce temporary allocations initializing metrics; add regressions | Full PHPForge QA/analysis, H3 and B07 measurement |
-| B07 | Benchmark added / CI evidence pending | This commit | Same-runner prebuilt-vs-reconstructed PSR-15 reference, 448 src PHP and 151 Internal unchanged; 23 Interface-named PHP files | Examine JSON benchmark artifacts, final source SHA and exact-head full CI; sustained RPM remains unmeasured |
+| B07 | Instrumentation only / full CI not triggered | `af16478b143fab33932f1369119113c1084edabe` | New PHPBench subjects for reference vs prebuilt PSR; no production source changes, CodeQL passed | B07-R smoke test and full QA |
+| B07-R | Implemented / exact-head CI pending | This commit | Test equal PSR responses for all three benchmark subjects plus repeat handle; includes test-path change for QA trigger | Review three-version benchmark JSON and full checks |
 
 ### B00 — 2026-11-21
 
@@ -232,3 +233,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Use PHPForge existing `phpforge / Benchmark` matrix and its raw JSON artifacts. Compare within the **same** job and PHP version; never compare absolute times across unrelated hosts/commits as evidence of throughput. Any measured ratio is a synchronous PSR-15 microbenchmark, not sustained HTTP RPM, memory or end-to-end latency.
 - Source instrumentation itself adds one **non-production** benchmark class/file. No production type removal is justified on 3.0.2: published state/driver type contracts remain intact.
 - **Pending:** exact-head benchmark output and quality CI, representative loaded-script/OPcache measures, matched production-like sustained successful RPM/p95/p99, and FLOW-02 explicit owner review for the existing dialer SSRF exception. Keep the draft PR open and unreleased.
+
+### B07-R — 2026-11-21
+
+- Previous B06 `a8a3b88` is fully CI green across all eight required workflows, including three PHPStan/Psalm, six PHPForge QA, PHP 8.4–8.6 independent H3/QUIC, hosted, Portable Native and Swoole/OpenSwoole. This does **not** certify later B07 commits.
+- B07 `af16478` added a PHPBench-only workload and tracker. CodeQL passed, but path-filtered required PR workflows were not triggered by benchmark/plan-only changes.
+- B07-R adds `tests/StructuralWindowBenchmarkTest.php`, verifying that all three benchmark subjects return the same 204 status and that a repeated prebuilt handle stays correct. This test-path change is intended to trigger the standard QA matrix without adding a custom benchmark workflow.
+- No performance result is asserted by the test. Only compare same-runner benchmark subjects after their exact-head JSON artifacts exist; still require matched production-equivalent successful RPM/p95/p99 and load/OPcache profiling for release-performance claims.
