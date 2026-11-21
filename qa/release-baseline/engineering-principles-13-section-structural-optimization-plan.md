@@ -132,10 +132,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 ### B10 — Class/method consolidation and compatibility disposition [planned, P2]
 
-- [ ] Simplify `LifecycleEmitter` startup counter initialization to one `foreach`, matching the B06 `RuntimeMetrics` pattern; test enum order and failure counters.
-- [ ] Review single-owner helpers `AdaptivePollStrategy`, `Http1PolicyAttempt`, `QuicWorkerResourceUsage`, `ConnectionCallbackDispatcher`, `ContentLengthParser`, `WorkerStopState` with actual callers/tests and first-load profile.
-- [ ] Do **not** delete or merge released PHP symbols merely to lower count. All 448 production paths in PR #17 already existed in `3.0.1`. Record any legitimate class/file removals requiring a major release instead of silently breaking patch compatibility.
-- [ ] Check wrapper/helper methods for delegation without invariant, preserving exception/owner/lifecycle behavior, and list why kept/removed.
+- [x] Simplify `LifecycleEmitter` startup counter initialization to one `foreach`, matching the B06 `RuntimeMetrics` pattern; test enum order and failure counters.
+- [x] Review single-owner helpers `AdaptivePollStrategy`, `Http1PolicyAttempt`, `QuicWorkerResourceUsage`, `ConnectionCallbackDispatcher`, `ContentLengthParser`, `WorkerStopState` with actual callers/tests. [ ] First-load profile on final candidate.
+- [x] Do **not** delete or merge released PHP symbols merely to lower count. All 448 production paths in PR #17 already existed in `3.0.1`; record legitimate class/file removals requiring a major release instead of silently breaking patch compatibility.
+- [x] Check wrapper/helper methods for delegation without invariant, preserving exception/owner/lifecycle behavior; decisions and retained wrappers recorded below.
 - Gate: PHP 8.4–8.6 QA/analysis, public API integrity, all protocols; explicit 448-file count and call-hop outcome.
 
 ### B11 — Measured structural completion and certification [planned, P0]
@@ -172,7 +172,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B07-S2 | Exact-head Psalm failed: 1 `TaintedSSRF` (PHP 8.4–8.6), other gates green | `12451992e75e6f5cbb7a7bad032269aa87ebf7be` | Remove root `psalm.xml` without replacement, override or suppression; PHPForge's default Psalm config is authoritative | Verify PHP 8.4–8.6 Psalm with unsuppressed TaintedSSRF, full CI; address real findings in code, then re-certify frozen SHA |
 | B08-P | Plan and issue log committed; unsuppressed Psalm identified one SSRF path | `7ff65b501e439accf561084605a91de018a1cf96` | B08 QUIC polling, B09 write path, B10 class/method compatibility, B11 measured acceptance | Work in one-commit batches with exact-head QA and no automatic merge/tag |
 | B08 | Runtime/QUIC/QA green; only pre-existing Psalm SSRF red across PHP 8.4–8.6 | `a641b0bbfaf597fd1451647a99fdafc6f2561f44` | Direct foreach for pending, no array_values for sparse active IDs, retain poll semantics; add multi-connection disappearance test | PHPForge default Psalm SSRF remains blocker; run QUIC PHP 8.4–8.6 and all required QA |
-| B09 | Stream write callback caching implemented; exact-head QA pending | This commit (SHA backfill next batch) | Reuse a cached warning handler closure on every fwrite without changing set/restore boundaries; add repeated-write/restoration test | Need benchmark evidence, full QA + resolve default Psalm SSRF separately |
+| B09 | Stream write caching committed; exact-head QA pending | `2aa3e13acdf1208dd9738f98eca907d18d96ea71` | Reuse a cached warning handler closure on every fwrite without changing set/restore boundaries; add repeated-write/restoration test | Need benchmark evidence, full QA + resolve default Psalm SSRF separately |
+| B10 | Supervisor counters optimized; compatibility review completed; exact-head QA pending | This commit (backfill next batch) | Direct ordered foreach; test failure count and event order; avoid breaking class/file deletions | B11 performance evidence; PHPForge default Psalm security blocker still open |
 
 ### B00 — 2026-11-21
 
@@ -360,3 +361,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 - On exact B08 SHA `a641b0bbfaf597fd1451647a99fdafc6f2561f44`: all seven non-Security required workflows green; inside Security & Standards run `44929656757`, native QUIC 8.4/8.5/8.6, six PHPForge QA lanes, three benchmarks, clean install and service prep all passed. The three PHPForge *analysis* lanes failed on the exact same existing unsuppressed `TaintedSSRF` flow `PsrMessageBridge::outboundRequest → Http2OutboundClient → Dialer::open`, with no newly reported B08 issue. This is **not** an all-green source SHA.
 - B08's sparse-key regression passed and production source files remain 448. B09 is a separate code/QA batch. Keep Psalm's default security analysis active; do not merge/tag/release until SSRF is correctly resolved.
+
+### B10 — 2026-11-21
+
+- `LifecycleEmitter` initializes event-failure counters via a direct ordered `foreach`, eliminating `array_map`, `array_fill_keys` and their short-lived arrays. A focused test verifies enum-declaration order, zero values, and listener failure isolation.
+- Ownership/compatibility disposition: `AdaptivePollStrategy` has one production caller and direct regression tests; the class is autoloadable and existed in 3.0.1, so co-locating it requires an intentional major-version API migration. `Http1PolicyAttempt` carries mutable state shared by callbacks within one retry/redirect attempt; a global or caller-owned reuse risks reentrancy. `QuicWorkerResourceUsage` is opt-in diagnostics, not normal hot-path work. `ConnectionCallbackDispatcher` preserves exception/cleanup ordering in several call sites; `ContentLengthParser` enforces shared request/response decimal-overflow semantics; `WorkerStopState` coordinates loop ownership in both HTTP and stream workers.
+- None of the reviewed helper deletions is independently justified for patch-release compatibility. Source classes/files still number **448**, equal to released 3.0.1. Removing a file merely for an artificial quota is not an optimization. Retain these candidates for the next deliberately breaking release, with measured warm/cold autoload and actual consumer impact.
+- Exact-head CI pending; PHPForge's default unsuppressed `TaintedSSRF` blocker is an independent open finding, not fixed or suppressed in B10.
