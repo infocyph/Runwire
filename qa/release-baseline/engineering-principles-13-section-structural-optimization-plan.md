@@ -140,7 +140,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 ### B11-C1 — Connection callback call-hop reduction [planned, P1]
 
-- [x] Inline the single-use `Connection::invoke()` delegation to `ConnectionCallbackDispatcher::invoke()` for user callbacks; eliminate per-call `fn() => abort()` allocation while preserving abort-on-error and exception precedence.
+- [ ] Inline the `Connection::invoke()` delegation: **rejected/deferred** after PHPStan found class cognitive complexity 84, limit 80. Restore previously verified dispatcher, no complexity exception or threshold change.
 - [x] Add focused null callback, original throwable, and connection termination regression.
 - [ ] Confirm supported PHP 8.4–8.6 QA/analysis and native/hosted exact-head workflow status without hiding the existing SSRF finding.
 - Gate: callback ordering, exactly-once abort, cleanup, exception propagation.
@@ -181,8 +181,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B08 | Runtime/QUIC/QA green; only pre-existing Psalm SSRF red across PHP 8.4–8.6 | `a641b0bbfaf597fd1451647a99fdafc6f2561f44` | Direct foreach for pending, no array_values for sparse active IDs, retain poll semantics; add multi-connection disappearance test | PHPForge default Psalm SSRF remains blocker; run QUIC PHP 8.4–8.6 and all required QA |
 | B09 | Stream write caching committed; exact-head QA pending | `2aa3e13acdf1208dd9738f98eca907d18d96ea71` | Reuse a cached warning handler closure on every fwrite without changing set/restore boundaries; add repeated-write/restoration test | Need benchmark evidence, full QA + resolve default Psalm SSRF separately |
 | B10 | Supervisor counters implemented; exact-head QA pending | `59679f30add36ab7de11ca7a82feec50099d8e92` | Direct ordered foreach; test failure count and event order; avoid breaking class/file deletions | B11 performance evidence; PHPForge default Psalm security blocker still open |
-| B11-C1 | Implementation committed; Source Audit failed on missing B10 lifecycle ledger entry | `90f96c7e1ff9738161aba7b113428efd952a9b9f` | Remove per-callback abort Closure and static dispatcher call in Connection; preserve original Throwable | Review callback termination, native/hosted, PHP 8.4–8.6; SSRF blocker remains |
-| B11-C1-R | Source Audit migration disposition added; exact-head CI pending | This batch commit; backfill next tracker batch | Add reviewed LifecycleEmitter migration behavior with executable SupervisorLifecycleTest coverage, keep strict source audit unchanged | Verify strict Source Audit and all QA; unsuppressed Psalm SSRF still open |
+| B11-C1 | Callback inlining rejected after PHPStan complexity failure | `90f96c7e1ff9738161aba7b113428efd952a9b9f` | Remove per-callback abort Closure and static dispatcher call in Connection; preserve original Throwable | Review callback termination, native/hosted, PHP 8.4–8.6; SSRF blocker remains |
+| B11-C1-R | Strict Source Audit green; PHPStan complexity issue found | `9345ac57cb045718d149ef3c2c72e3ef6413595d` | Add reviewed LifecycleEmitter migration behavior with executable SupervisorLifecycleTest coverage, keep strict source audit unchanged | Verify strict Source Audit and all QA; unsuppressed Psalm SSRF still open |
+| B11-C1-R2 | Revert excess callback inlining; exact-head QA pending | This batch commit; backfill next tracker batch | Restore verified Connection callback dispatch to meet strict complexity limit 80; retain exception regression | PHPStan/QA/native/hosted + default Psalm must be checked; SSRF still open |
 
 ### B00 — 2026-11-21
 
@@ -389,3 +390,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 - B11-C1 exact-head `90f96c7e1ff9738161aba7b113428efd952a9b9f` Source Audit run `44930750765` failed specifically in the strict 2.1.2-to-3.0 `c4-migration-behavior-audit.php` gate: `Changed public implementations are missing dispositions: Infocyph\\Runwire\\Supervisor\\Internal\\LifecycleEmitter`. Its source changed in B10, and the migration ledger was not synchronized.
 - Added exactly one entry for `LifecycleEmitter` to `qa/release-baseline/c4-migration-behavior-ledger.json`, referring to the newly added `tests/SupervisorLifecycleTest.php` regression. The entry records enum-order zero counter initialization and isolation after a throwing listener; `requiresReleaseSignoff` remains true, and `behavioralCompatibilityCertified` remains false.
 - No guard script, QA thresholds, Psalm overrides, ignore paths, or production logic changed in this correction. Exact-head Source Audit and all CI must pass before marking green; separately unresolved `TaintedSSRF` remains a blocking security issue.
+
+### B11-C1-R2 — 2026-11-21 (complexity rule correction)
+
+- B11-C1-R SHA `9345ac57cb045718d149ef3c2c72e3ef6413595d` passed strict Source Audit after a new test-backed migration entry. PHP 8.6 PHPStan revealed a separate **new** class complexity failure at `Connection.php:30`: cognitive complexity **84**, required maximum **80**.
+- Restore the exact `Connection::invoke()` source from the earlier verified commit `2aa3e13acdf1208dd9738f98eca907d18d96ea71`, returning exception cleanup ownership to `ConnectionCallbackDispatcher`. The B11-C1 negative-path regression stays as coverage. No rule suppression, threshold increase, or new abstraction to game complexity.
+- This means the proposed per-invocation abort-closure elimination was **reverted** and is no longer counted as a delivered performance improvement. B08/B09/B10 remain. Exact-head QA pending; default PHPForge `TaintedSSRF` is a separate unresolved security gate.
