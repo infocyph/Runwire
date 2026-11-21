@@ -50,9 +50,6 @@ it('reports safe worker-fatal cause metadata without changing exit semantics', f
 
         $status = 0;
         $waitedPid = pcntl_waitpid($pid, $status);
-        if (!is_int($status)) {
-            throw new RuntimeException('Worker wait status must be an integer.');
-        }
         expect($waitedPid)->toBe($pid)
             ->and(pcntl_wifexited($status))->toBeTrue()
             ->and(pcntl_wexitstatus($status))->toBe($expectedExitCode);

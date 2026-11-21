@@ -156,6 +156,7 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
     }
 
     $request = null;
+
     try {
         // Never interpret a request from a process that does not own this worker.
         $signature = substr($line, 0, 64);

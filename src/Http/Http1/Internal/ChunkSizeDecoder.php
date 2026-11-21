@@ -41,16 +41,13 @@ final class ChunkSizeDecoder
         for ($index = 0; $index < $length; ++$index) {
             $byte = ord($hex[$index]);
             $nibble = $byte <= 57 ? $byte - 48 : (($byte | 32) - 87);
-            // PHPStan underestimates the loop-carried accumulator range across hex digits.
-            // @phpstan-ignore greater.alwaysFalse
-            if ($value > intdiv(PHP_INT_MAX - $nibble, 16)) {
-                throw new ParseFailure(413, 'Chunk size exceeds platform range.');
+            // Enforce the body bound before multiplication; this also prevents
+            // overflow because the remaining limit cannot exceed PHP_INT_MAX.
+            if ($remainingBodyBytes < $nibble || $value > intdiv($remainingBodyBytes - $nibble, 16)) {
+                throw new ParseFailure(413, 'Chunked request body exceeds configured limit.');
             }
 
             $value = ($value * 16) + $nibble;
-            if ($value > $remainingBodyBytes) {
-                throw new ParseFailure(413, 'Chunked request body exceeds configured limit.');
-            }
         }
 
         return $value;
