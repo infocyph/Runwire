@@ -299,6 +299,27 @@
                             "benchmarks/cli_local_paths.php"
                         ],
                         "reason": "Intentional developer-selected Composer checkout; validated canonical autoload entrypoint cannot be statically resolved by Psalm and must remain dynamically loaded."
+                    },
+                    {
+                        "directive": "@psalm-suppress",
+                        "issue": "WeakHash",
+                        "paths": [
+                            "benchmarks/websocket_evidence.php",
+                            "src/WebSocket/Internal/WebSocketClientHandshake.php",
+                            "src/WebSocket/WebSocketUpgrade.php",
+                            "tests/WebSocketClientHandshakeTest.php",
+                            "tests/WebSocketOutboundClientTest.php",
+                            "tests/WebSocketOutboundTlsTest.php"
+                        ],
+                        "reason": "RFC 6455 requires SHA-1 solely for Sec-WebSocket-Accept interoperability, not password storage, signatures or collision-resistant security; production and independent-peer handshake tests assert the mandated wire behavior."
+                    },
+                    {
+                        "directive": "@psalm-suppress",
+                        "issue": "TaintedSSRF",
+                        "paths": [
+                            "src/Network/Dialer.php"
+                        ],
+                        "reason": "Low-level Dialer is an intentionally caller-authorized socket connector, not a URL-fetch endpoint; applications passing untrusted destinations must opt into DialOptions::addressPolicy. OutboundAddressPolicy validates candidate IPs and the actual connected peer, with regression coverage in tests/OutboundAddressPolicyTest.php."
                     }
                 ]
             }

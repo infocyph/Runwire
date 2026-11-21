@@ -45,7 +45,7 @@ it('restores the previous error handler after a failed fwrite invocation', funct
     });
 
     try {
-        expect(static fn() => (new ReflectionMethod(StreamWriter::class, 'write'))->invoke(null, null, 'invalid resource'))
+        expect(static fn(): mixed => (new ReflectionMethod(StreamWriter::class, 'write'))->invoke(null, null, 'invalid resource'))
             ->toThrow(TypeError::class);
 
         trigger_error('error handler restored after exception', E_USER_NOTICE);

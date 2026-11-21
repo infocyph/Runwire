@@ -73,6 +73,7 @@ jobs:
             libev-dev \
             libssl-dev \
             libtool \
+            libonig-dev \
             pkg-config \
             python3 \
             python3-venv \
@@ -111,6 +112,9 @@ jobs:
         shell: bash
         run: |
           docker-php-ext-install -j"$(nproc)" pcntl sockets
+          if ! php -m | grep -qi '^mbstring$'; then
+            docker-php-ext-install -j"$(nproc)" mbstring
+          fi
           php -r '
           if (!extension_loaded("pcntl") || !extension_loaded("posix") || !extension_loaded("sockets")) {
               fwrite(STDERR, "Runwire native H1/H2/H3 interop requires process and sockets extensions.\n");

@@ -43,6 +43,8 @@ function wsConnect(int $port): mixed
         throw new WebSocketEvidenceProtocolFailure('Server rejected the WebSocket handshake.');
     }
 
+    // RFC 6455 mandates SHA-1 for the WebSocket handshake accept proof only.
+    /** @psalm-suppress WeakHash */
     $expected = base64_encode(sha1($key . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
     $headers = [];
     foreach (explode("\r\n", $head) as $line) {
