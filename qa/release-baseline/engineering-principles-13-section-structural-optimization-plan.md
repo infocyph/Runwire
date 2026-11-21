@@ -117,10 +117,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 ### B08 — QUIC worker poll-array copy elimination [planned, P1]
 
-- [ ] Recheck PHP 8.4–8.6 default-configuration Psalm from B07-S2; do not hide any new taint finding. Use exact-head QA as entry gate.
-- [ ] In `PhpQuicHttp3Worker::tick()`, remove an avoidable `array_values($connections)` copy; teach `PhpQuicHttp3Poller`'s *docblock* to accept sparse integer keys (its iteration already ignores keys). Preserve existing public method parameters and behavior.
-- [ ] Replace nested `array_map(..., array_values($pendingConnections))` with one bounded `foreach` conversion, preserving poll order, object identity and masks; do not change poll callback result IDs or handshakes.
-- [ ] Add focused worker/poller regression for a sparse active-ID map and pending/acceptance transitions, then run all PHP 8.4–8.6 source/analysis/QA, independent QUIC and hosted checks.
+- [x] Recheck PHP 8.4–8.6 default-configuration Psalm from B07-S2: exactly one SSRF taint failure traced from PSR request URI to generic dialer; tracked as P0 security blocker without suppression.
+- [x] In `PhpQuicHttp3Worker::tick()`, remove an avoidable `array_values($connections)` copy; teach `PhpQuicHttp3Poller`'s *docblock* to accept sparse integer keys (its iteration already ignores keys). Preserve existing public method parameters and behavior.
+- [x] Replace nested `array_map(..., array_values($pendingConnections))` with one bounded `foreach` conversion, preserving poll order, object identity and masks; do not change poll callback result IDs or handshakes.
+- [x] Add focused multi-active-connection regression exercising sparse retained IDs after one connection disappears. [ ] Require all PHP 8.4–8.6 source/analysis/QA, independent QUIC and hosted checks to pass on exact SHA.
 - Gate: behavior and error-path equivalence; no unsupported throughput claim.
 
 ### B09 — StreamWriter per-write handler allocation [planned, P1]
@@ -170,7 +170,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B07-P1 | Complete implementation; eight required workflows green (opt-in evidence pending) | `a2d2ff14a00a646d05e34844aabfc6f64b99a303` | Capture six cold PHP/OPcache profiles (baseline/candidate x bootstrap/lifecycle/coroutine) on one PHP 8.6 runner; record counts and source identity | B07-P2 evaluate matched structural profiles and sustained successful RPM, errors/latency; no speed claim from file counts |
 | B07-S1 | Complete; eight required workflows green, immutable preflight and package PHP 8.4–8.6 passed | `5d3a2cabc0ce1dde3509e051a75a23dd15b639d7` | Preserve audit plan and tracker under qa/release-baseline instead of docs/plans; maintain release preflight contract | Validate all required workflows; opt-in perf and security sign-off still pending |
 | B07-S2 | Exact-head Psalm failed: 1 `TaintedSSRF` (PHP 8.4–8.6), other gates green | `12451992e75e6f5cbb7a7bad032269aa87ebf7be` | Remove root `psalm.xml` without replacement, override or suppression; PHPForge's default Psalm config is authoritative | Verify PHP 8.4–8.6 Psalm with unsuppressed TaintedSSRF, full CI; address real findings in code, then re-certify frozen SHA |
-| B08-P | Plan/tracker prepared; independent code batches not yet verified | This plan commit; SHA backfill in B08 | B08 QUIC polling, B09 write path, B10 class/method compatibility, B11 measured acceptance | Work in one-commit batches with exact-head QA and no automatic merge/tag |
+| B08-P | Plan and issue log committed; unsuppressed Psalm identified one SSRF path | `7ff65b501e439accf561084605a91de018a1cf96` | B08 QUIC polling, B09 write path, B10 class/method compatibility, B11 measured acceptance | Work in one-commit batches with exact-head QA and no automatic merge/tag |
+| B08 | QUIC poll allocation change implemented; exact-head QA pending | This commit (backfill next batch) | Direct foreach for pending, no array_values for sparse active IDs, retain poll semantics; add multi-connection disappearance test | PHPForge default Psalm SSRF remains blocker; run QUIC PHP 8.4–8.6 and all required QA |
 
 ### B00 — 2026-11-21
 
@@ -340,3 +341,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 - GitHub Security & Standards `44928605757` passed PHPForge QA, benchmarks, release clean install, native QUIC; **all three PHP 8.4/8.5/8.6 analysis jobs failed on exactly one unsuppressed Psalm `TaintedSSRF` in `Dialer.php:336`**, while other required workflow families passed.
 - Reproduced taint path: PSR `RequestInterface::getUri()` → `PsrMessageBridge::outboundRequest` → `ClientRequest::uri` → `Http2OutboundClient::connect` → `HappyEyeballsDialer` → `HappyEyeballsAttempt` → `Dialer::open` → `stream_socket_client`. This is a real untrusted-origin authorization issue; parsed hostname syntax alone does not prove public-IP policy. No root config reinstatement, suppression, or fabricated approval.
 - Security resolution must establish explicit authorization on untrusted-origin paths, validated resolved candidate IP before dial and kernel-connected peer before handoff. Record the contract tests and avoid breaking intentional caller-owned local/private dial semantics. Keep this separate blocking gate while structural work continues; do not mark release ready.
+
+### B08 — 2026-11-21
+
+- `PhpQuicHttp3Worker::tick` no longer materializes `array_values($this->connections)` every tick; `PhpQuicHttp3Poller` already iterates input values and indexes readiness by QUIC object identity rather than array key. Its static doc contract now accurately permits sparse `array<int, PhpQuicHttp3Connection>`.
+- Replace two separate temporary arrays (`array_values` followed by `array_map`) for pending QUIC connections with one linear `foreach` that builds the exact same ordered pending object list. No transport state, caps or callback names changed.
+- Add native worker regression with two active QUIC peers, error-removal of one, and verify surviving peer remains polled under a sparse key. Exact-head QA and independent QUIC (PHP 8.4–8.6) **pending**.
+- Production classes/files remain 448. Existing B07-S2 default Psalm `TaintedSSRF` remains **red** and is separately tracked; this batch deliberately does not add a suppression or otherwise change outbound security policy.

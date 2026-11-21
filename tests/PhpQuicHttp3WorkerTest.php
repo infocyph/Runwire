@@ -487,6 +487,45 @@ it('polls one worker-wide QUIC set, defers incomplete handshakes, and removes li
         ->and($listenerRaw->closed)->toBeTrue();
 });
 
+it('preserves object readiness for sparse active QUIC connection identifiers', function (): void {
+    $events = new PhpQuicEventMasks(1, 2, 4, 8, 16);
+    $first = workerQuicConnection(['h3']);
+    $second = workerQuicConnection(['h3']);
+    $listener = workerQuicListener([$first, $second]);
+    $snapshots = [];
+    $poller = new PhpQuicHttp3Poller(
+        $events,
+        static function (array $items, ?float $timeout) use (&$snapshots, $listener, $first, $events): array {
+            $snapshots[] = [$items, $timeout];
+
+            return match (count($snapshots)) {
+                1 => [spl_object_id($listener) => $events->acceptConnection],
+                2 => [spl_object_id($first) => $events->error],
+                default => [],
+            };
+        },
+    );
+    $worker = new PhpQuicHttp3Worker(
+        new PhpQuicListener($listener),
+        static function (): void {},
+        new Http3Limits,
+        2,
+        $poller,
+    );
+
+    $worker->tick(0.0);
+    expect($worker->connectionCount())->toBe(2);
+
+    $worker->tick(0.0);
+    expect($snapshots[1][0])->toHaveKey(spl_object_id($first))
+        ->toHaveKey(spl_object_id($second));
+
+    $worker->tick(0.0);
+    expect($snapshots[2][0])->not->toHaveKey(spl_object_id($first))
+        ->toHaveKey(spl_object_id($second))
+        ->and($worker->connectionCount())->toBe(1);
+});
+
 it('serves an interoperable HTTP/3 request through a direct native QUIC worker', function (): void {
     $environment = (new RuntimeEnvironmentProbe)->probe();
     if (! $environment->supportsQuic) {
