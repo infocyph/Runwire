@@ -115,6 +115,37 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [ ] Separate completed code work from release certification, main-branch merge or tagging; **never automatically merge**.
 - Gate: all required CI green on final exact SHA; blockers explicit.
 
+### B08 — QUIC worker poll-array copy elimination [planned, P1]
+
+- [ ] Recheck PHP 8.4–8.6 default-configuration Psalm from B07-S2; do not hide any new taint finding. Use exact-head QA as entry gate.
+- [ ] In `PhpQuicHttp3Worker::tick()`, remove an avoidable `array_values($connections)` copy; teach `PhpQuicHttp3Poller`'s *docblock* to accept sparse integer keys (its iteration already ignores keys). Preserve existing public method parameters and behavior.
+- [ ] Replace nested `array_map(..., array_values($pendingConnections))` with one bounded `foreach` conversion, preserving poll order, object identity and masks; do not change poll callback result IDs or handshakes.
+- [ ] Add focused worker/poller regression for a sparse active-ID map and pending/acceptance transitions, then run all PHP 8.4–8.6 source/analysis/QA, independent QUIC and hosted checks.
+- Gate: behavior and error-path equivalence; no unsupported throughput claim.
+
+### B09 — StreamWriter per-write handler allocation [planned, P1]
+
+- [ ] Profile the repeated `StreamWriter::write()` warning-handler construction on the connection send/flush path; current `self::writeWarning(...)` creates a first-class callable per write.
+- [ ] If justified, reuse a statically held handler closure *without* changing the per-call `set_error_handler`/`finally restore_error_handler` safety contract, notices/warnings, partial writes, nesting, or callback semantics.
+- [ ] Focused tests for repeated valid writes, invalid/closed resource warnings, and restoration of an existing error handler; run PHPForge QA, native/hosted lifecycle and supported PHP matrix.
+- Gate: benchmark setup and measured workload delta clearly distinguish closure allocation from actual request RPM.
+
+### B10 — Class/method consolidation and compatibility disposition [planned, P2]
+
+- [ ] Simplify `LifecycleEmitter` startup counter initialization to one `foreach`, matching the B06 `RuntimeMetrics` pattern; test enum order and failure counters.
+- [ ] Review single-owner helpers `AdaptivePollStrategy`, `Http1PolicyAttempt`, `QuicWorkerResourceUsage`, `ConnectionCallbackDispatcher`, `ContentLengthParser`, `WorkerStopState` with actual callers/tests and first-load profile.
+- [ ] Do **not** delete or merge released PHP symbols merely to lower count. All 448 production paths in PR #17 already existed in `3.0.1`. Record any legitimate class/file removals requiring a major release instead of silently breaking patch compatibility.
+- [ ] Check wrapper/helper methods for delegation without invariant, preserving exception/owner/lifecycle behavior, and list why kept/removed.
+- Gate: PHP 8.4–8.6 QA/analysis, public API integrity, all protocols; explicit 448-file count and call-hop outcome.
+
+### B11 — Measured structural completion and certification [planned, P0]
+
+- [ ] Repeat matched exact-SHA before/after source/OPcache loaded+compiled file counts, memory, successful RPM, p95/p99, error and timeouts from the existing opt-in release-certification workflow.
+- [ ] Evaluate a repeated warm runtime and cold bootstrap separately; do not interpret reduced source lines or helper count as production speedup.
+- [ ] Reconcile every open task, CI result and artifact back into the same plan/tracker; mark `done` only for implemented and verified requirements, with explicit `deferred` for evidence-based major-only changes.
+- [ ] Keep PHPForge's default Psalm configuration untouched; do not merge/tag/release without exact-head green gates and final security disposition.
+- Gate: full current-source CI and release performance evidence, with no unverified claims.
+
 ## Rolling tracker — append a dated entry *below* after every batch
 
 | Batch | Status | Commit SHA | Evidence | Residual / next |
@@ -138,7 +169,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B07-R3 | Complete; eight required workflows green | `719f82ca56954e609a6e6d74f0e663912b9d344b` | Remove extra class-close separator; put benchmark smoke test in the Infocyph test namespace to satisfy internal API boundary | Validate PHP 8.4–8.6 QA/analysis, all workflows; no release/throughput claim |
 | B07-P1 | Complete implementation; eight required workflows green (opt-in evidence pending) | `a2d2ff14a00a646d05e34844aabfc6f64b99a303` | Capture six cold PHP/OPcache profiles (baseline/candidate x bootstrap/lifecycle/coroutine) on one PHP 8.6 runner; record counts and source identity | B07-P2 evaluate matched structural profiles and sustained successful RPM, errors/latency; no speed claim from file counts |
 | B07-S1 | Complete; eight required workflows green, immutable preflight and package PHP 8.4–8.6 passed | `5d3a2cabc0ce1dde3509e051a75a23dd15b639d7` | Preserve audit plan and tracker under qa/release-baseline instead of docs/plans; maintain release preflight contract | Validate all required workflows; opt-in perf and security sign-off still pending |
-| B07-S2 | Implemented; exact-head PHPForge analysis/CI pending | This batch commit (SHA recorded next tracker batch) | Remove root `psalm.xml` without replacement, override or suppression; PHPForge's default Psalm config is authoritative | Verify PHP 8.4–8.6 Psalm with unsuppressed TaintedSSRF, full CI; address real findings in code, then re-certify frozen SHA |
+| B07-S2 | Exact-head Psalm failed: 1 `TaintedSSRF` (PHP 8.4–8.6), other gates green | `12451992e75e6f5cbb7a7bad032269aa87ebf7be` | Remove root `psalm.xml` without replacement, override or suppression; PHPForge's default Psalm config is authoritative | Verify PHP 8.4–8.6 Psalm with unsuppressed TaintedSSRF, full CI; address real findings in code, then re-certify frozen SHA |
+| B08-P | Plan/tracker prepared; independent code batches not yet verified | This plan commit; SHA backfill in B08 | B08 QUIC polling, B09 write path, B10 class/method compatibility, B11 measured acceptance | Work in one-commit batches with exact-head QA and no automatic merge/tag |
 
 ### B00 — 2026-11-21
 
@@ -293,3 +325,18 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Independently inspected PHPForge's reusable Security & Standards workflow: its Psalm selection is `psalm.xml`, else `psalm.xml.dist`, else `vendor/infocyph/phpforge/resources/psalm.xml`. Neither alternative root filename exists in the current branch. PHPForge's default `psalm.xml` explicitly enforces `TaintedSSRF` at error severity; removing Runwire's exception may expose a previously hidden issue in `src/Network/Dialer.php` or its callers.
 - Keep source behavior and `DialOptions::addressPolicy` candidate/connected-peer safeguards unchanged in this removal batch. **Any real taint/error findings must be fixed at source in subsequent one-commit batches**, without new suppressions or excluding a file. Previously green CI/certification at `5d3a2cabc0ce1dde3509e051a75a23dd15b639d7` remains historical only for the old configuration.
 - **Pending gates:** all required workflows and Psalm/PHPStan with PHP 8.4/8.5/8.6 on this exact new SHA; new immutable release certification (matched RPM, 30-minute soak, PHPForge release guard) after final code/config is green; review of intended caller-controlled vs user-controlled outbound addresses. Do not merge, tag, or publish automatically.
+
+### B08-P — 2026-11-21 (structural continuation planning)
+
+- Rechecked the current branch against released tag `3.0.1`: **448 source PHP paths on both**; zero production source file removals. 121 files are below 1 KiB, predominantly enums, exception types and immutable records. Treat all autoloadable class removal as public/consumer migration risk in this patch window. No arbitrary deletion quota.
+- Inspected `PhpQuicHttp3Worker::tick()` and `PhpQuicHttp3Poller::poll()/buildPollItems()`: two allocations to normalize active/pending objects before an iteration that does not use caller keys. B08 targets the real copies, not unrelated class count.
+- Reviewed the `Connection` write/flush paths and `StreamWriter`'s per-call first-class callable; B09 preserves the existing notice/warning boundary and only considers reuse after targeted evidence.
+- Found `LifecycleEmitter` repeats the `array_fill_keys(array_map(...))` startup pattern removed earlier from `RuntimeMetrics`; B10 will simplify it and document class ownership decisions.
+- B11 remains a measurement/security gate; original B07 certification is bound to the **older** SHA `5d3a2ca` and cannot certify the root Psalm deletion or later hot-path changes. Do not equate static files count with autoloads/OPcache.
+- Each batch updates this plan's rolling tracker in the **same atomic commit**, and records the real SHA in the following tracker update because a commit cannot contain its own final hash.
+
+### B07-S2 exact-head CI result — 2026-11-21
+
+- GitHub Security & Standards `44928605757` passed PHPForge QA, benchmarks, release clean install, native QUIC; **all three PHP 8.4/8.5/8.6 analysis jobs failed on exactly one unsuppressed Psalm `TaintedSSRF` in `Dialer.php:336`**, while other required workflow families passed.
+- Reproduced taint path: PSR `RequestInterface::getUri()` → `PsrMessageBridge::outboundRequest` → `ClientRequest::uri` → `Http2OutboundClient::connect` → `HappyEyeballsDialer` → `HappyEyeballsAttempt` → `Dialer::open` → `stream_socket_client`. This is a real untrusted-origin authorization issue; parsed hostname syntax alone does not prove public-IP policy. No root config reinstatement, suppression, or fabricated approval.
+- Security resolution must establish explicit authorization on untrusted-origin paths, validated resolved candidate IP before dial and kernel-connected peer before handoff. Record the contract tests and avoid breaking intentional caller-owned local/private dial semantics. Keep this separate blocking gate while structural work continues; do not mark release ready.
