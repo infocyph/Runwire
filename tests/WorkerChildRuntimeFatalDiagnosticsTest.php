@@ -50,10 +50,18 @@ it('reports safe worker-fatal cause metadata without changing exit semantics', f
 
         $status = 0;
         $waitedPid = pcntl_waitpid($pid, $status);
-        \PHPUnit\Framework\Assert::assertIsInt($status);
+        // PCNTL returns an int status; normalize the by-reference value through
+        // a real runtime guard rather than relying on analyzer-specific inference.
+        $exitStatus = (static function (mixed $value): int {
+            if (!is_int($value)) {
+                throw new RuntimeException('Worker wait status must be an integer.');
+            }
+
+            return $value;
+        })($status);
         expect($waitedPid)->toBe($pid)
-            ->and(pcntl_wifexited($status))->toBeTrue()
-            ->and(pcntl_wexitstatus($status))->toBe($expectedExitCode);
+            ->and(pcntl_wifexited($exitStatus))->toBeTrue()
+            ->and(pcntl_wexitstatus($exitStatus))->toBe($expectedExitCode);
 
         $record = file_get_contents($log);
         if (!is_string($record)) {
