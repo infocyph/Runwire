@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Benchmarks;
+
 use Infocyph\Runwire\Interop\Psr\PsrMiddlewareAdapter;
 use Infocyph\Runwire\Interop\Psr\PsrMiddlewareHandlerLayer;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
-use PhpBench\Attributes\BeforeMethods;
 use PhpBench\Attributes\Iterations;
 use PhpBench\Attributes\Revs;
 use PhpBench\Attributes\Warmup;
@@ -22,7 +23,6 @@ use Psr\Http\Server\RequestHandlerInterface;
  * These are host-side synchronous microbenchmarks, not HTTP throughput certification.
  * Keep the same request, middleware objects, and terminal handler for both subjects.
  */
-#[BeforeMethods('setUp')]
 #[Iterations(5)]
 #[Revs(1_000)]
 #[Warmup(1)]
@@ -37,7 +37,8 @@ final class StructuralWindowBench
 
     private RequestHandlerInterface $terminal;
 
-    public function setUp(): void
+    /** @throws \InvalidArgumentException */
+    public function __construct()
     {
         $this->request = new ServerRequest('GET', 'https://benchmark.example.test/');
         $this->terminal = new class implements RequestHandlerInterface {
@@ -48,6 +49,7 @@ final class StructuralWindowBench
                 $this->response = new Response(204);
             }
 
+            /** @throws \LogicException */
             #[\Override]
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
@@ -69,6 +71,17 @@ final class StructuralWindowBench
         $this->adapter = new PsrMiddlewareAdapter($this->middleware, $this->terminal);
     }
 
+    /**
+     * Separately measure adapter initialization, which now builds the chain once.
+     * @throws \InvalidArgumentException
+     */
+    public function benchPsrPrebuiltConstruction(): int
+    {
+        $adapter = new PsrMiddlewareAdapter($this->middleware, $this->terminal);
+
+        return $adapter->handle($this->request)->getStatusCode();
+    }
+
     /** Current B02: handle requests using the already constructed chain. */
     public function benchPsrPrebuiltHandle(): int
     {
@@ -86,11 +99,4 @@ final class StructuralWindowBench
         return $handler->handle($this->request)->getStatusCode();
     }
 
-    /** Separately measure adapter initialization, which now builds the chain once. */
-    public function benchPsrPrebuiltConstruction(): int
-    {
-        $adapter = new PsrMiddlewareAdapter($this->middleware, $this->terminal);
-
-        return $adapter->handle($this->request)->getStatusCode();
-    }
 }

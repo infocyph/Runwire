@@ -122,16 +122,17 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B01-R | CI green | `71a006e0b99b4e0a9b265f0d0f096526111d2b46` | Sphinx, Source Audit, PHPForge analysis/QA PHP 8.4–8.6, native and hosted workflows passed (conditional jobs skipped) | SSRF exception requires approval |
 | B02 | QA failures (PHPCS) | `2868e66931bd8d39785923eaf71dd53d13f6a4ad` | New repeated-request tests + immutable handler reuse; Pest, Pint, Deptrac, syntax passed; PHPCS flagged 5 unused parameters in 3 test fixture methods | B02-R addresses QA warnings |
 | B02-R | QA remediation | `56e29cc0ae31d572c8223fc6a31f838fb0ff9c47` | Fix PHPCS unused interface parameters in fixtures | B02-R2 resolves PHPStan mixed cast |
-| B02-R2 | Implemented / CI pending | This commit | Explicitly validate PSR attribute type rather than casting mixed | Verify exact-head full PHPForge QA/analysis |
+| B02-R2 | Implemented; later superseded by green checks | `fe7be6e09ffb` | Explicitly validate PSR attribute type rather than casting mixed | Verify exact-head full PHPForge QA/analysis |
 | B03 | QA remediation needed | `e7ae8ffb472a0a8aa49be5ad57978eacc82af2be` | Lazy WebSocket owner, removal of 3 retain* methods; Pest, PHPCS, Deptrac, syntax and scanner passed | Pint property order and Rector constructor promotion |
 | B03-R | Source Audit rejected | `f18b5f5d2f14229b3643d87f4520d12845cabaec` | Fixed Pint and Rector, but changed an audit-locked constructor declaration | B03-R2 restores source signature |
 | B03-R2 | Fully CI green | `8802a0908ccafb5f70019e29331c3ceb4a0ffb23` | Source Audit, six PHPForge QA lanes, three analysis lanes, three QUIC jobs, portable/hosted and docs | B07 perf measurement |
 | B04 | All required CI green | `f39fd2385a399f61874a994542dae8cb3534802b` | 19 Security & Standards jobs passed, PHP 8.4–8.6 independent H3, six QA, three analysis, all other workflows | B07 RPM measurement |
 | B05 | Analyzer regression; remediation committed | `ee51f2c4e0c0f7d6db4677da7baee07ba7802981` | All QA/other workflows passing or executing; PHPStan/Psalm flag 1 non-null token nullsafe at Http3OutboundClient:656 | B05-R fixes narrowing |
-| B05-R | Implemented / exact-head CI pending | This commit | Replace redundant nullsafe on already validated cancellation token | Full PHPStan/Psalm PHP 8.4–8.6, QA and H3 CI |
-| B06 | Implemented / exact-head CI pending | This commit | Skip QPACK retry when no dynamic insertion; reduce temporary allocations initializing metrics; add regressions | Full PHPForge QA/analysis, H3 and B07 measurement |
+| B05-R | Implemented; later validated in B06 | `e3c23a04f93e` | Replace redundant nullsafe on already validated cancellation token | Full PHPStan/Psalm PHP 8.4–8.6, QA and H3 CI |
+| B06 | Complete; eight required workflows green | `a8a3b88abc4b` | Skip QPACK retry when no dynamic insertion; reduce temporary allocations initializing metrics; add regressions | Full PHPForge QA/analysis, H3 and B07 measurement |
 | B07 | Instrumentation only / full CI not triggered | `af16478b143fab33932f1369119113c1084edabe` | New PHPBench subjects for reference vs prebuilt PSR; no production source changes, CodeQL passed | B07-R smoke test and full QA |
-| B07-R | Implemented / exact-head CI pending | This commit | Test equal PSR responses for all three benchmark subjects plus repeat handle; includes test-path change for QA trigger | Review three-version benchmark JSON and full checks |
+| B07-R | CI blocked; remediation queued | `3dd0eca8b51b` | Test equal PSR responses for all three benchmark subjects plus repeat handle; includes test-path change for QA trigger | Review three-version benchmark JSON and full checks |
+| B07-R2 | Implemented; exact-head QA pending | This commit (B07-R2; SHA recorded at next batch) | Namespace benchmark under Infocyph for legal internal access; initialize in constructor; order members, annotate exceptions, prove middleware element types | Confirm PHP 8.4–8.6 Psalm/PHPStan, Pint, full QA and QUIC; do not declare green before checks |
 
 ### B00 — 2026-11-21
 
@@ -240,3 +241,11 @@ Do not present source size or file count as direct runtime gains. The small-file
 - B07 `af16478` added a PHPBench-only workload and tracker. CodeQL passed, but path-filtered required PR workflows were not triggered by benchmark/plan-only changes.
 - B07-R adds `tests/StructuralWindowBenchmarkTest.php`, verifying that all three benchmark subjects return the same 204 status and that a repeated prebuilt handle stays correct. This test-path change is intended to trigger the standard QA matrix without adding a custom benchmark workflow.
 - No performance result is asserted by the test. Only compare same-runner benchmark subjects after their exact-head JSON artifacts exist; still require matched production-equivalent successful RPM/p95/p99 and load/OPcache profiling for release-performance claims.
+
+### B07-R2 — 2026-11-21
+
+- B07-R head `3dd0eca8b51b` reported one Pint `ordered_class_elements` violation in `benchmarks/StructuralWindowBench.php` across six QA combinations. PHP 8.6 Psalm also reported uninitialized benchmark properties, missing throw docs and access to internal PSR-15 code from the global namespace. This batch fixes those causes without disabling rules.
+- Benchmark fixture now initializes required properties in its real constructor (rather than relying on PHPBench `BeforeMethods` to satisfy static analysis), moves under `Infocyph\\Runwire\\Benchmarks` to preserve `@internal` access boundaries, orders methods deterministically, and documents expected exceptions; equivalence test uses its new namespace and initialization contract.
+- Production PSR-15 adapter: build a bounded `list<MiddlewareInterface>` while validating, then construct the immutable handler chain from that verified list. This resolves the outstanding `MixedArgument` review root cause without altering named constructor parameters, middleware order, or repeated-request behavior. This introduces only an adapter-construction-time bounded reference list (maximum 32), not per-request work.
+- B07-R PHPBench jobs produced data for PHP 8.4–8.6, but runner used 10 revs/3 iterations despite source attributes requesting 1000 revs/5 iterations. The reported relative ratios are diagnostic only; B07-P must review effective runner configuration, repeatability and steady-state RPM before certification.
+- **Validation pending:** new exact-head 8.4/8.5/8.6 analysis/QA, H3 QUIC, full required workflows. Do not mark B07-R2 green before checks; do not merge/tag. Git commit SHA for this same-commit tracker row must be backfilled from branch history at the next batch.

@@ -33,14 +33,17 @@ final readonly class PsrMiddlewareAdapter implements RequestHandlerInterface
         if (count($middleware) > 32 || !array_is_list($middleware)) {
             throw new InvalidArgumentException('PSR-15 middleware must be a bounded ordered list.');
         }
+        /** @var list<MiddlewareInterface> $verified */
+        $verified = [];
         foreach ($middleware as $part) {
             if (!$part instanceof MiddlewareInterface) {
                 throw new InvalidArgumentException('Every PSR-15 middleware must implement MiddlewareInterface.');
             }
+            $verified[] = $part;
         }
         $handler = $terminal;
-        for ($index = count($middleware) - 1; $index >= 0; --$index) {
-            $handler = new PsrMiddlewareHandlerLayer($middleware[$index], $handler);
+        for ($index = count($verified) - 1; $index >= 0; --$index) {
+            $handler = new PsrMiddlewareHandlerLayer($verified[$index], $handler);
         }
         $this->handler = $handler;
     }
