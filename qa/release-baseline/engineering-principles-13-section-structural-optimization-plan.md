@@ -15,7 +15,7 @@
 - **No numeric file-removal quota.** Remove a type only if ownership, contract, usage and tests justify it. Do not fuse protocol-specific state or public autoloadable symbols into unrelated files just to lower the count.
 - Before editing: inspect all affected callers (including tests and docs), dispatch/lifecycle/security boundaries, and applicable rules. Reuse PHPForge commands when available; record unavailable local profiling honestly. Do not weaken scanners or add blanket exceptions.
 - Every code batch requires targeted tests + formatting + PHPStan/Psalm/security + supported PHP 8.4/8.5/8.6 CI. Native and hosted acceptance must remain green when changes affect those paths. For hot paths collect repeatable before/after throughput evidence before claiming a speedup. A CI pass is not an RPM improvement.
-- The existing `psalm.xml` file-scoped `TaintedSSRF` suppression in `src/Network/Dialer.php` is **an outstanding approval/review issue**, not proof the underlying sink is safe. Preserve `DialOptions::addressPolicy` candidate and connected-peer validation; do not enlarge the exception. Any change to detector settings requires FLOW-02 evidence and explicit approval.
+- B07-S2 removes the root `psalm.xml` override, including its file-scoped `TaintedSSRF` suppression for `src/Network/Dialer.php`. Standard PHPForge analysis uses `vendor/infocyph/phpforge/resources/psalm.xml` when neither root `psalm.xml` nor `psalm.xml.dist` exists; it treats `TaintedSSRF` as an error. Preserve `DialOptions::addressPolicy` candidate and connected-peer validation; resolve any newly exposed finding at its root cause without configuration overrides or suppression.
 
 ## Baseline measurements (GitHub tree, not runtime profiling)
 
@@ -137,7 +137,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B07-R2 | QA/analysis follow-up required | `66bce1f81b60993932d1faa8fcdd62f1aff3f1a1` | Namespace benchmark under Infocyph for legal internal access; initialize in constructor; order members, annotate exceptions, prove middleware element types | Confirm PHP 8.4–8.6 Psalm/PHPStan, Pint, full QA and QUIC; do not declare green before checks |
 | B07-R3 | Complete; eight required workflows green | `719f82ca56954e609a6e6d74f0e663912b9d344b` | Remove extra class-close separator; put benchmark smoke test in the Infocyph test namespace to satisfy internal API boundary | Validate PHP 8.4–8.6 QA/analysis, all workflows; no release/throughput claim |
 | B07-P1 | Complete implementation; eight required workflows green (opt-in evidence pending) | `a2d2ff14a00a646d05e34844aabfc6f64b99a303` | Capture six cold PHP/OPcache profiles (baseline/candidate x bootstrap/lifecycle/coroutine) on one PHP 8.6 runner; record counts and source identity | B07-P2 evaluate matched structural profiles and sustained successful RPM, errors/latency; no speed claim from file counts |
-| B07-S1 | Release-preflight archiving; exact-head QA pending | This commit (SHA recorded at next batch) | Preserve audit plan and tracker under qa/release-baseline instead of docs/plans; maintain release preflight contract | Validate all required workflows; opt-in perf and security sign-off still pending |
+| B07-S1 | Complete; eight required workflows green, immutable preflight and package PHP 8.4–8.6 passed | `5d3a2cabc0ce1dde3509e051a75a23dd15b639d7` | Preserve audit plan and tracker under qa/release-baseline instead of docs/plans; maintain release preflight contract | Validate all required workflows; opt-in perf and security sign-off still pending |
+| B07-S2 | Implemented; exact-head PHPForge analysis/CI pending | This batch commit (SHA recorded next tracker batch) | Remove root `psalm.xml` without replacement, override or suppression; PHPForge's default Psalm config is authoritative | Verify PHP 8.4–8.6 Psalm with unsuppressed TaintedSSRF, full CI; address real findings in code, then re-certify frozen SHA |
 
 ### B00 — 2026-11-21
 
@@ -160,7 +161,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Fixed Sphinx warning-as-error in `docs/security-handbook-3.0.rst`: title underline shorter than title in B01.
 - [x] Retained original `fix/worker-fatal-diagnostics-and-streamwriter-notices` branch for historical traceability; do not delete or merge automatically.
 - [ ] Exact-head docs/source audit and required PR checks must pass after this commit. Previous green checks refer to PR #16 SHA, not the consolidated latest SHA.
-- [ ] Explicit security sign-off for file-scoped dialer `TaintedSSRF` exception remains an approval gate.
+- [x] Remove the root file-scoped dialer `TaintedSSRF` override in B07-S2; no substitute local Psalm config. [ ] Prove full PHPForge default Psalm/taint analysis passes without the exception and complete independent outbound trust-boundary review.
 
 ### B02 — 2026-11-21
 
@@ -285,3 +286,10 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 - Exact commit `a2d2ff14a00a646d05e34844aabfc6f64b99a303` passed all eight required workflow families, including six PHPForge QA lanes, three PHPStan/Psalm analyses, three PHPBench jobs and three independent HTTP/3/QUIC PHP 8.4–8.6 jobs. No required CI failures; release-on-tag appropriately skipped.
 - This verifies the *instrumentation commit* only. The opt-in release-certification workflow has not yet been triggered; its new cold CLI/OPcache comparison JSON, matched sustained RPM, and 30-minute soak data are not available. Keep B07-P2 evidence gate open.
+
+### B07-S2 — 2026-11-21 (Psalm override removal)
+
+- User directive: remove the root `psalm.xml` outright; **no overriding**, no replacement `psalm.xml.dist`, no modified PHPForge defaults and no inline taint suppressions. Remove only the root config plus this live tracker entry in a single commit.
+- Independently inspected PHPForge's reusable Security & Standards workflow: its Psalm selection is `psalm.xml`, else `psalm.xml.dist`, else `vendor/infocyph/phpforge/resources/psalm.xml`. Neither alternative root filename exists in the current branch. PHPForge's default `psalm.xml` explicitly enforces `TaintedSSRF` at error severity; removing Runwire's exception may expose a previously hidden issue in `src/Network/Dialer.php` or its callers.
+- Keep source behavior and `DialOptions::addressPolicy` candidate/connected-peer safeguards unchanged in this removal batch. **Any real taint/error findings must be fixed at source in subsequent one-commit batches**, without new suppressions or excluding a file. Previously green CI/certification at `5d3a2cabc0ce1dde3509e051a75a23dd15b639d7` remains historical only for the old configuration.
+- **Pending gates:** all required workflows and Psalm/PHPStan with PHP 8.4/8.5/8.6 on this exact new SHA; new immutable release certification (matched RPM, 30-minute soak, PHPForge release guard) after final code/config is green; review of intended caller-controlled vs user-controlled outbound addresses. Do not merge, tag, or publish automatically.
