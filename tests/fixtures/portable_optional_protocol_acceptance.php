@@ -141,7 +141,7 @@ if ($key === false) {
     $fail('Unable to create portable TLS private key.');
 }
 $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-if (! $csr instanceof OpenSSLCertificateSigningRequest || ! $key instanceof OpenSSLAsymmetricKey) {
+if (! $csr instanceof OpenSSLCertificateSigningRequest) {
     $fail('Unable to create portable TLS certificate request.');
 }
 $certificate = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);

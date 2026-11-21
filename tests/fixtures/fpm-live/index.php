@@ -21,8 +21,6 @@ Runtime::create(new RuntimeOptions(driver: RuntimeDriver::FPM))->serve(
         }
         $file = null;
         $socketPair = null;
-        $readAndWrite = false;
-        $socketExchange = false;
 
         try {
             $file = fopen($temp, 'c+b');
