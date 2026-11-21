@@ -24,6 +24,34 @@ function runwireConnectionPair(): array
     return [$pair[0], $pair[1]];
 }
 
+it('keeps callback ownership and original failure when a connection callback throws', function (): void {
+    [$stream, $peer] = runwireConnectionPair();
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $stream);
+    $invoke = new ReflectionMethod(Connection::class, 'invoke');
+    $error = new RuntimeException('primary connection callback failure');
+
+    try {
+        $invoke->invoke($connection, null);
+        expect($connection->state())->toBe(ConnectionState::OPEN);
+
+        expect(static fn(): mixed => $invoke->invoke(
+            $connection,
+            static function (Connection $current) use ($error): void {
+                expect($current->state())->toBe(ConnectionState::OPEN);
+
+                throw $error;
+            },
+        ))->toThrow(RuntimeException::class, 'primary connection callback failure');
+        expect($connection->state())->toBe(ConnectionState::CLOSED);
+    } finally {
+        if ($connection->state() !== ConnectionState::CLOSED) {
+            $connection->abort();
+        }
+        fclose($peer);
+    }
+});
+
 it('bounds receive buffering and resumes below the low watermark', function (): void {
     [$server, $peer] = runwireConnectionPair();
     $loop = new SelectLoop();

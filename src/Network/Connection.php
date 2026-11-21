@@ -690,11 +690,21 @@ final class Connection
      */
     private function invoke(?Closure $callback): void
     {
-        ConnectionCallbackDispatcher::invoke(
-            $callback,
-            $this,
-            fn() => $this->abort(),
-        );
+        if ($callback === null) {
+            return;
+        }
+
+        try {
+            $callback($this);
+        } catch (Throwable $error) {
+            try {
+                $this->abort();
+            } catch (Throwable) {
+                // Preserve the original callback failure when cleanup also fails.
+            }
+
+            throw $error;
+        }
     }
 
     /** Re-read connection ownership after user-defined data callbacks. */

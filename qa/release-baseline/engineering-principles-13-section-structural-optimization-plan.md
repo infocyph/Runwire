@@ -138,6 +138,13 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Check wrapper/helper methods for delegation without invariant, preserving exception/owner/lifecycle behavior; decisions and retained wrappers recorded below.
 - Gate: PHP 8.4–8.6 QA/analysis, public API integrity, all protocols; explicit 448-file count and call-hop outcome.
 
+### B11-C1 — Connection callback call-hop reduction [planned, P1]
+
+- [x] Inline the single-use `Connection::invoke()` delegation to `ConnectionCallbackDispatcher::invoke()` for user callbacks; eliminate per-call `fn() => abort()` allocation while preserving abort-on-error and exception precedence.
+- [x] Add focused null callback, original throwable, and connection termination regression.
+- [ ] Confirm supported PHP 8.4–8.6 QA/analysis and native/hosted exact-head workflow status without hiding the existing SSRF finding.
+- Gate: callback ordering, exactly-once abort, cleanup, exception propagation.
+
 ### B11 — Measured structural completion and certification [planned, P0]
 
 - [ ] Repeat matched exact-SHA before/after source/OPcache loaded+compiled file counts, memory, successful RPM, p95/p99, error and timeouts from the existing opt-in release-certification workflow.
@@ -173,7 +180,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B08-P | Plan and issue log committed; unsuppressed Psalm identified one SSRF path | `7ff65b501e439accf561084605a91de018a1cf96` | B08 QUIC polling, B09 write path, B10 class/method compatibility, B11 measured acceptance | Work in one-commit batches with exact-head QA and no automatic merge/tag |
 | B08 | Runtime/QUIC/QA green; only pre-existing Psalm SSRF red across PHP 8.4–8.6 | `a641b0bbfaf597fd1451647a99fdafc6f2561f44` | Direct foreach for pending, no array_values for sparse active IDs, retain poll semantics; add multi-connection disappearance test | PHPForge default Psalm SSRF remains blocker; run QUIC PHP 8.4–8.6 and all required QA |
 | B09 | Stream write caching committed; exact-head QA pending | `2aa3e13acdf1208dd9738f98eca907d18d96ea71` | Reuse a cached warning handler closure on every fwrite without changing set/restore boundaries; add repeated-write/restoration test | Need benchmark evidence, full QA + resolve default Psalm SSRF separately |
-| B10 | Supervisor counters optimized; compatibility review completed; exact-head QA pending | This commit (backfill next batch) | Direct ordered foreach; test failure count and event order; avoid breaking class/file deletions | B11 performance evidence; PHPForge default Psalm security blocker still open |
+| B10 | Supervisor counters implemented; exact-head QA pending | `59679f30add36ab7de11ca7a82feec50099d8e92` | Direct ordered foreach; test failure count and event order; avoid breaking class/file deletions | B11 performance evidence; PHPForge default Psalm security blocker still open |
+| B11-C1 | Callback failure path inlined; exact-head QA pending | This commit (SHA backfill next batch) | Remove per-callback abort Closure and static dispatcher call in Connection; preserve original Throwable | Review callback termination, native/hosted, PHP 8.4–8.6; SSRF blocker remains |
 
 ### B00 — 2026-11-21
 
@@ -368,3 +376,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Ownership/compatibility disposition: `AdaptivePollStrategy` has one production caller and direct regression tests; the class is autoloadable and existed in 3.0.1, so co-locating it requires an intentional major-version API migration. `Http1PolicyAttempt` carries mutable state shared by callbacks within one retry/redirect attempt; a global or caller-owned reuse risks reentrancy. `QuicWorkerResourceUsage` is opt-in diagnostics, not normal hot-path work. `ConnectionCallbackDispatcher` preserves exception/cleanup ordering in several call sites; `ContentLengthParser` enforces shared request/response decimal-overflow semantics; `WorkerStopState` coordinates loop ownership in both HTTP and stream workers.
 - None of the reviewed helper deletions is independently justified for patch-release compatibility. Source classes/files still number **448**, equal to released 3.0.1. Removing a file merely for an artificial quota is not an optimization. Retain these candidates for the next deliberately breaking release, with measured warm/cold autoload and actual consumer impact.
 - Exact-head CI pending; PHPForge's default unsuppressed `TaintedSSRF` blocker is an independent open finding, not fixed or suppressed in B10.
+
+### B11-C1 — 2026-11-21
+
+- Previous `Connection::invoke()` delegated to `ConnectionCallbackDispatcher::invoke()` and allocated a new `fn() => $this->abort()` callback. The connection now calls a non-null user callback directly and catches `Throwable`, attempting abort and preserving the original exception even if cleanup fails. This removes a forwarding call and a Closure allocation without changing the published signature.
+- Retain `ConnectionCallbackDispatcher` class and its independent close-callback `dispatch()` path for release compatibility; no unsupported file deletion. Add regression for null callback, exact throwable precedence, and terminal connection state.
+- No measured RPM or memory gain asserted; exact-head CI pending. The independently tracked PHPForge default `TaintedSSRF` blocker remains unsuppressed.
