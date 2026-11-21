@@ -145,9 +145,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [ ] Confirm supported PHP 8.4–8.6 QA/analysis and native/hosted exact-head workflow status without hiding the existing SSRF finding.
 - Gate: callback ordering, exactly-once abort, cleanup, exception propagation.
 
-### B11 — Measured structural completion and certification [planned, P0]
+### B11 — Measured structural completion and certification [historical results only; final SHA pending, P0]
 
-- [ ] Repeat matched exact-SHA before/after source/OPcache loaded+compiled file counts, memory, successful RPM, p95/p99, error and timeouts from the existing opt-in release-certification workflow.
+- [x] Reconcile historical B07-S1 matched source/OPcache and sustained HTTP/1 evidence from release certification `44927412407`. [ ] Repeat these tests on the final B08/B09/B10 source **after** unsuppressed Psalm and security validation are green.
 - [ ] Evaluate a repeated warm runtime and cold bootstrap separately; do not interpret reduced source lines or helper count as production speedup.
 - [ ] Reconcile every open task, CI result and artifact back into the same plan/tracker; mark `done` only for implemented and verified requirements, with explicit `deferred` for evidence-based major-only changes.
 - [ ] Keep PHPForge's default Psalm configuration untouched; do not merge/tag/release without exact-head green gates and final security disposition.
@@ -183,7 +183,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B10 | Supervisor counters implemented; exact-head QA pending | `59679f30add36ab7de11ca7a82feec50099d8e92` | Direct ordered foreach; test failure count and event order; avoid breaking class/file deletions | B11 performance evidence; PHPForge default Psalm security blocker still open |
 | B11-C1 | Callback inlining rejected after PHPStan complexity failure | `90f96c7e1ff9738161aba7b113428efd952a9b9f` | Remove per-callback abort Closure and static dispatcher call in Connection; preserve original Throwable | Review callback termination, native/hosted, PHP 8.4–8.6; SSRF blocker remains |
 | B11-C1-R | Strict Source Audit green; PHPStan complexity issue found | `9345ac57cb045718d149ef3c2c72e3ef6413595d` | Add reviewed LifecycleEmitter migration behavior with executable SupervisorLifecycleTest coverage, keep strict source audit unchanged | Verify strict Source Audit and all QA; unsuppressed Psalm SSRF still open |
-| B11-C1-R2 | Revert excess callback inlining; exact-head QA pending | This batch commit; backfill next tracker batch | Restore verified Connection callback dispatch to meet strict complexity limit 80; retain exception regression | PHPStan/QA/native/hosted + default Psalm must be checked; SSRF still open |
+| B11-C1-R2 | Excess callback inlining reverted; exact-head QA pending | `f3eacd05fdd49f9f80709cc50bc2b1e5d81d02f1` | Restore verified Connection callback dispatch to meet strict complexity limit 80; retain exception regression | PHPStan/QA/native/hosted + default Psalm must be checked; SSRF still open |
+| B11-M | Historical performance and OPcache evidence reconciled; final-source measurement blocked | This batch commit; backfill next tracker batch | Cert run 44927412407: older source -1.273% H1 RPS, unchanged loaded script counts; 30m soak and guard passed | Re-run after secure SSRF fix and final exact-head QA; no release |
 
 ### B00 — 2026-11-21
 
@@ -396,3 +397,11 @@ Do not present source size or file count as direct runtime gains. The small-file
 - B11-C1-R SHA `9345ac57cb045718d149ef3c2c72e3ef6413595d` passed strict Source Audit after a new test-backed migration entry. PHP 8.6 PHPStan revealed a separate **new** class complexity failure at `Connection.php:30`: cognitive complexity **84**, required maximum **80**.
 - Restore the exact `Connection::invoke()` source from the earlier verified commit `2aa3e13acdf1208dd9738f98eca907d18d96ea71`, returning exception cleanup ownership to `ConnectionCallbackDispatcher`. The B11-C1 negative-path regression stays as coverage. No rule suppression, threshold increase, or new abstraction to game complexity.
 - This means the proposed per-invocation abort-closure elimination was **reverted** and is no longer counted as a delivered performance improvement. B08/B09/B10 remain. Exact-head QA pending; default PHPForge `TaintedSSRF` is a separate unresolved security gate.
+
+### B11-M — 2026-11-21 (measurement artifacts and release-gate truth)
+
+- Downloaded the actual `runwire-release-matched-performance` ZIP artifact ID `14716889254` from completed Release Certification run `44927412407`. **This is historical B07-S1 commit `5d3a2cabc0ce1dde3509e051a75a23dd15b639d7`**, not B08–B11. All frozen-source certification jobs for that historical SHA passed, including 30-minute soak and PHPForge release guard.
+- **Published 3.0 baseline `054737bc6a8d4025a8d05fabb8ad390f66ee47ae` vs B07-S1**, matched PHP 8.6 plaintext HTTP/1, five paired 180-second trials, concurrency 16: median successful RPS **13,995.129 → 13,817.012** (RPM **839,707.74 → 829,020.72**), a **-1.273%** throughput delta. Median p99 **2.00 → 2.03 ms** (+1.5%); peak RSS **134,070,272 → 133,513,216 bytes** (-0.415%). All responses correct, benchmark passed its 5% regression budget; **no throughput improvement demonstrated**.
+- **Pre-optimization structural baseline `f1c99ba83140bf9829406c600296ebe1a78be491` vs B07-S1**: both have **448** production PHP files. Cold CLI bootstrap loaded/cached **0 → 0** Runwire files; lifecycle **43 → 43** loaded and cached files, OPcache script bytes **419,016 → 417,408** (-1,608); coroutine **62 → 62** files, OPcache script bytes **722,440 → 720,648** (-1,792). Small byte reductions do not show fewer file loads or improved sustained throughput.
+- New B08–B11 code must be separately measured on one final SHA after quality/security gates; don't reuse the older run's results. B11-C1 callback inlining was **rejected/reverted** when PHPStan class cognitive complexity rose to 84 (maximum 80); B11-C1-R2 `f3eacd05fdd49f9f80709cc50bc2b1e5d81d02f1` restored the original handler and retained a negative-path regression. Do not count that attempted optimization as a success.
+- **Unresolved blocking issue:** PHPForge default unsuppressed `TaintedSSRF` from PSR request URI into the outbound dialer (PHP 8.4–8.6); no `psalm.xml` root override, no replacement, no blanket suppression. The true authorization boundary and secure sanitizer modeling need a separate reviewed source change. Final performance certification, full green CI, release readiness, merging and tagging remain **not complete**.
