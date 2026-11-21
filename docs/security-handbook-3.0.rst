@@ -204,7 +204,7 @@ the target's legitimacy. Inspect ``tests/OutboundAddressPolicyTest.php``
 for IPv4, IPv6, mapped-IPv6 and hostile proxy failure cases.
 
 Static-analysis trust boundary
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The lower-level ``Dialer`` is intentionally capable of connecting to trusted
 private or loopback services. An address and an application-selected socket

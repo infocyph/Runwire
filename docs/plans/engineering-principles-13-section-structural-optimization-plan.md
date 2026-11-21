@@ -4,7 +4,7 @@
 >
 > Principles: `infocyph/PHPForge/resources/engineering-principles.md` at `c1f68be02b22a4d3377b7be91f563b12e7f68955`. Source of authority: rule IDs, not intuition.
 >
-> Execution: **one batch = one commit**; update this file's bottom tracker in the **same** commit as the batch changes. Do not modify main/master, auto-merge, release, or tag. This branch starts from PR #16's exact verified head, and the optimization PR should be stacked on that branch until PR #16 is integrated.
+> Execution: **one batch = one commit**; update this file's bottom tracker in the **same** commit as the batch changes. Do not modify main/master, auto-merge, release, or tag. PR #16 was closed WITHOUT merging on 2026-11-21; PR #17 is now based directly on `main`, already contains every PR #16 commit by ancestry, and is the single active delivery PR. Keep its draft status until checks and review are complete.
 
 ## Contracts, evidence, and non-goals
 
@@ -56,7 +56,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 - [x] Record the 13 sections and relevant rule IDs, baseline, hotspots, and release branch isolation.
 - [x] Set rule-to-behavior-to-evidence expectations and no-BC constraints.
-- [x] Create a separate optimization branch without modifying PR #16's release-ready head.
+- [x] Create the optimization branch from PR #16's verified head. PR #16 was then closed unmerged and PR #17 retargeted to `main`; all original commits remain ancestors.
 - Gate: plan file exists in the branch and can be updated along with later batches.
 
 ### B01 — Security boundary and PHP 8.6 capability truth [implemented; exact-head CI pending, P0]
@@ -118,7 +118,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | Batch | Status | Commit SHA | Evidence | Residual / next |
 | --- | --- | --- | --- | --- |
 | B00 | Complete | `ffcde08ad75666bd3f1e874b904c2f86f5ad7e28` | 13-section source inventory and scoped tasks recorded | B01 |
-| B01 | Implemented / CI pending | This commit | PHP 8.4–8.6 hosted/native evidence reconciled with docs; SSRF trust/exception documented; existing regression tests reviewed | Exact-head CI and explicit exception sign-off |
+| B01 | Implemented; doc CI failure | `eb1cf9f4c207b194b3508a65928b04760e2a84e6` | PHP 8.4–8.6 evidence/doc reconciliation and SSRF trust documentation; Source Audit green, RST failed on short heading underline | B01-R repairs Sphinx; approval still required |
+| B01-R | Implemented / CI pending | This commit | Correct RST heading and record PR #16→#17 consolidation, main-base ancestry | Fresh exact-head Sphinx + full PR checks |
 | B02 | Queued | — | — | PSR chain |
 | B03 | Queued | — | — | HTTP/1 |
 | B04 | Queued | — | — | HTTP/3 |
@@ -140,3 +141,11 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Existing focused tests inspected: `tests/OutboundAddressPolicyTest.php` covers direct/resolved candidates, special-use/mapped IPv6, connected-peer mismatch and zero watchers after rejection. These tests were **not rerun by the GitHub source-edit operation**.
 - Prior verified source: PR #16 `f1c99ba`: RoadRunner, FrankenPHP and FPM on PHP 8.4/8.5/8.6; Portable Native and QUIC all green. New PR #17 commit requires fresh CI.
 - **Outstanding decision:** FLOW-02 calls for explicit engineering approval of the existing SSRF file exception. Documentation is not approval. Do not claim the release security review closed without sign-off.
+
+### B01-R — 2026-11-21 (one documentation-remediation commit)
+
+- [x] PR #16 closed without merging; PR #17 retargeted from the former PR #16 branch to `main`. Ancestry check: PR #17 had 25 commits ahead of `main` and 52 changed files, including every PR #16 change and this plan, with none behind `main`.
+- [x] Fixed Sphinx warning-as-error in `docs/security-handbook-3.0.rst`: title underline shorter than title in B01.
+- [x] Retained original `fix/worker-fatal-diagnostics-and-streamwriter-notices` branch for historical traceability; do not delete or merge automatically.
+- [ ] Exact-head docs/source audit and required PR checks must pass after this commit. Previous green checks refer to PR #16 SHA, not the consolidated latest SHA.
+- [ ] Explicit security sign-off for file-scoped dialer `TaintedSSRF` exception remains an approval gate.
