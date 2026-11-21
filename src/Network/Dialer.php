@@ -322,6 +322,7 @@ final class Dialer
     /**
      * @return resource
      * @throws \RuntimeException
+     * @psalm-suppress TaintedSSRF Caller-authorized low-level endpoint; untrusted targets require OutboundAddressPolicy.
      */
     private function open(DialEndpoint $endpoint): mixed
     {
@@ -333,7 +334,6 @@ final class Dialer
             // This intentionally dials a caller-authorized endpoint. When URL
             // input is untrusted, the caller must provide OutboundAddressPolicy;
             // it verifies both resolved candidates and the actual connected peer.
-            /** @psalm-suppress TaintedSSRF */
             $stream = stream_socket_client(
                 $endpoint->uri,
                 $errorCode,
