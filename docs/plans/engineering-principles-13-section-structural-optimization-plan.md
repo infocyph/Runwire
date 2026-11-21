@@ -127,7 +127,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 | B03-R | Source Audit rejected | `f18b5f5d2f14229b3643d87f4520d12845cabaec` | Fixed Pint and Rector, but changed an audit-locked constructor declaration | B03-R2 restores source signature |
 | B03-R2 | Fully CI green | `8802a0908ccafb5f70019e29331c3ceb4a0ffb23` | Source Audit, six PHPForge QA lanes, three analysis lanes, three QUIC jobs, portable/hosted and docs | B07 perf measurement |
 | B04 | All required CI green | `f39fd2385a399f61874a994542dae8cb3534802b` | 19 Security & Standards jobs passed, PHP 8.4–8.6 independent H3, six QA, three analysis, all other workflows | B07 RPM measurement |
-| B05 | Implemented / CI pending | This commit | Audit public-shipped small types and keep semantic boundaries; inline one trivial private method; 448 production PHP files remain | Source Audit, QA and B07 loaded-file measurements |
+| B05 | Analyzer regression; remediation committed | `ee51f2c4e0c0f7d6db4677da7baee07ba7802981` | All QA/other workflows passing or executing; PHPStan/Psalm flag 1 non-null token nullsafe at Http3OutboundClient:656 | B05-R fixes narrowing |
+| B05-R | Implemented / exact-head CI pending | This commit | Replace redundant nullsafe on already validated cancellation token | Full PHPStan/Psalm PHP 8.4–8.6, QA and H3 CI |
 | B06 | Queued | — | — | memory/observability |
 | B07 | Queued | — | — | measured final gate |
 
@@ -208,3 +209,9 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Structural counts: 448 production PHP files before and after B05; no added or removed public classes, enums or interfaces. **Actual per-request included-file count, OPcache bytecode and throughput have not been measured**; B07 remains responsible.
 - Do not refactor types solely to hit a deletion quota. If class removal is still desired, explicitly scope a major-version migration with public API diff and consumer impact first.
 - B04 head `f39fd23` passed all 19 Security & Standards jobs and all required workflows. B05 exact-head quality/source/cross-protocol checks are pending.
+
+### B05-R — 2026-11-21
+
+- B05 head `ee51f2c` failed PHPStan `nullsafe.neverNull` (1) and Psalm `TypeDoesNotContainNull`/`RedundantCondition` (2) at `Http3OutboundClient.php:656` in the cancellation-true branch. Token existence follows from `$token?->isCancelled() === true`.
+- Single narrow correction: use `$token->reason()` instead of `$token?->reason()` inside the guarded branch; leave fallback `CancellationReason::HOST_CANCELLED`, cancellation ordering, deadlines, and other null-safe access unchanged.
+- No files/types added or deleted; no behavior/contract change. B05-R analyzer and all required exact-head jobs must run before marking green.

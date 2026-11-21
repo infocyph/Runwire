@@ -653,7 +653,7 @@ final class Http3OutboundClient
     {
         $token = $this->request->cancellation;
         if ($token?->isCancelled() === true) {
-            $this->finish(new CancelledException($token?->reason() ?? CancellationReason::HOST_CANCELLED));
+            $this->finish(new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
 
             return;
         }
