@@ -61,7 +61,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Create the optimization branch from PR #16's verified head. PR #16 was then closed unmerged and PR #17 retargeted to `main`; all original commits remain ancestors.
 - Gate: plan file exists in the branch and can be updated along with later batches.
 
-### B01 — Security boundary and PHP 8.6 capability truth [implemented; exact-head CI pending, P0]
+### B01 — Security boundary and PHP 8.6 capability truth [code/docs verified; independent FLOW-02 approval pending, P0]
 
 - [x] Correct stale *verified vs pending* PHP 8.6 host/portable statements to match exact GitHub CI evidence, preserving optional extension limitations.
 - [x] Document the dialer taint-analysis exception's explicit trust model, narrow scope, independent approval/review requirement and removal trigger without weakening any detector.
@@ -69,7 +69,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Record affected docs and existing test coverage; branch CI must still verify documentation.
 - Gate: docs/Sphinx, source audit, negative network/SSRF tests, complete required CI on this head.
 
-### B02 — PSR-15 per-request work [implemented; exact-head QA pending, P1]
+### B02 — PSR-15 per-request work [implemented and verified; isolated workload benefit not yet certified, P1]
 
 - [x] Inspect adapter and terminal behavior; verify empty, one, 32 and invalid middleware limits in regression tests.
 - [x] Build immutable handler layers **once per adapter** after constructor validation. Preserve order, short-circuit, exceptions and request-specific attributes.
@@ -77,7 +77,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [ ] Run repeated cold/warm, memory/allocation and representative successful RPM comparisons. Deterministic new test establishes chain identity reuse and removes up to 32 per-request layer constructions, **not measured throughput gains**.
 - Gate: focused PSR tests + full analysis/QA and parity; no native-reactor synchronous middleware.
 
-### B03 — HTTP/1 hot connection setup and call hops [CI green; measurement pending, P1]
+### B03 — HTTP/1 hot connection setup and call hops [verified; matched final H1 evidence available, P1]
 
 - [x] Inspect per-connection object lifetimes; RequestHeadValidator, ChunkSizeDecoder and Http1Syntax are stateless but shared ownership is deferred pending benchmark evidence; WebSocketUpgradeOwner is only needed for an upgrade.
 - [ ] Identity-only WebSocketUpgradeOwner retain* methods were audited but kept: direct assignment triggers Rector, while promoted parameters alter the locked source signature. Revisit only with explicit migration evidence.
@@ -85,14 +85,14 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Keep Http1Input ByteQueue ownership, protocol parser limits and exact error statuses intact.
 - Gate: HTTP/1 malformed/slowloris/chunks, H1→WebSocket handoff, streaming/backpressure tests and RPM checks.
 
-### B04 — HTTP/3 duplicate validation and preflight [CI green; perf pending, P1]
+### B04 — HTTP/3 duplicate validation and preflight [native QUIC PHP 8.4–8.6 green; isolated perf unproven, P1]
 
 - [x] Inspect immutable root-origin revalidation, temporary HTTP/3 codec and static QPACK preflight; reuse the verified origin and preflight codec.
 - [x] Preserve sibling origin/ALPN checks; original root and options are immutable, and preflight still executes before any native session allocation.
 - [ ] Reverify all independent QUIC, GOAWAY, TLS peer, QPACK and cancellation suites on B04 exact head.
 - Gate: independent HTTP/3 QUIC PHP 8.4/8.5/8.6 tests, multiplex/cancellation, security and throughput.
 
-### B05 — Small internal type and call-chain audit [implemented; QA pending, P2]
+### B05 — Small internal type and call-chain audit [verified, no released symbol deletion, P2]
 
 - [x] Review actual producer/owner/caller relationships for Http3ClientGoawayState, Http3ClientPeerStreamType, Http3ClientOrigin, callback dispatcher, PreparedCommand, HostDriverFactory, RuntimeSelection and bound servers.
 - [x] Inline one single-use private token-cancellation predicate in the H3 client; do not remove any class already shipped in 3.0.1. Class removals are deferred pending major-release public-contract review.
@@ -100,14 +100,14 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Record unchanged source-file count 448 and one fewer private method in Http3OutboundClient. [ ] Measure actual loaded/compiled file count with representative autoload/OPcache scenarios in B07.
 - Gate: public-api manifest, classmap, cross-protocol suites and negative cases.
 
-### B06 — Memory, observability and ownership pass [implemented; exact-head CI pending, P2]
+### B06 — Memory, observability and ownership pass [verified; no isolated allocation claim, P2]
 
 - [x] Review QPACK blocked-stream retry work; skip retry scans when no dynamic inserts were processed or no streams are blocked. No state transition/cancellation changes. **Allocation profiling is pending B07.**
 - [x] Review metrics, DNS/cache and pool ownership paths: initialize enum counters using one pass without transient mapped-key arrays; retain DNS watcher/TTL and QPACK state ownership. Full runtime leak/throughput profiling remains B07.
 - [x] Preserve QPACK encoded/decoded state records and all public and lifecycle types; zero class/file removals in B06.
 - Gate: bounded-memory/soak/cancellation/fork and relevant cross-protocol tests.
 
-### B07 — Final measurement, tracker closure, and release handoff [instrumented; QA/perf evidence pending, P0 gate]
+### B07 — Final measurement, tracker closure, and release handoff [final-source certification passed; security approval pending, P0 gate]
 
 - [x] Recount source files and interfaces against PR #16 baseline: 448 production PHP files and 23 Interface-named files unchanged; Internal paths 151 unchanged; source bytes 1,982,567 → 1,982,757 (+190). [ ] Run representative autoloaded/compiled-script profiles; GitHub tree is not a loaded-file measurement.
 - [x] Add a same-process PHPBench reference-vs-optimized PSR-15 32-layer workload with identical middleware/terminal/request and separate setup measurement. [ ] Collect resulting PHP 8.4–8.6 benchmark JSON and run production-equivalent sustained RPM, p95/p99, memory and error-budget comparisons before claiming gains.
@@ -115,7 +115,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [ ] Separate completed code work from release certification, main-branch merge or tagging; **never automatically merge**.
 - Gate: all required CI green on final exact SHA; blockers explicit.
 
-### B08 — QUIC worker poll-array copy elimination [planned, P1]
+### B08 — QUIC worker poll-array copy elimination [implemented and native QUIC verified, P1]
 
 - [x] Recheck PHP 8.4–8.6 default-configuration Psalm from B07-S2: exactly one SSRF taint failure traced from PSR request URI to generic dialer; tracked as P0 security blocker without suppression.
 - [x] In `PhpQuicHttp3Worker::tick()`, remove an avoidable `array_values($connections)` copy; teach `PhpQuicHttp3Poller`'s *docblock* to accept sparse integer keys (its iteration already ignores keys). Preserve existing public method parameters and behavior.
@@ -123,14 +123,14 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Add focused multi-active-connection regression exercising sparse retained IDs after one connection disappears. [ ] Require all PHP 8.4–8.6 source/analysis/QA, independent QUIC and hosted checks to pass on exact SHA.
 - Gate: behavior and error-path equivalence; no unsupported throughput claim.
 
-### B09 — StreamWriter per-write handler allocation [planned, P1]
+### B09 — StreamWriter per-write handler allocation [implemented and QA verified; isolated RPM attribution unproven, P1]
 
 - [x] Source hot-path audit: `Connection` calls `StreamWriter::write` from both immediate writes and flush loops; previous `self::writeWarning(...)` constructs a first-class Closure per call. Runtime microprofile and sustained RPM delta remain pending.
 - [x] Reuse a statically held handler closure *without* changing the per-call `set_error_handler`/`finally restore_error_handler` safety contract, notices/warnings, partial writes, nesting, or callback semantics.
 - [x] Extend repeated valid writes and external handler restoration test; existing invalid/closed resource notice tests remain. [ ] Run PHPForge QA, native/hosted lifecycle and supported PHP matrix.
 - Gate: benchmark setup and measured workload delta clearly distinguish closure allocation from actual request RPM.
 
-### B10 — Class/method consolidation and compatibility disposition [planned, P2]
+### B10 — Class/method consolidation and compatibility disposition [review complete; major-only deletions deferred, P2]
 
 - [x] Simplify `LifecycleEmitter` startup counter initialization to one `foreach`, matching the B06 `RuntimeMetrics` pattern; test enum order and failure counters.
 - [x] Review single-owner helpers `AdaptivePollStrategy`, `Http1PolicyAttempt`, `QuicWorkerResourceUsage`, `ConnectionCallbackDispatcher`, `ContentLengthParser`, `WorkerStopState` with actual callers/tests. [ ] First-load profile on final candidate.
@@ -138,14 +138,14 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] Check wrapper/helper methods for delegation without invariant, preserving exception/owner/lifecycle behavior; decisions and retained wrappers recorded below.
 - Gate: PHP 8.4–8.6 QA/analysis, public API integrity, all protocols; explicit 448-file count and call-hop outcome.
 
-### B11-C1 — Connection callback call-hop reduction [planned, P1]
+### B11-C1 — Connection callback call-hop reduction [rejected/deferred: complexity 84 > 80; test retained, P1]
 
 - [ ] Inline the `Connection::invoke()` delegation: **rejected/deferred** after PHPStan found class cognitive complexity 84, limit 80. Restore previously verified dispatcher, no complexity exception or threshold change.
 - [x] Add focused null callback, original throwable, and connection termination regression.
 - [ ] Confirm supported PHP 8.4–8.6 QA/analysis and native/hosted exact-head workflow status without hiding the existing SSRF finding.
 - Gate: callback ordering, exactly-once abort, cleanup, exception propagation.
 
-### B11 — Measured structural completion and certification [historical results only; final SHA pending, P0]
+### B11 — Measured structural completion and certification [final-source measured; FLOW-02 approval pending, P0]
 
 - [x] Reconcile historical B07-S1 matched source/OPcache and sustained HTTP/1 evidence from release certification `44927412407`. [ ] Repeat these tests on the final B08/B09/B10 source **after** unsuppressed Psalm and security validation are green.
 - [ ] Evaluate a repeated warm runtime and cold bootstrap separately; do not interpret reduced source lines or helper count as production speedup.
@@ -495,3 +495,13 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Real Hosted Runtime Acceptance first attempt failed **only** `Real FrankenPHP worker - PHP 8.5` at `composer install`, with widespread upstream GitHub zipball `curl error 28` timeouts. Eight other hosted jobs already passed. Retried **just job `137086804440`** through the existing GitHub workflow re-run action, producing attempt 2 success for all nine hosted jobs and final workflow success; no source or CI changes for external network failure.
 - Production changes confirmed: `/tools export-ignore` active; no mandatory worker accidentally omitted from archive; worker moved to included `runtime/executor-worker.php` with corresponding launcher, package, signed/unsigned IPC tests. Review of the three attempted worker escape removals found that all four **function-scoped** categories (`file`, `ssrf`, `url_component`, `url_path`) remain necessary under default Psalm's PHP URL-capable filesystem sink model; exact source SHA-256 policy pin `1d8c4ecf0c2c87cf6a3f6dd7265d640b793463e3dbe093628474432d21fae0fc`. RFC 6455 SHA-1 WebSocket exceptions unchanged. No additional `src/` suppressions. Source PHP class/file count unchanged.
 - B13 frozen release certification run `44977986395` completed **all mandatory gates successfully**, including five matched 180-second trials and 30-minute HTTP soak, but ran against older `842ae1e45e63f01ae699a9a20795003d63c69d2f`; it does **not** certify B14 source/packaging. This tracker commit only records final evidence; it does not modify production PHP or workflows. New exact-head CI and pinned opt-in performance/soak remain outstanding. Independent FLOW-02 security approval and final maintenance release sign-off remain human decisions; PR stays draft/unmerged/untagged.
+
+### B15 — 2026-11-22 (final-source certification reconciliation and evidence lock)
+
+- **Evidence source (not a new source-implementing commit):** immutable fully green `4c7704a20c15ea0364a5d6e82757f19b3f146a6a`, release certification [#44984218524](https://github.com/infocyph/Runwire/actions/runs/44984218524). The eight required workflow families are green on that source HEAD; release certification's eight mandatory jobs succeeded, including frozen-SHA checkout, release guard, matched performance, 30-minute soak and standalone PHP 8.4/8.5/8.6 consumer packages. Security & Standards [#44983585423](https://github.com/infocyph/Runwire/actions/runs/44983585423) includes default PHPForge Psalm/PHPStan on PHP 8.4–8.6, 6 QA lanes, native QUIC, benchmarks and clean install, with no applicable job failure.
+- **Matched throughput (PHP 8.6, plaintext H1, OPcache CLI, 1 worker, 16 concurrency, five 180-second trials):** published baseline `054737bc6a8d4025a8d05fabb8ad390f66ee47ae` at 8,864.439 successful RPS / 531,866.34 RPM versus candidate at 8,952.658 RPS / 537,159.48 RPM; delta **+0.995%**. Median p95 3.15→3.06 ms; p99 3.28→3.27 ms. Peak RSS 132,976,640→134,225,920 bytes (**+0.939%**). RPS coefficient of variation 0.208% baseline, 0.278% candidate. Correctness and the workflow's throughput, latency and RSS budgets passed. The 5% acceptance regression budget passing is **not** a demonstrated general performance improvement or an isolated PSR/QUIC allocation measurement.
+- **30-minute H1 soak (PHP 8.6, 32 concurrency):** 1,800.003 seconds, **19,848,422/19,848,422 successful requests**, zero errors/timeouts/validation failures, 11,026.882 successful RPS, p95 5.19 ms and p99 5.41 ms; soak and associated resource/worker telemetry checks passed. [Soak artifact](https://github.com/infocyph/Runwire/actions/runs/44984218524/artifacts/14740256730).
+- **Footprints:** the certification recorded candidate-vs-structural-baseline bootstrap/lifecycle/coroutine cold CLI + OPcache JSON [matched artifact](https://github.com/infocyph/Runwire/actions/runs/44984218524/artifacts/14740226066); artifact was produced and validation passed. No numeric final-source loaded-file/cache-memory delta is claimed here without extraction of its JSON. Earlier 43/62 and -1.273% belong to older source only. The 448-file production count was unchanged; this optimization window did not achieve class/file reduction.
+- **Historical tracker status reconciled:** statuses on the B01–B11 queue headings above now acknowledge newer final-source green CI/certification. Earlier rolling entries correctly preserve failed interim SHAs. Any original unchecked per-batch item requesting a *specific historical* exact-head re-run is superseded by the final verified source; an unmeasured, isolated hot-path performance improvement remains **deferred/unproven**, not automatically checked off. The B11 callback inlining stays rejected (PHPStan complexity 84 > 80); released 3.0.1 autoloadable class deletion is deferred to a major-release BC audit.
+- **Open non-automatable gate:** FLOW-02 independent security review and maintainer release authorization are **not granted**. Current worker sanitizer has four function-scoped taint escapes and a documented non-race-free restricted-root check; no root `psalm.xml`, new `src/` skip or default PHPForge security-rule override. PSR bridge `approvedUri` is a **runtime behavior change** despite its optional signature and requires explicit security-compatibility disposition. Historical bot review threads remain for a separate review-closure batch.
+- **Commit discipline:** this B15 documentation/tracker-only commit changes no production runtime, workflow or package bytes and does **not** claim that the new tracker commit SHA itself is the frozen release-certification candidate. Keep the PR draft, do not merge/tag/release; rerun required ordinary CI on the new exact HEAD.
