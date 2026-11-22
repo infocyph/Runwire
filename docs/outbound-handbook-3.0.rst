@@ -208,6 +208,38 @@ the same off-loop `ProcessExecutor` as the default resolver. New test:
 `tests/CachedDnsResolverTest.php`.
 
 
+PSR-7 outbound metadata and explicit URI approval
+-------------------------------------------------
+
+`Interop\\Psr\\PsrMessageBridge::outboundRequest()` accepts bodyless PSR-7
+requests but must never turn an untrusted PSR URI directly into a network
+destination. A caller-approved **exact URL** is required. The approved value
+must come from immutable trusted application configuration, not the supplied
+PSR message or any other attacker-controlled input. The comparison includes
+scheme, hostname, port, path and query; mismatches fail before dial ownership.
+
+.. code-block:: php
+
+   <?php
+
+   use Infocyph\\Runwire\\Interop\\Psr\\PsrMessageBridge;
+
+   // This literal represents an explicitly approved application target.
+   $approved = 'https://api.example.com/status';
+   $outbound = PsrMessageBridge::outboundRequest(
+       $incomingPsrRequest,
+       approvedUri: $approved,
+   );
+
+Omitting `approvedUri` rejects conversion rather than implicitly authorizing
+an arbitrary PSR target. Keep the existing `DialOptions::addressPolicy`
+candidate-IP and kernel-reported peer verification for actual network dials,
+especially when DNS resolution is not independently trusted. Exact URI
+approval does not replace DNS-rebinding protection, TLS hostname verification,
+deadlines, cancellation or tenant isolation. Direct caller-owned `ClientRequest`
+and `Dialer` creation retain their separate explicit trust contracts.
+
+
 Explicit cross-protocol outbound dispatch
 -----------------------------------------
 

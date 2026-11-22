@@ -54,7 +54,13 @@ final readonly class PsrMessageBridge
     }
 
     /**
-     * Safely adapt a bodyless PSR-7 request without a synchronous stream read.
+     * Adapt bodyless PSR metadata only for a caller-approved exact target URI.
+     *
+     * The approved URI must originate from trusted application configuration,
+     * never from the incoming PSR request. Comparing the entire URI (including
+     * path and query) prevents untrusted authority, port or path substitutions.
+     * Network callers must additionally enforce their address and peer policy.
+     *
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \InvalidArgumentException
      */
@@ -63,16 +69,22 @@ final readonly class PsrMessageBridge
         ?ClientProtocolPolicy $policy = null,
         ?CancellationToken $cancellation = null,
         ?RequestDeadline $deadline = null,
+        ?string $approvedUri = null,
     ): ClientRequest {
         if ($request->getBody()->getSize() !== 0) {
             throw new RuntimeUnavailableException(
                 'PSR stream reads may block the reactor; only bodyless requests are adapted directly.',
             );
         }
+        if ($approvedUri === null || $approvedUri === '' || $approvedUri !== (string) $request->getUri()) {
+            throw new InvalidArgumentException(
+                'PSR outbound requests require an exact URI approved by trusted application configuration.',
+            );
+        }
 
         return new ClientRequest(
             $request->getMethod(),
-            (string) $request->getUri(),
+            $approvedUri,
             self::headers($request),
             protocol: $policy ?? new ClientProtocolPolicy(),
             cancellation: $cancellation,
