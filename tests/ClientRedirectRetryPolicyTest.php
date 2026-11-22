@@ -84,6 +84,10 @@ it('keeps same-origin credentials while forbidding downgrade, extra hop, unsafe 
         ->toThrow(RuntimeException::class, 'malformed');
     expect(fn() => $policy->redirect($request, 'https:\evil.example', 0))
         ->toThrow(RuntimeException::class);
+    expect(fn() => $policy->redirect($request, 'file:private?next=https://example.test/continue', 0))
+        ->toThrow(RuntimeException::class, 'unsupported protocol');
+    expect(fn() => $policy->redirect($request, 'custom://evil.test?next=https://example.test/continue', 0))
+        ->toThrow(RuntimeException::class, 'unsupported protocol');
     expect(fn() => $policy->redirect(
         new ClientRequest('POST', 'https://one.example/unsafe'),
         '/replay',
@@ -116,10 +120,13 @@ it('resolves query-only and dot-segment relative locations without changing quer
 
     foreach ([
         '?page=2' => 'https://example.test/a/b/item?page=2',
+        '?next=https://example.test/continue' => 'https://example.test/a/b/item?next=https://example.test/continue',
         '?' => 'https://example.test/a/b/item?',
         '../next?x=/../y' => 'https://example.test/a/next?x=/../y',
+        '../next?url=https://example.test/continue' => 'https://example.test/a/next?url=https://example.test/continue',
         './next' => 'https://example.test/a/b/next',
         '/a/./target/../ok' => 'https://example.test/a/ok',
+        '/status?next=http://example.test/continue' => 'https://example.test/status?next=http://example.test/continue',
         '../../' => 'https://example.test/',
         '../../../q' => 'https://example.test/q',
         '/a//b/../c' => 'https://example.test/a//c',
@@ -136,11 +143,15 @@ it('resolves query-only and dot-segment relative locations without changing quer
 it('authorizes the resolved query-only redirect against the complete configured URI', function (): void {
     $from = 'https://example.test/a/item?old=1';
     $to = 'https://example.test/a/item?page=2';
-    $protocol = new ClientProtocolPolicy(destinationPolicy: new ClientDestinationPolicy([$from, $to]));
+    $nested = 'https://example.test/a/item?next=https://example.test/continue';
+    $protocol = new ClientProtocolPolicy(destinationPolicy: new ClientDestinationPolicy([$from, $to, $nested]));
     $request = PsrMessageBridge::outboundRequest(new Request('GET', $from), $protocol);
     $redirect = new ClientRedirectRetryPolicy();
 
     expect($redirect->redirect($request, '?page=2', 0)->uriForSend())->toBe($to)
+        ->and($redirect->redirect($request, '?next=https://example.test/continue', 0)->uriForSend())->toBe($nested)
+        ->and(fn() => $redirect->redirect($request, '?next=https://attacker.test/continue', 0)->uriForSend())
+        ->toThrow(InvalidArgumentException::class, 'not approved')
         ->and(fn() => $redirect->redirect($request, '?page=3', 0)->uriForSend())
         ->toThrow(InvalidArgumentException::class, 'not approved');
 });

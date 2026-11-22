@@ -169,7 +169,9 @@ final readonly class ClientRedirectRetryPolicy
         if (preg_match('~^https?://~i', $location) === 1) {
             return $location;
         }
-        if (str_contains($location, '://') || preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:/', $location) === 1) {
+        // A nested URL in the query does not change the Location reference's scheme.
+        $reference = substr($location, 0, strcspn($location, '?'));
+        if (str_contains($reference, '://') || preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:/', $reference) === 1) {
             throw new RuntimeException('HTTP redirect uses an unsupported protocol.');
         }
         $authority = $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
