@@ -19,6 +19,18 @@ runtime behavior or exception ordering is unchanged.
 Runwire 3.1 outbound URI approval
 ---------------------------------
 
+**Behavior change from published 3.0.1:** Previously, converting a
+bodyless PSR-7 request without `approvedUri` produced a request that
+could be sent immediately. In 3.1 that same call still converts its
+metadata, but sending the result now throws `InvalidArgumentException`
+before dial or stream admission unless the full target URI has been
+authorized through an application-owned destination policy. Existing
+callers must configure `ClientProtocolPolicy::destinationPolicy`, or
+supply an exact `approvedUri` taken from trusted configuration. Merely
+copying the PSR request's URI as its own approval defeats the security
+boundary. The unchanged conversion call is **not** unchanged network
+behavior; explicitly migrate existing callers before upgrading.
+
 Existing bodyless PSR-7 calls to
 `Interop\Psr\PsrMessageBridge::outboundRequest()` still use the PSR
 request URI when `approvedUri` is omitted. Before sending such requests,
@@ -48,6 +60,14 @@ alone, matched explicit approval, was supplied directly, or came from
 a redirect. See :doc:`outbound-handbook-3.0` for the destination checks
 required when sending the request.
 
+A PSR-derived redirect receives a fresh exact-URI policy check for its
+resolved target. Approving the original URI alone does not authorize a
+different path, query or origin. Relative query-only redirects (for example
+`?page=2`) retain the original resource path; literal dot segments in
+relative redirect paths are normalized without interpreting query contents
+as path components. `Http1ClientRequestWriter` and the HTTP/3 QPACK
+request-header serializer also enforce send-time authorization before
+emitting outbound header bytes.
 
 Preserved public methods
 ------------------------
