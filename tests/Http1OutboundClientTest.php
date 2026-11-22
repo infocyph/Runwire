@@ -8,12 +8,15 @@ use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http1OutboundClient;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
+use InvalidArgumentException;
+use Nyholm\Psr7\Request;
 use Throwable;
 
 
@@ -100,4 +103,27 @@ it('connects a real independent numeric TCP peer and streams H1 response with no
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('rejects a pending PSR HTTP/1 destination without DNS, TCP or worker admission', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $numeric = new Dialer($loop);
+    $resolver = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
+    $protocol = new ClientProtocolPolicy(ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true);
+    $pending = PsrMessageBridge::outboundRequest(new Request('GET', 'http://example.test/blocked'), $protocol);
+
+    try {
+        expect(fn() => Http1OutboundClient::connect(
+            $loop, $resolver, $pending,
+            static function (): void {}, static function (): void {}, static function (): void {},
+        ))->toThrow(InvalidArgumentException::class, 'destination policy');
+        expect($resolver->pendingCount())->toBe(0)
+            ->and($numeric->pendingCount())->toBe(0)
+            ->and($executor->diagnostics()['submitted'])->toBe(0);
+    } finally {
+        $resolver->close();
+        $numeric->close();
+        $executor->close();
+    }
 });

@@ -6,6 +6,7 @@ use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http2OutboundClient;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
@@ -25,6 +26,7 @@ use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\TcpListener;
 use Infocyph\Runwire\Network\TlsClientOptions;
 use Infocyph\Runwire\Network\TlsOptions;
+use Nyholm\Psr7\Request;
 
 it('rejects H2 plaintext, origin substitution and disallowed ALPN before socket admission', function (): void {
     $loop = new SelectLoop();
@@ -184,4 +186,27 @@ it('runs one real verified TLS h2 GET against a separate reference frame-speakin
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('rejects pending PSR HTTP/2 destinations before DNS and TLS admission', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $numeric = new Dialer($loop);
+    $resolver = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
+    $protocol = new ClientProtocolPolicy(ProtocolVersion::HTTP_2, [ProtocolVersion::HTTP_2]);
+    $pending = PsrMessageBridge::outboundRequest(new Request('GET', 'https://example.test/blocked'), $protocol);
+
+    try {
+        expect(fn() => Http2OutboundClient::connect(
+            $loop, $resolver, $pending,
+            static function (): void {}, static function (): void {}, static function (): void {},
+        ))->toThrow(InvalidArgumentException::class, 'destination policy');
+        expect($resolver->pendingCount())->toBe(0)
+            ->and($numeric->pendingCount())->toBe(0)
+            ->and($executor->diagnostics()['submitted'])->toBe(0);
+    } finally {
+        $resolver->close();
+        $numeric->close();
+        $executor->close();
+    }
 });

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Tests;
 
+use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientMultiplexSession;
+use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
@@ -14,6 +17,7 @@ use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
 use InvalidArgumentException;
+use Nyholm\Psr7\Request;
 use RuntimeException;
 use Throwable;
 
@@ -402,3 +406,24 @@ function runwireH2Completions(array $completions, string $key): array
 {
     return $completions[$key] ?? throw new RuntimeException('HTTP/2 completion was not recorded: ' . $key);
 }
+
+it('does not reserve a multiplexed HTTP/2 stream for an unapproved PSR destination', function (): void {
+    $session = new Http2ClientMultiplexSession(2);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $policy = new ClientProtocolPolicy(ProtocolVersion::HTTP_2, [ProtocolVersion::HTTP_2]);
+    $pending = PsrMessageBridge::outboundRequest(new Request('GET', 'https://example.test/unapproved'), $policy);
+    $headers = static function (): void {};
+    $body = static function (): void {};
+    $complete = static function (): void {};
+
+    expect(fn() => $session->request($pending, $headers, $body, $complete))
+        ->toThrow(InvalidArgumentException::class, 'destination policy');
+    expect($session->activeCount())->toBe(0);
+
+    $direct = new ClientRequest('GET', 'https://example.test/allowed', protocol: $policy);
+    $admitted = $session->request($direct, $headers, $body, $complete);
+    expect($admitted['stream'])->toBe(1)
+        ->and($session->activeCount())->toBe(1);
+    $session->close();
+});

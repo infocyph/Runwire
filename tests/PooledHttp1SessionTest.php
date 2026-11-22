@@ -8,12 +8,14 @@ use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\PooledHttp1Session;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use InvalidArgumentException;
+use Nyholm\Psr7\Request;
 use RuntimeException;
 use Throwable;
 
@@ -433,4 +435,32 @@ it('verifies an IPv6 IP-SAN TLS peer and retains the bracketed Host through pool
     expect($loop->diagnostics()->timersActive)->toBe(0)
         ->and($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+});
+
+it('refuses an unapproved PSR request before acquiring a pooled HTTP/1 lease', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $numeric = new Dialer($loop);
+    $resolver = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
+    $session = new PooledHttp1Session($loop, $resolver, 'http://example.test:8080', 'untrusted-psr');
+    $protocol = new ClientProtocolPolicy(ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true);
+    $pending = PsrMessageBridge::outboundRequest(new Request('GET', 'http://example.test:8080/denied'), $protocol);
+
+    try {
+        expect(fn() => $session->send(
+            $pending,
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
+        ))->toThrow(InvalidArgumentException::class, 'destination policy');
+        expect($session->metrics()['active'])->toBe(0)
+            ->and($resolver->pendingCount())->toBe(0)
+            ->and($numeric->pendingCount())->toBe(0)
+            ->and($executor->diagnostics()['submitted'])->toBe(0);
+    } finally {
+        $session->close();
+        $resolver->close();
+        $numeric->close();
+        $executor->close();
+    }
 });

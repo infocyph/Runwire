@@ -257,7 +257,7 @@ final readonly class Http3ClientWireCodec
      */
     private static function requestFields(ClientRequest $request): array
     {
-        [$authority, $target] = self::validatedOrigin($request->uri);
+        [$authority, $target] = self::validatedOrigin($request->uriForSend());
         $fields = [
             [':method', $request->method],
             [':scheme', 'https'],
