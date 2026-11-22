@@ -144,12 +144,51 @@ final readonly class ClientRedirectRetryPolicy
         }
         $authority = $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
         $base = $parts['scheme'] . '://' . $authority;
-        if (str_starts_with($location, '/')) {
-            return $base . $location;
+        $path = $parts['path'] ?? '';
+        if (str_starts_with($location, '?')) {
+            // A query-only relative reference keeps the entire existing path.
+            return $base . $path . $location;
         }
-        $path = $parts['path'] ?? '/';
-        $prefix = substr($path, 0, (int) strrpos($path, '/') + 1);
 
-        return $base . $prefix . $location;
+        $queryAt = strpos($location, '?');
+        $referencePath = $queryAt === false ? $location : substr($location, 0, $queryAt);
+        $query = $queryAt === false ? '' : substr($location, $queryAt);
+        if (str_starts_with($referencePath, '/')) {
+            return $base . self::removeDotSegments($referencePath) . $query;
+        }
+
+        $prefix = $path === '' ? '/' : substr($path, 0, (int) strrpos($path, '/') + 1);
+
+        return $base . self::removeDotSegments($prefix . $referencePath) . $query;
+    }
+
+    /**
+     * Normalize literal dot segments in an absolute path, retaining empty segments.
+     * Query parameters are never interpreted as path components.
+     */
+    private static function removeDotSegments(string $path): string
+    {
+        if (!str_contains($path, '/.')) {
+            return $path;
+        }
+
+        $segments = explode('/', $path);
+        $result = [];
+        $last = count($segments) - 1;
+        foreach ($segments as $index => $segment) {
+            if ($segment === '.' || $segment === '..') {
+                if ($segment === '..' && count($result) > 1) {
+                    array_pop($result);
+                }
+                if ($index === $last) {
+                    $result[] = '';
+                }
+
+                continue;
+            }
+            $result[] = $segment;
+        }
+
+        return implode('/', $result);
     }
 }

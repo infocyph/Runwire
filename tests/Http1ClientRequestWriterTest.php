@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Http\Client\ClientBodySourceInterface;
+use Infocyph\Runwire\Http\Client\ClientDestinationPolicy;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http1ClientRequestWriter;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
+use Nyholm\Psr7\Request;
 
 /**
  * @throws \InvalidArgumentException
@@ -101,4 +104,31 @@ it('refuses proxy credentials on a direct origin HTTP/1.1 request before any byt
         expect(fn() => new \Infocyph\Runwire\Http\Client\Http1ClientRequestWriter($request))
             ->toThrow(InvalidArgumentException::class, 'Proxy credentials');
     }
+});
+
+it('rejects pending or disallowed PSR destinations before serializing any HTTP/1 bytes', function (): void {
+    $uri = 'https://example.test/allowed';
+    $protocol = new ClientProtocolPolicy(
+        preferred: ProtocolVersion::HTTP_1_1,
+        allowedVersions: [ProtocolVersion::HTTP_1_1],
+    );
+    $pending = PsrMessageBridge::outboundRequest(new Request('GET', $uri), $protocol);
+    expect(fn() => new Http1ClientRequestWriter($pending))
+        ->toThrow(InvalidArgumentException::class, 'destination policy');
+
+    $allowedProtocol = new ClientProtocolPolicy(
+        preferred: ProtocolVersion::HTTP_1_1,
+        allowedVersions: [ProtocolVersion::HTTP_1_1],
+        destinationPolicy: new ClientDestinationPolicy([$uri]),
+    );
+    $accepted = PsrMessageBridge::outboundRequest(new Request('GET', $uri), $allowedProtocol);
+    $serialized = (new Http1ClientRequestWriter($accepted))->next();
+    expect($serialized)->toStartWith("GET /allowed HTTP/1.1\r\nHost: example.test\r\n");
+
+    $rejected = PsrMessageBridge::outboundRequest(
+        new Request('GET', 'https://example.test/other'),
+        $allowedProtocol,
+    );
+    expect(fn() => new Http1ClientRequestWriter($rejected))
+        ->toThrow(InvalidArgumentException::class, 'not approved');
 });

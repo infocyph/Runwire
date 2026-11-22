@@ -109,3 +109,38 @@ it('retries only safe bodyless requests prior to visible response under an expli
         ->and($policy->shouldRetry($safe, 0, new InvalidArgumentException('bad config'), false))->toBeFalse()
         ->and($policy->shouldRetry($post, 0, new RuntimeException('disconnected'), false))->toBeFalse();
 });
+
+it('resolves query-only and dot-segment relative locations without changing query contents', function (): void {
+    $redirect = new ClientRedirectRetryPolicy();
+    $original = new ClientRequest('GET', 'https://example.test/a/b/item?old=1');
+
+    foreach ([
+        '?page=2' => 'https://example.test/a/b/item?page=2',
+        '?' => 'https://example.test/a/b/item?',
+        '../next?x=/../y' => 'https://example.test/a/next?x=/../y',
+        './next' => 'https://example.test/a/b/next',
+        '/a/./target/../ok' => 'https://example.test/a/ok',
+        '../../' => 'https://example.test/',
+        '../../../q' => 'https://example.test/q',
+        '/a//b/../c' => 'https://example.test/a//c',
+        '.well-known' => 'https://example.test/a/b/.well-known',
+    ] as $location => $expected) {
+        expect($redirect->redirect($original, $location, 0)->uri)->toBe($expected);
+    }
+
+    $originWithoutPath = new ClientRequest('GET', 'https://example.test');
+    expect($redirect->redirect($originWithoutPath, '?x=1', 0)->uri)
+        ->toBe('https://example.test?x=1');
+});
+
+it('authorizes the resolved query-only redirect against the complete configured URI', function (): void {
+    $from = 'https://example.test/a/item?old=1';
+    $to = 'https://example.test/a/item?page=2';
+    $protocol = new ClientProtocolPolicy(destinationPolicy: new ClientDestinationPolicy([$from, $to]));
+    $request = PsrMessageBridge::outboundRequest(new Request('GET', $from), $protocol);
+    $redirect = new ClientRedirectRetryPolicy();
+
+    expect($redirect->redirect($request, '?page=2', 0)->uriForSend())->toBe($to)
+        ->and(fn() => $redirect->redirect($request, '?page=3', 0)->uriForSend())
+        ->toThrow(InvalidArgumentException::class, 'not approved');
+});
