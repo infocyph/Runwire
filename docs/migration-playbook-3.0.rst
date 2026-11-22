@@ -16,63 +16,37 @@ extensions, and two apparent removals that were actually public
 methods moved to composed traits. This is **not** evidence that all
 runtime behavior or exception ordering is unchanged.
 
-Post-3.0.1 security hardening: PSR outbound URI approval
----------------------------------------------------------
+Runwire 3.1 outbound URI approval
+---------------------------------
 
-**Unreleased change in PR #17:** The published 3.0.1
-`Interop\Psr\PsrMessageBridge::outboundRequest()` accepted a
-bodyless PSR-7 request and copied its URI directly into a Runwire
-`ClientRequest`. The proposed follow-up refuses that implicit authority:
-callers must pass `approvedUri` from trusted application configuration.
-It throws `InvalidArgumentException` if approval is omitted, empty or
-different from the complete PSR URI. The trailing parameter is optional
-in the PHP signature, **but the behavior is incompatible with 3.0.1
-callers that omit it**. This is a security-driven change that requires
-explicit versioning and migration acceptance before release.
-
-Previously, a 3.0.1 call could adapt a PSR request with no trusted
-destination configured:
+Existing bodyless PSR-7 calls to
+`Interop\Psr\PsrMessageBridge::outboundRequest()` still use the PSR
+request URI when `approvedUri` is omitted. Before sending such requests,
+configure an exact URI destination policy through `ClientProtocolPolicy`.
+For a fixed endpoint, pass the approved URI from trusted application
+configuration as shown below.
 
 .. code-block:: php
 
    <?php
 
+   use Infocyph\Runwire\Http\Enum\OutboundUriSource;
    use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 
-   // 3.0.1 behavior, no longer authorized on the proposed branch.
-   $outbound = PsrMessageBridge::outboundRequest($psrRequest);
-
-The security-hardened form explicitly approves a fixed application-owned
-destination. Do **not** build the approved value from
-`(string) $psrRequest->getUri()` or any other untrusted request field.
-
-.. code-block:: php
-
-   <?php
-
-   use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
-
-   // This trusted literal is configured independently of the PSR request.
    $configuredUri = 'https://api.example.com/status';
    $outbound = PsrMessageBridge::outboundRequest(
        $psrRequest,
        approvedUri: $configuredUri,
    );
 
-If the application legitimately supports multiple destinations, validate
-the desired target against an explicit trusted allowlist *before* adapting
-the request; do not treat URI equality against a request-derived string
-as authorization. Direct caller-owned `ClientRequest` and `Dialer`
-remain separate contracts; URI approval does not replace pre-dial
-`DialOptions::addressPolicy` checks of resolved candidates and the
-kernel-reported connected peer, TLS identity checks, or redirect policy.
-Requests with synchronous PSR body streams remain unsupported on the
-event-loop thread as before.
+   $matchedApproval = $outbound->uriSource === OutboundUriSource::PSR_APPROVAL_MATCH;
 
-This section is migration guidance for an **unreleased** PR. The tag name
-and acceptance of its compatibility implications are recorded separately
-in the PR #17 review and the published release notes. Do not treat
-a passing automated test as maintainer release authorization.
+A supplied approval must exactly match the scheme, authority, path and
+query. Empty and mismatched approvals throw `InvalidArgumentException`.
+`uriSource` records whether the current URI came from the PSR request
+alone, matched explicit approval, was supplied directly, or came from
+a redirect. See :doc:`outbound-handbook-3.0` for the destination checks
+required when sending the request.
 
 
 Preserved public methods

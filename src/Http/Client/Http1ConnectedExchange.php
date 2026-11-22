@@ -60,7 +60,7 @@ final class Http1ConnectedExchange
         callable $onBody,
         callable $onComplete,
     ) {
-        $parts = parse_url($request->uri);
+        $parts = parse_url($request->uriForSend());
         $tls = is_array($parts) && strtolower($parts['scheme'] ?? '') === 'https';
         if ($connection->isEncrypted() !== $tls
             || $request->protocol->negotiate($connection->negotiatedProtocol(), $tls) !== ProtocolVersion::HTTP_1_1) {

@@ -211,12 +211,13 @@ the same off-loop `ProcessExecutor` as the default resolver. New test:
 PSR-7 outbound metadata and explicit URI approval
 -------------------------------------------------
 
-`Interop\Psr\PsrMessageBridge::outboundRequest()` accepts bodyless PSR-7
-requests but must never turn an untrusted PSR URI directly into a network
-destination. A caller-approved **exact URL** is required. The approved value
-must come from immutable trusted application configuration, not the supplied
-PSR message or any other attacker-controlled input. The comparison includes
-scheme, hostname, port, path and query; mismatches fail before dial ownership.
+`Interop\Psr\PsrMessageBridge::outboundRequest()` adapts bodyless PSR-7
+requests. When `approvedUri` is omitted, conversion retains the request
+URI and the outbound client requires an exact match in a configured
+destination policy before sending. For a single fixed endpoint, you can
+supply `approvedUri` from trusted application configuration.
+The comparison includes scheme, hostname, port, path and query. Empty
+and mismatched approvals fail before the request can be sent.
 
 .. code-block:: php
 
@@ -224,20 +225,44 @@ scheme, hostname, port, path and query; mismatches fail before dial ownership.
 
    use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 
-   // This literal represents an explicitly approved application target.
-   $approved = 'https://api.example.com/status';
    $outbound = PsrMessageBridge::outboundRequest(
-       $incomingPsrRequest,
-       approvedUri: $approved,
+       $psrRequest,
+       approvedUri: 'https://api.example.com/status',
    );
 
-Omitting `approvedUri` rejects conversion rather than implicitly authorizing
-an arbitrary PSR target. Keep the existing `DialOptions::addressPolicy`
-candidate-IP and kernel-reported peer verification for actual network dials,
-especially when DNS resolution is not independently trusted. Exact URI
-approval does not replace DNS-rebinding protection, TLS hostname verification,
-deadlines, cancellation or tenant isolation. Direct caller-owned `ClientRequest`
-and `Dialer` creation retain their separate explicit trust contracts.
+Configure a reusable destination policy through `ClientProtocolPolicy`.
+It accepts a list of 1 to 256 complete URI strings from application
+configuration. A configured policy applies to every send using it.
+
+.. code-block:: php
+
+   <?php
+
+   use Infocyph\Runwire\Http\Client\ClientDestinationPolicy;
+   use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
+   use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
+
+   $policy = new ClientProtocolPolicy(
+       destinationPolicy: new ClientDestinationPolicy([
+           'https://api.example.com/status',
+           'https://api.example.com/health',
+       ]),
+   );
+   $outbound = PsrMessageBridge::outboundRequest($psrRequest, $policy);
+
+The immutable `ClientRequest::uriSource` field records how the current
+URI was selected.
+
+* `OutboundUriSource::PSR_REQUEST` — copied directly from the PSR request.
+* `OutboundUriSource::PSR_APPROVAL_MATCH` — matched the caller-supplied approval.
+* `OutboundUriSource::DIRECT` — specified when constructing a client request.
+* `OutboundUriSource::REDIRECT` — resolved from a redirect response. A PSR
+  redirect requires a configured policy match for the new URI.
+
+Use this field for diagnostics. Configure the allowlist independently
+from the request and authorize the exact routes the application may access.
+Use `DialOptions::addressPolicy` when TCP candidate-IP and connected-peer
+restrictions are also needed. Keep TLS hostname verification enabled.
 
 
 Explicit cross-protocol outbound dispatch

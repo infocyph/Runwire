@@ -71,8 +71,9 @@ final readonly class ClientRedirectRetryPolicy
         if (!in_array(strtoupper($request->method), ['GET', 'HEAD'], true) || $request->body !== null) {
             throw new RuntimeException('Unsafe HTTP redirect would replay a non-idempotent or streaming request.');
         }
-        $uri = self::resolve($request->uri, $location);
-        $original = self::origin($request->uri);
+        $originalUri = $request->uriForSend();
+        $uri = self::resolve($originalUri, $location);
+        $original = self::origin($originalUri);
         $next = self::origin($uri);
         if ($original[0] === 'https' && $next[0] !== 'https') {
             throw new RuntimeException('HTTPS-to-plaintext HTTP redirect is forbidden.');
@@ -84,14 +85,7 @@ final readonly class ClientRedirectRetryPolicy
 
         $headers = self::headersForRedirect($request->headers, $sameOrigin);
 
-        return new ClientRequest(
-            method: $request->method,
-            uri: $uri,
-            headers: $headers,
-            protocol: $request->protocol,
-            cancellation: $request->cancellation,
-            deadline: $request->deadline,
-        );
+        return $request->redirected($uri, $headers);
     }
 
     /** Retry only a bodyless safe method before any response was published. */

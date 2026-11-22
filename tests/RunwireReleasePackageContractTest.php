@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-it('installs a 3.0 candidate as 3.0 in both independent Composer consumers', function (): void {
+it('installs a 3.1 candidate as 3.1 in both independent Composer consumers', function (): void {
     $root = dirname(__DIR__) . '/.github/workflows/';
     $files = [
         $root . 'release-candidate.yml',
@@ -12,8 +12,8 @@ it('installs a 3.0 candidate as 3.0 in both independent Composer consumers', fun
         $workflow = file_get_contents($path);
         expect($workflow)->toBeString()
             ->not->toContain('2.2.x-dev')
-            ->toContain('"infocyph/runwire": "3.0.x-dev"')
-            ->toContain('index("3.0.x-dev") != null')
+            ->toContain('"infocyph/runwire": "3.1.x-dev"')
+            ->toContain('index("3.1.x-dev") != null')
             ->toContain('composer check-platform-reqs');
     }
 });
@@ -51,6 +51,7 @@ it('excludes local data and development payloads from an actual Composer archive
         'benchmarks', 'build', 'coverage', 'docs', 'graphify-out', 'qa', 'tests', 'tools', 'var', 'vendor',
     ];
     expect(mkdir($directory, 0700))->toBeTrue();
+
     try {
         copy(dirname(__DIR__) . '/composer.json', $directory . '/composer.json');
         copy(dirname(__DIR__) . '/.gitattributes', $directory . '/.gitattributes');

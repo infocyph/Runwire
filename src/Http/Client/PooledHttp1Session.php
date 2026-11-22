@@ -158,15 +158,7 @@ final class PooledHttp1Session
             ? new CancellationSource($request->deadline)
             : CancellationSource::linked($request->cancellation, $request->deadline);
         $handle = new OutboundHttpHandle($source);
-        $owned = new ClientRequest(
-            $request->method,
-            $request->uri,
-            $request->headers,
-            $request->body,
-            $request->protocol,
-            $source->token(),
-            $request->deadline,
-        );
+        $owned = $request->withCancellation($source->token());
         $admitted = false;
 
         try {
@@ -330,7 +322,7 @@ final class PooledHttp1Session
      */
     private function verifyRequest(ClientRequest $request): void
     {
-        $parts = parse_url($request->uri);
+        $parts = parse_url($request->uriForSend());
         if (!is_array($parts)
             || strtolower($parts['scheme'] ?? '') !== $this->scheme
             || strtolower($parts['host'] ?? '') !== $this->host

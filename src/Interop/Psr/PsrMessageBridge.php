@@ -8,6 +8,8 @@ use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
+use Infocyph\Runwire\Http\Client\Internal\PendingOutboundUri;
+use Infocyph\Runwire\Http\Enum\OutboundUriSource;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\RequestDeadline;
 use InvalidArgumentException;
@@ -54,12 +56,13 @@ final readonly class PsrMessageBridge
     }
 
     /**
-     * Adapt bodyless PSR metadata only for a caller-approved exact target URI.
+     * Adapt bodyless PSR metadata with an optional exact URI approval.
      *
      * The approved URI must originate from trusted application configuration,
      * never from the incoming PSR request. Comparing the entire URI (including
-     * path and query) prevents untrusted authority, port or path substitutions.
-     * Network callers must additionally enforce their address and peer policy.
+     * path and query) rejects any substitution when approval is supplied.
+     * Without explicit approval, conversion preserves the URI for inspection
+     * and the outbound client requires a matching destination policy to send it.
      *
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      * @throws \InvalidArgumentException
@@ -76,19 +79,21 @@ final readonly class PsrMessageBridge
                 'PSR stream reads may block the reactor; only bodyless requests are adapted directly.',
             );
         }
-        if ($approvedUri === null || $approvedUri === '' || $approvedUri !== (string) $request->getUri()) {
+        $requestUri = (string) $request->getUri();
+        if ($approvedUri !== null && ($approvedUri === '' || $approvedUri !== $requestUri)) {
             throw new InvalidArgumentException(
-                'PSR outbound requests require an exact URI approved by trusted application configuration.',
+                'PSR outbound request URI must exactly match the supplied approved URI.',
             );
         }
 
         return new ClientRequest(
             $request->getMethod(),
-            $approvedUri,
+            $approvedUri ?? new PendingOutboundUri($requestUri),
             self::headers($request),
             protocol: $policy ?? new ClientProtocolPolicy(),
             cancellation: $cancellation,
             deadline: $deadline,
+            uriSource: $approvedUri === null ? OutboundUriSource::PSR_REQUEST : OutboundUriSource::PSR_APPROVAL_MATCH,
         );
     }
 

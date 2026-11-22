@@ -2,11 +2,15 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Http\Client\ClientDestinationPolicy;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRedirectRetryPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
+use Infocyph\Runwire\Http\Enum\OutboundUriSource;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
+use Nyholm\Psr7\Request;
 
 it('strips all confidential and origin-specific headers on an explicitly allowed cross-origin redirect', function (): void {
     $policy = new ClientRedirectRetryPolicy(maxRedirects: 2, allowCrossOrigin: true);
@@ -24,7 +28,8 @@ it('strips all confidential and origin-specific headers on an explicitly allowed
         ]),
     );
     $next = $policy->redirect($request, 'https://two.example/new', 0);
-    expect($next->uri)->toBe('https://two.example/new')
+    expect($request->uriSource)->toBe(OutboundUriSource::DIRECT)
+        ->and($next->uri)->toBe('https://two.example/new')
         ->and($next->method)->toBe('GET')
         ->and($next->headers->has('authorization'))->toBeFalse()
         ->and($next->headers->has('cookie'))->toBeFalse()
@@ -35,15 +40,36 @@ it('strips all confidential and origin-specific headers on an explicitly allowed
         ->and($next->headers->first('user-agent'))->toBe('runwire-test');
 });
 
+it('requires a fresh destination policy match for each PSR redirect', function (): void {
+    $initial = 'https://example.com/start';
+    $next = 'https://example.com/next';
+    $policy = new ClientProtocolPolicy(destinationPolicy: new ClientDestinationPolicy([$initial, $next]));
+    $redirect = new ClientRedirectRetryPolicy(maxRedirects: 3);
+    $psr = new Request('GET', $initial);
+    $request = PsrMessageBridge::outboundRequest($psr, $policy);
+    $first = $redirect->redirect($request, '/next', 0);
+    $second = $redirect->redirect($first, '/different', 1);
+
+    expect($first->uriForSend())->toBe($next)
+        ->and($first->uriSource)->toBe(OutboundUriSource::REDIRECT);
+    expect($second->uriForSend(...))->toThrow(InvalidArgumentException::class, 'not approved');
+
+    $explicit = PsrMessageBridge::outboundRequest($psr, approvedUri: $initial);
+    $withoutPolicy = $redirect->redirect($explicit, '/next', 0);
+    expect($withoutPolicy->uriForSend(...))->toThrow(InvalidArgumentException::class, 'destination policy');
+});
+
 it('keeps same-origin credentials while forbidding downgrade, extra hop, unsafe replay and ambiguous targets', function (): void {
     $policy = new ClientRedirectRetryPolicy(maxRedirects: 1);
     $request = new ClientRequest(
         'GET',
         'https://one.example/a/base',
         Headers::fromArray(['authorization' => 'Bearer same-origin', 'cookie' => 'sid=1']),
+        uriSource: OutboundUriSource::PSR_APPROVAL_MATCH,
     );
     $same = $policy->redirect($request, 'next', 0);
     expect($same->uri)->toBe('https://one.example/a/next')
+        ->and($same->uriSource)->toBe(OutboundUriSource::REDIRECT)
         ->and($same->headers->first('authorization'))->toBe('Bearer same-origin')
         ->and($same->headers->first('cookie'))->toBe('sid=1');
     expect(fn() => $policy->redirect($request, 'http://one.example/unsafe', 0))

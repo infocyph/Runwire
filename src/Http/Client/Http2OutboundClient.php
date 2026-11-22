@@ -42,7 +42,7 @@ final readonly class Http2OutboundClient
         callable $onComplete,
         ?DialOptions $options = null,
     ): int {
-        $parts = parse_url($request->uri);
+        $parts = parse_url($request->uriForSend());
         $originHost = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || strtolower($parts['scheme'] ?? '') !== 'https'
             || !is_string($originHost) || $originHost === '') {

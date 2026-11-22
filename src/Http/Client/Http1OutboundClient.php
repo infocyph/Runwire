@@ -42,7 +42,7 @@ final readonly class Http1OutboundClient
         callable $completion,
         ?DialOptions $dialOptions = null,
     ): int {
-        $parts = parse_url($request->uri);
+        $parts = parse_url($request->uriForSend());
         $host = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || !is_string($host)) {
             throw new InvalidArgumentException('HTTP/1.1 client requires a valid absolute origin.');

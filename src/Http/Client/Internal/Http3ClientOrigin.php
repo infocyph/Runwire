@@ -21,7 +21,7 @@ final readonly class Http3ClientOrigin
      */
     public static function validate(ClientRequest $request, QuicClientOptions $options): array
     {
-        $parts = parse_url($request->uri);
+        $parts = parse_url($request->uriForSend());
         $rawHost = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'https'
             || !is_string($rawHost)) {

@@ -188,7 +188,7 @@ wait_ready "$candidate_port" "$candidate_pid" "$output_dir/candidate-server.log"
 
 # One explicit 30-second warm-up per server before the five measured trials.
 run_evidence "3.0-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 30 0.1 "$output_dir/baseline-warmup.json"
-run_evidence "3.0.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 30 0.1 "$output_dir/candidate-warmup.json"
+run_evidence "3.1.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 30 0.1 "$output_dir/candidate-warmup.json"
 
 baseline_trials=()
 candidate_trials=()
@@ -198,9 +198,9 @@ for trial in 1 2 3 4 5; do
 
   if [ $((trial % 2)) -eq 1 ]; then
     run_evidence "3.0-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 0 180 "$baseline_result"
-    run_evidence "3.0.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
+    run_evidence "3.1.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
   else
-    run_evidence "3.0.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
+    run_evidence "3.1.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
     run_evidence "3.0-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 0 180 "$baseline_result"
   fi
 

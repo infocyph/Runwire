@@ -166,7 +166,7 @@ final class Http2ClientMultiplexSession
             || $this->lastStreamId > 0x7FFF_FFFD) {
             throw new RuntimeException('HTTP/2 multiplex request admission unavailable.');
         }
-        $parts = parse_url($request->uri);
+        $parts = parse_url($request->uriForSend());
         $host = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || strtolower($parts['scheme'] ?? '') !== 'https'
             || !is_string($host)

@@ -65,15 +65,7 @@ final readonly class HttpOutboundDispatcher
             ? new CancellationSource($request->deadline)
             : CancellationSource::linked($request->cancellation, $request->deadline);
         $handle = new OutboundHttpHandle($source);
-        $owned = new ClientRequest(
-            $request->method,
-            $request->uri,
-            $request->headers,
-            $request->body,
-            $request->protocol,
-            $source->token(),
-            $request->deadline,
-        );
+        $owned = $request->withCancellation($source->token());
 
         try {
             $this->dispatch($owned, $handle, $onHeaders, $onBody, $completion, $options);
