@@ -236,7 +236,7 @@
                         "reason": "Reviewed authenticated operational worker filesystem boundary and restricted-root/special-file regression coverage; unrestricted-root paths retain caller-owned authority.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "360ccb70b88489a596054adc87730d1240cf1076d58bb81f00a6f80cd9d64d0c",
+                            "sha256": "6285f73f0cde5513e2db70d0e850340763d065bbbaae4df8a1cb6f58c48b4c06",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -252,13 +252,29 @@
                         "reason": "PHP filesystem APIs can dereference network URL wrappers; the HMAC-authorized worker's guard rejects :// wrappers, NUL bytes, and off-root/symlink paths before opening. Bounded filesystem security regressions enforce this contract.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "360ccb70b88489a596054adc87730d1240cf1076d58bb81f00a6f80cd9d64d0c",
+                            "sha256": "6285f73f0cde5513e2db70d0e850340763d065bbbaae4df8a1cb6f58c48b4c06",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
                             ]
                         },
                         "taint": "ssrf"
+                    },
+                    {
+                        "directive": "@psalm-taint-escape",
+                        "paths": [
+                            "runtime/executor-worker.php"
+                        ],
+                        "reason": "PHP file_get_contents() and fopen() interpret wrapper-capable path strings as URL components. Authenticated executor guardFilePath validates local path shape, rejects stream-wrapper syntax, and enforces restricted-root and file-kind checks; security tests cover the boundary.",
+                        "security": {
+                            "sanitizer": "runtime/executor-worker.php",
+                            "sha256": "6285f73f0cde5513e2db70d0e850340763d065bbbaae4df8a1cb6f58c48b4c06",
+                            "tests": [
+                                "tests/AsyncFilePathPolicyTest.php",
+                                "tests/AsyncFileSpecialFileSafetyTest.php"
+                            ]
+                        },
+                        "taint": "url_component"
                     },
                     {
                         "directive": "@psalm-suppress",

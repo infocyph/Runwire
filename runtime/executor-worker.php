@@ -52,6 +52,7 @@ $quicSessionWorker = null;
  * @psalm-taint-specialize
  * @psalm-taint-escape file
  * @psalm-taint-escape ssrf
+ * @psalm-taint-escape url_component
  */
 function guardFilePath(array $args, string $name): string
 {

@@ -111,6 +111,6 @@ it('keeps the mandatory executor worker in packaged runtime but excludes develop
         ->and($worker)->toBeString()
         ->toContain('@psalm-taint-escape file')
         ->toContain('@psalm-taint-escape ssrf')
-        ->not->toContain('@psalm-taint-escape url_component')
+        ->toContain('@psalm-taint-escape url_component')
         ->not->toContain('@psalm-taint-escape url_path');
 });
