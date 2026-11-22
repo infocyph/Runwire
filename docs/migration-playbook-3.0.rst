@@ -20,7 +20,7 @@ Post-3.0.1 security hardening: PSR outbound URI approval
 ---------------------------------------------------------
 
 **Unreleased change in PR #17:** The published 3.0.1
-`Interop\\Psr\\PsrMessageBridge::outboundRequest()` accepted a
+`Interop\Psr\PsrMessageBridge::outboundRequest()` accepted a
 bodyless PSR-7 request and copied its URI directly into a Runwire
 `ClientRequest`. The proposed follow-up refuses that implicit authority:
 callers must pass `approvedUri` from trusted application configuration.
@@ -37,7 +37,7 @@ destination configured:
 
    <?php
 
-   use Infocyph\\Runwire\\Interop\\Psr\\PsrMessageBridge;
+   use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 
    // 3.0.1 behavior, no longer authorized on the proposed branch.
    $outbound = PsrMessageBridge::outboundRequest($psrRequest);
@@ -50,7 +50,7 @@ destination. Do **not** build the approved value from
 
    <?php
 
-   use Infocyph\\Runwire\\Interop\\Psr\\PsrMessageBridge;
+   use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 
    // This trusted literal is configured independently of the PSR request.
    $configuredUri = 'https://api.example.com/status';
