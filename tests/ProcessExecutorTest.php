@@ -415,12 +415,14 @@ it('does not execute unsigned or incorrectly signed subprocess requests', functi
     \PHPUnit\Framework\Assert::assertIsString($fixture);
     file_put_contents($fixture, 'protected');
     $key = str_repeat('a', 64);
+    $worker = dirname(__DIR__) . '/runtime/executor-worker.php';
+    expect(is_file($worker))->toBeTrue();
 
     try {
         foreach (['unsigned', 'incorrect-signature'] as $case) {
             $pipes = [];
             $process = proc_open(
-                [PHP_BINARY, '-d', 'display_errors=stderr', dirname(__DIR__) . '/tools/executor-worker.php'],
+                [PHP_BINARY, '-d', 'display_errors=stderr', $worker],
                 [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
                 $pipes,
                 null,
