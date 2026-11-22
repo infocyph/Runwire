@@ -231,66 +231,18 @@
                     {
                         "directive": "@psalm-taint-escape",
                         "paths": [
-                            "tools/executor-worker.php"
+                            "runtime/executor-worker.php"
                         ],
-                        "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
+                        "reason": "Reviewed authenticated operational worker filesystem boundary and restricted-root/special-file regression coverage; unrestricted-root paths retain caller-owned authority.",
                         "security": {
-                            "sanitizer": "tools/executor-worker.php",
-                            "sha256": "1d8c4ecf0c2c87cf6a3f6dd7265d640b793463e3dbe093628474432d21fae0fc",
+                            "sanitizer": "runtime/executor-worker.php",
+                            "sha256": "7f8f2417d81e9626471c5d47deef85d47f217fe2049363345d3a18b5d1b45a1f",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
                             ]
                         },
                         "taint": "file"
-                    },
-                    {
-                        "directive": "@psalm-taint-escape",
-                        "paths": [
-                            "tools/executor-worker.php"
-                        ],
-                        "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
-                        "security": {
-                            "sanitizer": "tools/executor-worker.php",
-                            "sha256": "1d8c4ecf0c2c87cf6a3f6dd7265d640b793463e3dbe093628474432d21fae0fc",
-                            "tests": [
-                                "tests/AsyncFilePathPolicyTest.php",
-                                "tests/AsyncFileSpecialFileSafetyTest.php"
-                            ]
-                        },
-                        "taint": "ssrf"
-                    },
-                    {
-                        "directive": "@psalm-taint-escape",
-                        "paths": [
-                            "tools/executor-worker.php"
-                        ],
-                        "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
-                        "security": {
-                            "sanitizer": "tools/executor-worker.php",
-                            "sha256": "1d8c4ecf0c2c87cf6a3f6dd7265d640b793463e3dbe093628474432d21fae0fc",
-                            "tests": [
-                                "tests/AsyncFilePathPolicyTest.php",
-                                "tests/AsyncFileSpecialFileSafetyTest.php"
-                            ]
-                        },
-                        "taint": "url_component"
-                    },
-                    {
-                        "directive": "@psalm-taint-escape",
-                        "paths": [
-                            "tools/executor-worker.php"
-                        ],
-                        "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
-                        "security": {
-                            "sanitizer": "tools/executor-worker.php",
-                            "sha256": "1d8c4ecf0c2c87cf6a3f6dd7265d640b793463e3dbe093628474432d21fae0fc",
-                            "tests": [
-                                "tests/AsyncFilePathPolicyTest.php",
-                                "tests/AsyncFileSpecialFileSafetyTest.php"
-                            ]
-                        },
-                        "taint": "url_path"
                     },
                     {
                         "directive": "@psalm-suppress",

@@ -48,7 +48,7 @@ it('excludes local data and development payloads from an actual Composer archive
     $forbidden = [
         '.aws', '.cache', '.ci', '.agents', '.codex', '.github', '.idea',
         '.phpunit.cache', '.psalm-cache', '.vscode', '.windsurf',
-        'benchmarks', 'build', 'coverage', 'docs', 'graphify-out', 'qa', 'tests', 'var', 'vendor',
+        'benchmarks', 'build', 'coverage', 'docs', 'graphify-out', 'qa', 'tests', 'tools', 'var', 'vendor',
     ];
     expect(mkdir($directory, 0700))->toBeTrue();
     try {
@@ -56,6 +56,8 @@ it('excludes local data and development payloads from an actual Composer archive
         copy(dirname(__DIR__) . '/.gitattributes', $directory . '/.gitattributes');
         mkdir($directory . '/src');
         file_put_contents($directory . '/src/PackageFixture.php', '<?php declare(strict_types=1);');
+        mkdir($directory . '/runtime');
+        file_put_contents($directory . '/runtime/executor-worker.php', '<?php declare(strict_types=1);');
         foreach ($forbidden as $path) {
             mkdir($directory . '/' . $path);
             file_put_contents($directory . '/' . $path . '/local-only.fixture', 'must not ship');
@@ -78,7 +80,8 @@ it('excludes local data and development payloads from an actual Composer archive
         }
         $archive = new PharData($directory . '/package/candidate.zip');
         expect(isset($archive['composer.json']))->toBeTrue()
-            ->and(isset($archive['src/PackageFixture.php']))->toBeTrue();
+            ->and(isset($archive['src/PackageFixture.php']))->toBeTrue()
+            ->and(isset($archive['runtime/executor-worker.php']))->toBeTrue();
         foreach ($forbidden as $path) {
             expect(isset($archive[$path . '/local-only.fixture']))->toBeFalse();
         }
@@ -93,4 +96,21 @@ it('excludes local data and development payloads from an actual Composer archive
         }
         rmdir($directory);
     }
+});
+
+it('keeps the mandatory executor worker in packaged runtime but excludes developer tools', function (): void {
+    $root = dirname(__DIR__);
+    $attrs = file_get_contents($root . '/.gitattributes');
+    $launcher = file_get_contents($root . '/src/Executor/Internal/ExecutorIpcTrait.php');
+    $worker = file_get_contents($root . '/runtime/executor-worker.php');
+
+    expect($attrs)->toBeString()
+        ->toContain('/tools export-ignore')
+        ->and($launcher)->toBeString()
+        ->toContain("'/runtime/executor-worker.php'")
+        ->and($worker)->toBeString()
+        ->toContain('@psalm-taint-escape file')
+        ->not->toContain('@psalm-taint-escape ssrf')
+        ->not->toContain('@psalm-taint-escape url_component')
+        ->not->toContain('@psalm-taint-escape url_path');
 });
