@@ -89,7 +89,7 @@ function runwireOwnedWebSocketHostileSessionAcceptanceTestCase01(): void
             expect($budgets[$index]->used())->toBeLessThanOrEqual(256);
             $sockets[$index]->abort();
             expect($session->isClosed())->toBeTrue()
-                ->and($closed[$index])->toBe(1)
+                ->and($closed[$index] ?? null)->toBe(1)
                 ->and($budgets[$index]->used())->toBe(0);
         }
     } finally {

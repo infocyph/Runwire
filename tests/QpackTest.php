@@ -68,3 +68,20 @@ it('rejects QPACK post-base index overflow as a decompression failure', function
             ->and($error->getMessage())->toContain('post-base index');
     }
 });
+
+it('retains blocked QPACK sections until a dynamic insertion actually arrives', function (): void {
+    $encoder = new Encoder(220, 1, dynamicTableCapacity: 220);
+    $decoder = new Decoder(220, 1);
+    $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
+
+    $encoded = $encoder->encode([[':authority', 'www.example.com'], [':path', '/sample/path']], 4);
+    $instructions = $encoder->takeEncoderInstructions();
+    expect($encoded->requiredInsertCount)->toBeGreaterThan(0)
+        ->and($decoder->decode($encoded->block, 4))->toBeNull()
+        ->and($decoder->pushEncoderInstructions(''))->toBe([]);
+
+    $ready = $decoder->pushEncoderInstructions($instructions);
+    expect($ready)->toHaveCount(1)
+        ->and($ready[0]->section->fields)->toBe([[':authority', 'www.example.com'], [':path', '/sample/path']])
+        ->and($decoder->pushEncoderInstructions(''))->toBe([]);
+});

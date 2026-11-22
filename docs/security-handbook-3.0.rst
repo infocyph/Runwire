@@ -203,6 +203,26 @@ policy-construction check, not an actual network connection or proof of
 the target's legitimacy. Inspect ``tests/OutboundAddressPolicyTest.php``
 for IPv4, IPv6, mapped-IPv6 and hostile proxy failure cases.
 
+Static-analysis trust boundary
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The lower-level ``Dialer`` is intentionally capable of connecting to trusted
+private or loopback services. An address and an application-selected socket
+endpoint are not proof that a URL received from an untrusted party is safe.
+For such inputs, applications must apply ``DialOptions::addressPolicy`` (or
+another explicit authorization policy) **before** opening the connection.
+
+At the audited PR #16 SHA ``f1c99ba``, the repository's Psalm configuration
+uses a **file-scoped** ``TaintedSSRF`` exception for
+``src/Network/Dialer.php``. That exception documents this deliberately general
+socket primitive; it does not validate a hostname, authorize an endpoint,
+or make arbitrary user input safe. All other files remain subject to the
+configured taint-analysis checks. The exception must be reviewed for explicit
+engineering approval before release and reconsidered when the analyzer can
+model trusted/caller-authorized numeric endpoints precisely; do not widen it.
+Tests in ``tests/OutboundAddressPolicyTest.php`` cover unsafe direct and
+resolved candidates, IPv4/IPv6 canonicalization, and connected-peer mismatch.
+
 **When not to use it:** internal service discovery often intentionally
 needs private IPs. That requires a separate deliberately scoped policy
 with tenant authorization, rather than disabling validation globally.

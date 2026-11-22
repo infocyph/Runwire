@@ -3,8 +3,9 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
+use Infocyph\Runwire\Http\Client\ClientDestinationPolicy;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
-use Infocyph\Runwire\Http\Client\ClientRequest;
+use Infocyph\Runwire\Http\Enum\OutboundUriSource;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
@@ -15,7 +16,9 @@ it('adapts bodyless PSR-7 requests to Runwire without blocking the reactor', fun
     $psr = new Request('GET', 'https://example.com/path', ['accept' => ['a', 'b']]);
     $request = PsrMessageBridge::outboundRequest($psr);
     expect($request->uri)->toBe('https://example.com/path')
+        ->and($request->uriSource)->toBe(OutboundUriSource::PSR_REQUEST)
         ->and($request->headers->all('accept'))->toBe(['a', 'b']);
+    expect($request->uriForSend(...))->toThrow(InvalidArgumentException::class, 'destination policy');
     $restored = PsrMessageBridge::requestMetadata($request, new Psr17Factory());
     expect($restored->getMethod())->toBe('GET')
         ->and($restored->getHeader('accept'))->toBe(['a', 'b']);
@@ -24,14 +27,66 @@ it('adapts bodyless PSR-7 requests to Runwire without blocking the reactor', fun
 it('requires explicit plaintext policy and rejects blocking PSR bodies', function (): void {
     $request = new Request('POST', 'https://example.com/path', [], 'nonempty');
     expect(fn() => PsrMessageBridge::outboundRequest($request))->toThrow(RuntimeUnavailableException::class);
-    expect(fn() => PsrMessageBridge::outboundRequest(new Request('GET', 'http://example.com/')))
+    expect(fn() => PsrMessageBridge::outboundRequest(new Request('GET', 'http://example.com/'), approvedUri: 'http://example.com/'))
         ->toThrow(InvalidArgumentException::class);
 
     $policy = new ClientProtocolPolicy(
-        ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true,
+        ProtocolVersion::HTTP_1_1,
+        [ProtocolVersion::HTTP_1_1],
+        allowPlaintext: true,
     );
-    expect(PsrMessageBridge::outboundRequest(new Request('GET', 'http://example.com/'), $policy)->uri)
+    expect(PsrMessageBridge::outboundRequest(new Request('GET', 'http://example.com/'), $policy, approvedUri: 'http://example.com/')->uri)
         ->toBe('http://example.com/');
+});
+
+it('requires supplied approval to match the complete PSR URI', function (): void {
+    $source = new Request('GET', 'https://example.com/path?token=a');
+
+    foreach ([
+        '',
+        'https://attacker.example/path?token=a',
+        'https://example.com:8443/path?token=a',
+        'http://example.com/path?token=a',
+        'https://example.com/other?token=a',
+        'https://example.com/path?token=b',
+        'https://example.com/path?token=a#fragment',
+        'https://example.com@127.0.0.1/path?token=a',
+    ] as $approved) {
+        expect(fn() => PsrMessageBridge::outboundRequest($source, approvedUri: $approved))
+            ->toThrow(InvalidArgumentException::class);
+    }
+
+    $authorized = PsrMessageBridge::outboundRequest(
+        $source,
+        approvedUri: 'https://example.com/path?token=a',
+    );
+    expect($authorized->uri)->toBe('https://example.com/path?token=a')
+        ->and($authorized->uriSource)->toBe(OutboundUriSource::PSR_APPROVAL_MATCH)
+        ->and($authorized->uriForSend())->toBe('https://example.com/path?token=a');
+});
+
+it('authorizes a PSR URI against the complete configured destination', function (): void {
+    $uri = 'https://example.com/path?filter=active';
+    $policy = new ClientProtocolPolicy(destinationPolicy: new ClientDestinationPolicy([$uri]));
+    $approved = PsrMessageBridge::outboundRequest(new Request('GET', $uri), $policy);
+    $differentQuery = PsrMessageBridge::outboundRequest(new Request('GET', 'https://example.com/path?filter=all'), $policy);
+
+    expect($approved->uriForSend())->toBe($uri)
+        ->and($approved->uriSource)->toBe(OutboundUriSource::PSR_REQUEST);
+    expect($differentQuery->uriForSend(...))->toThrow(InvalidArgumentException::class, 'not approved');
+});
+
+it('rejects private-network target substitution when caller approved a public URI', function (): void {
+    $private = new Request('GET', 'https://127.0.0.1/admin');
+    expect(fn() => PsrMessageBridge::outboundRequest(
+        $private,
+        approvedUri: 'https://api.example.com/admin',
+    ))->toThrow(InvalidArgumentException::class);
+
+    expect(fn() => PsrMessageBridge::outboundRequest(
+        new Request('GET', 'https://api.example.com@127.0.0.1/admin'),
+        approvedUri: 'https://api.example.com/admin',
+    ))->toThrow(InvalidArgumentException::class);
 });
 
 it('produces PSR-17 response metadata without consuming or altering message bodies', function (): void {

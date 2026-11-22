@@ -27,10 +27,10 @@ final class LifecycleEmitter
      */
     public function __construct()
     {
-        $this->failureCounts = array_fill_keys(
-            array_map(static fn(SupervisorEventType $type): string => $type->value, SupervisorEventType::cases()),
-            0,
-        );
+        $this->failureCounts = [];
+        foreach (SupervisorEventType::cases() as $type) {
+            $this->failureCounts[$type->value] = 0;
+        }
     }
 
     /**

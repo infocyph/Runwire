@@ -231,12 +231,12 @@
                     {
                         "directive": "@psalm-taint-escape",
                         "paths": [
-                            "tools/executor-worker.php"
+                            "runtime/executor-worker.php"
                         ],
-                        "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
+                        "reason": "Reviewed authenticated operational worker filesystem boundary and restricted-root/special-file regression coverage; unrestricted-root paths retain caller-owned authority.",
                         "security": {
-                            "sanitizer": "tools/executor-worker.php",
-                            "sha256": "21d90cccfcdd1ad2fdac3696e6b97e45d90516da40d74998ad5ebef8785527c0",
+                            "sanitizer": "runtime/executor-worker.php",
+                            "sha256": "1d8c4ecf0c2c87cf6a3f6dd7265d640b793463e3dbe093628474432d21fae0fc",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -247,12 +247,12 @@
                     {
                         "directive": "@psalm-taint-escape",
                         "paths": [
-                            "tools/executor-worker.php"
+                            "runtime/executor-worker.php"
                         ],
-                        "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
+                        "reason": "PHP filesystem APIs can dereference network URL wrappers; the HMAC-authorized worker's guard rejects :// wrappers, NUL bytes, and off-root/symlink paths before opening. Bounded filesystem security regressions enforce this contract.",
                         "security": {
-                            "sanitizer": "tools/executor-worker.php",
-                            "sha256": "21d90cccfcdd1ad2fdac3696e6b97e45d90516da40d74998ad5ebef8785527c0",
+                            "sanitizer": "runtime/executor-worker.php",
+                            "sha256": "1d8c4ecf0c2c87cf6a3f6dd7265d640b793463e3dbe093628474432d21fae0fc",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -263,12 +263,12 @@
                     {
                         "directive": "@psalm-taint-escape",
                         "paths": [
-                            "tools/executor-worker.php"
+                            "runtime/executor-worker.php"
                         ],
-                        "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
+                        "reason": "PHP file_get_contents() and fopen() interpret wrapper-capable path strings as URL components. Authenticated executor guardFilePath validates local path shape, rejects stream-wrapper syntax, and enforces restricted-root and file-kind checks; security tests cover the boundary.",
                         "security": {
-                            "sanitizer": "tools/executor-worker.php",
-                            "sha256": "21d90cccfcdd1ad2fdac3696e6b97e45d90516da40d74998ad5ebef8785527c0",
+                            "sanitizer": "runtime/executor-worker.php",
+                            "sha256": "1d8c4ecf0c2c87cf6a3f6dd7265d640b793463e3dbe093628474432d21fae0fc",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -279,12 +279,12 @@
                     {
                         "directive": "@psalm-taint-escape",
                         "paths": [
-                            "tools/executor-worker.php"
+                            "runtime/executor-worker.php"
                         ],
-                        "reason": "Reviewed authenticated worker path guard, stream-wrapper rejection, restricted-root containment, and nonregular data I/O tests.",
+                        "reason": "The worker's HMAC-authenticated and stream-wrapper-rejecting path guard feeds PHP fopen/file_get_contents, which Psalm models as URL-path sinks (TaintedUrlPath). Strict wrapper, null-byte, restricted-root/symlink and file-kind security regressions enforce the sanitized boundary.",
                         "security": {
-                            "sanitizer": "tools/executor-worker.php",
-                            "sha256": "21d90cccfcdd1ad2fdac3696e6b97e45d90516da40d74998ad5ebef8785527c0",
+                            "sanitizer": "runtime/executor-worker.php",
+                            "sha256": "1d8c4ecf0c2c87cf6a3f6dd7265d640b793463e3dbe093628474432d21fae0fc",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -299,6 +299,19 @@
                             "benchmarks/cli_local_paths.php"
                         ],
                         "reason": "Intentional developer-selected Composer checkout; validated canonical autoload entrypoint cannot be statically resolved by Psalm and must remain dynamically loaded."
+                    },
+                    {
+                        "directive": "@psalm-suppress",
+                        "issue": "WeakHash",
+                        "paths": [
+                            "benchmarks/websocket_evidence.php",
+                            "src/WebSocket/Internal/WebSocketClientHandshake.php",
+                            "src/WebSocket/WebSocketUpgrade.php",
+                            "tests/WebSocketClientHandshakeTest.php",
+                            "tests/WebSocketOutboundClientTest.php",
+                            "tests/WebSocketOutboundTlsTest.php"
+                        ],
+                        "reason": "RFC 6455 requires SHA-1 solely for Sec-WebSocket-Accept interoperability, not password storage, signatures or collision-resistant security; production and independent-peer handshake tests assert the mandated wire behavior."
                     }
                 ]
             }

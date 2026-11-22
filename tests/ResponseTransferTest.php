@@ -123,7 +123,7 @@ it('can preserve caller source ownership and blocking mode', function (): void {
     expect($transferred)->toBe(16)
         ->and($writer->body)->toBe('preserved-source')
         ->and(get_resource_type($source))->not->toBe('Unknown')
-        ->and($after['blocked'])->toBe($before['blocked']);
+        ->and(!empty($after['blocked']))->toBe(!empty($before['blocked']));
 
     fclose($source);
 });

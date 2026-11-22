@@ -167,9 +167,13 @@ final class PhpQuicHttp3Worker
     {
         $listener = $this->accepting ? $this->listener : null;
         $canAccept = $this->accepting && $this->connectionCount() < $this->connectionLimit;
+        $pending = [];
+        foreach ($this->pendingConnections as $candidate) {
+            $pending[] = $candidate['connection'];
+        }
         $ready = $this->poller->poll(
             $listener,
-            array_values($this->connections),
+            $this->connections,
             $canAccept,
             AdaptivePollStrategy::timeout(
                 $timeoutSeconds,
@@ -178,10 +182,7 @@ final class PhpQuicHttp3Worker
                 count($this->pendingConnections),
                 $this->inboundAdaptive,
             ),
-            array_map(
-                static fn(array $pending): PhpQuicConnection => $pending['connection'],
-                array_values($this->pendingConnections),
-            ),
+            $pending,
         );
 
         if ($listener !== null && $this->poller->listenerErrorReady($listener, $ready)) {

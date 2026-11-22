@@ -69,14 +69,24 @@ final readonly class Http3ClientWireCodec
         return self::parseTrailers($section);
     }
 
-    /** @return array{status:int, headers:Headers} */
+    /**
+     * @return array{status:int, headers:Headers}
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function decodeResponseHeaders(string $payload, int $streamId): array
     {
         return $this->tryDecodeResponseHeaders($payload, $streamId)
             ?? throw new Http3Exception(ErrorCode::QPACK_DECOMPRESSION_FAILED, 'Blocking HTTP/3 response QPACK is unsupported.');
     }
 
-    /** Decode finite response trailers without exposing blocked QPACK state. */
+    /**
+     * Decode finite response trailers without exposing blocked QPACK state.
+     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
+     * @throws \InvalidArgumentException
+     * @throws \LogicException
+     */
     public function decodeResponseTrailers(string $payload, int $streamId): Headers
     {
         return $this->tryDecodeResponseTrailers($payload, $streamId)
@@ -247,7 +257,7 @@ final readonly class Http3ClientWireCodec
      */
     private static function requestFields(ClientRequest $request): array
     {
-        [$authority, $target] = self::validatedOrigin($request->uri);
+        [$authority, $target] = self::validatedOrigin($request->uriForSend());
         $fields = [
             [':method', $request->method],
             [':scheme', 'https'],
@@ -255,6 +265,14 @@ final readonly class Http3ClientWireCodec
             [':path', $target],
         ];
         foreach ($request->headers->fields() as $header) {
+            if ($header->name === 'host') {
+                // A PSR-7 Host may be implicit; HTTP/3 uses :authority instead.
+                if (strcasecmp(trim($header->value), $authority) !== 0) {
+                    throw new InvalidArgumentException('HTTP/3 Host header is prohibited when it differs from the verified authority.');
+                }
+
+                continue;
+            }
             self::assertRequestHeader($header->name, $header->value, $request->body !== null);
             $fields[] = [$header->name, $header->value];
         }

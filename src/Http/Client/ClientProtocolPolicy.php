@@ -8,11 +8,12 @@ use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use InvalidArgumentException;
 
-/** Explicit TLS/ALPN and HTTP version policy: no hidden downgrade or plaintext fallback. */
+/** Explicit TLS/ALPN, HTTP version and optional outbound destination policy. */
 final readonly class ClientProtocolPolicy
 {
     /**
      * @param list<ProtocolVersion> $allowedVersions
+     * @param ClientDestinationPolicy|null $destinationPolicy Exact URI allowlist enforced at send time, including redirects.
      * @throws \InvalidArgumentException
      */
     public function __construct(
@@ -20,6 +21,7 @@ final readonly class ClientProtocolPolicy
         public array $allowedVersions = [ProtocolVersion::HTTP_2, ProtocolVersion::HTTP_1_1],
         public bool $allowFallback = false,
         public bool $allowPlaintext = false,
+        public ?ClientDestinationPolicy $destinationPolicy = null,
     ) {
         if ($allowedVersions === [] || count($allowedVersions) > 3) {
             throw new InvalidArgumentException('Allow one to three HTTP protocol versions.');

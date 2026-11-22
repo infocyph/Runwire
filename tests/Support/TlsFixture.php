@@ -23,16 +23,17 @@ function signingPair(string $commonName, array $requestOptions, array $certifica
     if (!$key instanceof OpenSSLAsymmetricKey) {
         throw new RuntimeException('Unable to generate the isolated test signing key.');
     }
+    $signingKey = $key;
     $request = openssl_csr_new(['commonName' => $commonName], $key, $requestOptions);
-    if (!$request instanceof OpenSSLCertificateSigningRequest || !$key instanceof OpenSSLAsymmetricKey) {
+    if (!$request instanceof OpenSSLCertificateSigningRequest) {
         throw new RuntimeException('Unable to generate the isolated test certificate request.');
     }
-    $certificate = openssl_csr_sign($request, null, $key, 1, $certificateOptions);
+    $certificate = openssl_csr_sign($request, null, $signingKey, 1, $certificateOptions);
     if (!$certificate instanceof OpenSSLCertificate) {
         throw new RuntimeException('Unable to self-sign the isolated test certificate.');
     }
 
-    return [$certificate, $key];
+    return [$certificate, $signingKey];
 }
 
 /** @param array<string,mixed> $metadata */

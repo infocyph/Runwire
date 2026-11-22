@@ -69,6 +69,8 @@ final readonly class WebSocketClientHandshake
             || !in_array('upgrade', array_map(trim(...), explode(',', strtolower($headers['connection'] ?? ''))), true)) {
             throw new RuntimeException('WebSocket Upgrade and Connection tokens are invalid.');
         }
+        // RFC 6455 mandates SHA-1 for the WebSocket handshake accept proof only.
+        /** @psalm-suppress WeakHash */
         $expected = base64_encode(sha1($key . self::ACCEPT_GUID, true));
         if (!hash_equals($expected, $headers['sec-websocket-accept'] ?? '')) {
             throw new RuntimeException('WebSocket Sec-WebSocket-Accept mismatches the client nonce.');

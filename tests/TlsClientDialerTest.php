@@ -35,17 +35,18 @@ function runwireClientTlsIdentity(): array
     if ($key === false) {
         throw new \RuntimeException('Unable to generate Tls Client Dialer Test private key.');
     }
+    $signingKey = $key;
     $csr = openssl_csr_new(['commonName' => 'localhost'], $key, ['digest_alg' => 'sha256']);
-    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
         throw new \RuntimeException('Unable to create Tls Client Dialer Test certificate request.');
     }
-    $cert = openssl_csr_sign($csr, null, $key, 1, ['digest_alg' => 'sha256']);
+    $cert = openssl_csr_sign($csr, null, $signingKey, 1, ['digest_alg' => 'sha256']);
     if ($cert === false) {
         throw new \RuntimeException('Unable to sign Tls Client Dialer Test certificate.');
     }
     \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($cert));
     openssl_x509_export($cert, $certPem);
-    openssl_pkey_export($key, $keyPem);
+    openssl_pkey_export($signingKey, $keyPem);
     $certificate = $directory . '/cert.pem';
     $private = $directory . '/key.pem';
     file_put_contents($certificate, $certPem);

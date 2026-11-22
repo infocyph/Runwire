@@ -2,11 +2,9 @@
 
 declare(strict_types=1);
 
-
 namespace Infocyph\Runwire\Tests;
 
 require_once __DIR__ . '/Support/ProcessFixture.php';
-
 
 use Closure;
 use Infocyph\Runwire\Control\ControlOptions;
@@ -44,13 +42,25 @@ function runwireControlTestConnect(string $socket, float $timeoutSeconds = 3.0):
     $deadline = runwireControlTestDeadline($timeoutSeconds);
     $errno = 0;
     $error = '';
-    do {
-        $stream = stream_socket_client('unix://' . $socket, $errno, $error, 0.2);
-        if (is_resource($stream)) {
-            return $stream;
-        }
-        usleep(10_000);
-    } while (MonotonicTime::nowNanoseconds() < $deadline);
+    // Retry native connection failures during listener startup and report the
+    // last socket error if the deadline expires.
+    set_error_handler(
+        static fn(int $severity, string $message): bool => $severity === E_WARNING
+            && str_starts_with($message, 'stream_socket_client(): Unable to connect to unix://'),
+        E_WARNING,
+    );
+
+    try {
+        do {
+            $stream = stream_socket_client('unix://' . $socket, $errno, $error, 0.2);
+            if (is_resource($stream)) {
+                return $stream;
+            }
+            usleep(10_000);
+        } while (MonotonicTime::nowNanoseconds() < $deadline);
+    } finally {
+        restore_error_handler();
+    }
 
     throw new RuntimeException(sprintf(
         'Unable to connect to control socket: %s (%d).',
@@ -187,6 +197,7 @@ it('serves bounded runtime control over a protected unix socket', function (int 
             throw new RuntimeException('Control supervisor did not terminate within 20 seconds.');
         });
         pcntl_alarm(20);
+
         try {
             $supervisor->run();
         } finally {
@@ -248,6 +259,7 @@ it('retries a control client when the socket exists before listen readiness', fu
     if ($serverPid === -1) {
         fclose($bound);
         unlink($socket);
+
         throw new RuntimeException('Unable to fork delayed control listener.');
     }
     if ($serverPid === 0) {
@@ -271,6 +283,7 @@ it('retries a control client when the socket exists before listen readiness', fu
 
     fclose($bound);
     $client = null;
+
     try {
         $client = runwireControlTestConnect($socket, 2.0);
         stream_set_timeout($client, 2);
@@ -298,7 +311,7 @@ it('rejects unsafe control options', function (): void {
  */
 function runwireOwnedControlServerTestCase01(): void
 {
-    expect(fn () => new ControlOptions('relative.sock'))->toThrow(InvalidArgumentException::class)
-        ->and(fn () => new ControlOptions('/tmp/runwire.sock', permissions: 0666))->toThrow(InvalidArgumentException::class)
-        ->and(fn () => new ControlOptions('/tmp/runwire.sock', maxRequestBytes: 128))->toThrow(InvalidArgumentException::class);
+    expect(fn() => new ControlOptions('relative.sock'))->toThrow(InvalidArgumentException::class)
+        ->and(fn() => new ControlOptions('/tmp/runwire.sock', permissions: 0666))->toThrow(InvalidArgumentException::class)
+        ->and(fn() => new ControlOptions('/tmp/runwire.sock', maxRequestBytes: 128))->toThrow(InvalidArgumentException::class);
 }

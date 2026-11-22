@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ["8.4", "8.5"]
+        php-version: ["8.4", "8.5", "8.6"]
     permissions:
       contents: read
 
@@ -122,7 +122,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ["8.4", "8.5"]
+        php-version: ["8.4", "8.5", "8.6"]
     permissions:
       contents: read
 
@@ -131,10 +131,30 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ca-certificates git libevent-dev libssl-dev pkg-config unzip
+          apt-get install -y --no-install-recommends ca-certificates git libevent-dev libonig-dev libssl-dev pkg-config unzip
           docker-php-ext-install pcntl sockets
+          if ! php -m | grep -qi '^mbstring$'; then
+            docker-php-ext-install -j"$(nproc)" mbstring
+          fi
           mv "$PHP_INI_DIR/conf.d/docker-php-ext-sockets.ini" "$PHP_INI_DIR/conf.d/10-sockets.ini"
-          printf "\n" | pecl install event
+          if command -v pecl >/dev/null 2>&1; then
+            printf "\n" | pecl install event
+          else
+            # PHP 8.6 CLI images may ship phpize without PEAR/PECL.
+            # Build the same upstream PECL distribution using the bundled PHP headers.
+            apt-get install -y --no-install-recommends curl make autoconf g++ tar
+            mkdir -p /tmp/runwire-event-build
+            curl --fail --location --show-error --silent https://pecl.php.net/get/event \
+              | tar -xz --strip-components=1 -C /tmp/runwire-event-build
+            (
+              cd /tmp/runwire-event-build
+              phpize
+              ./configure --with-event-core --with-event-extra --with-event-openssl
+              make -j"$(nproc)"
+              make install
+            )
+            rm -rf /tmp/runwire-event-build
+          fi
           docker-php-ext-enable event
           rm -rf /var/lib/apt/lists/*
           php -r 'exit(extension_loaded("event") ? 0 : 1);'

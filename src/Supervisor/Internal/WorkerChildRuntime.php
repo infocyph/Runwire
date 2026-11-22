@@ -57,6 +57,21 @@ final class WorkerChildRuntime
             $context->close();
             self::terminate($exitCode);
         } catch (Throwable $error) {
+            // Fatal-only diagnostics: omit exception messages, stack arguments,
+            // and absolute paths because they may contain request credentials.
+            for ($cause = $error, $depth = 0; $cause !== null && $depth < 3; $cause = $cause->getPrevious(), ++$depth) {
+                // Anonymous class names append a NUL and their absolute source path.
+                $type = explode("\0", $cause::class, 2)[0];
+                $file = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($cause->getFile()));
+                error_log(sprintf(
+                    'Runwire worker fatal: depth=%d type=%s file=%s line=%d',
+                    $depth,
+                    $type,
+                    $file ?? 'unknown',
+                    $cause->getLine(),
+                ));
+            }
+
             $warmupFailure = $error instanceof ApplicationStartupException
                 && $error->phase === ApplicationStartupPhase::WARMUP;
             if ($warmupFailure) {

@@ -78,6 +78,8 @@ it('round-trips the upgrade challenge with an independent real Unix socket peer'
         $wire = fread($peer, 4_096);
         expect($wire)->toContain("Upgrade: websocket\r\n", 'Sec-WebSocket-Key: ' . $request['key']);
 
+        // RFC 6455 mandates SHA-1 for the WebSocket handshake accept proof only.
+        /** @psalm-suppress WeakHash */
         $accept = base64_encode(sha1($request['key'] . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
         $response = "HTTP/1.1 101 Switching Protocols\r\n"
             . "Upgrade: websocket\r\nConnection: Upgrade\r\n"

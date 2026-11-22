@@ -95,7 +95,9 @@ final class Decoder
             $this->pendingDecoderInstructions .= $this->decoderStream->insertCountIncrement($insertions);
         }
 
-        return $this->retryBlocked();
+        // A blocked field section requires new dynamic inserts to become ready.
+        // Empty or capacity-only instructions cannot change the insert count.
+        return $insertions > 0 && $this->blocked !== [] ? $this->retryBlocked() : [];
     }
 
     /**

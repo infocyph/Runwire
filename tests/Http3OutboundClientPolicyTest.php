@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http3OutboundClient;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\QuicClientOptions;
+use Nyholm\Psr7\Request;
 
 it('refuses H3 origin substitution and unapproved ALPN before allocating native QUIC', function (): void {
     $loop = new SelectLoop();
@@ -29,4 +31,24 @@ it('refuses H3 origin substitution and unapproved ALPN before allocating native 
             new QuicClientOptions('example.com'), $headers, $body, $done))
         ->toThrow(\Infocyph\Runwire\Exception\RuntimeUnavailableException::class);
     expect($loop->diagnostics()->timersActive)->toBe(0);
+});
+
+it('blocks an unapproved PSR HTTP/3 destination before constructing native QUIC', function (): void {
+    $loop = new SelectLoop();
+    $protocol = new ClientProtocolPolicy(
+        preferred: ProtocolVersion::HTTP_3,
+        allowedVersions: [ProtocolVersion::HTTP_3],
+    );
+    $pending = PsrMessageBridge::outboundRequest(new Request('GET', 'https://example.com/blocked'), $protocol);
+
+    expect(fn() => Http3OutboundClient::connect(
+        $loop,
+        $pending,
+        new QuicClientOptions('example.com'),
+        static function (): void {},
+        static function (): void {},
+        static function (): void {},
+    ))->toThrow(InvalidArgumentException::class, 'destination policy');
+    expect($loop->diagnostics()->timersActive)->toBe(0)
+        ->and($loop->diagnostics()->readWatchers)->toBe(0);
 });

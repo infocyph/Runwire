@@ -84,6 +84,8 @@ function runwireOwnedWebSocketOutboundTlsTestCase01(): void
                 }
                 preg_match('/^Sec-WebSocket-Key: (.+)$/mi', $request, $matches);
                 $nonce = trim($matches[1] ?? '');
+                // RFC 6455 mandates SHA-1 for the WebSocket handshake accept proof only.
+                /** @psalm-suppress WeakHash */
                 $accept = base64_encode(sha1($nonce . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
                 $connection->write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
                     . 'Sec-WebSocket-Accept: ' . $accept . "\r\nSec-WebSocket-Protocol: chat\r\n\r\n"

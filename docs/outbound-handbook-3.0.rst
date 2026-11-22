@@ -208,6 +208,63 @@ the same off-loop `ProcessExecutor` as the default resolver. New test:
 `tests/CachedDnsResolverTest.php`.
 
 
+PSR-7 outbound metadata and explicit URI approval
+-------------------------------------------------
+
+`Interop\Psr\PsrMessageBridge::outboundRequest()` adapts bodyless PSR-7
+requests. When `approvedUri` is omitted, conversion retains the request
+URI and the outbound client requires an exact match in a configured
+destination policy before sending. For a single fixed endpoint, you can
+supply `approvedUri` from trusted application configuration.
+The comparison includes scheme, hostname, port, path and query. Empty
+and mismatched approvals fail before the request can be sent.
+
+.. code-block:: php
+
+   <?php
+
+   use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
+
+   $outbound = PsrMessageBridge::outboundRequest(
+       $psrRequest,
+       approvedUri: 'https://api.example.com/status',
+   );
+
+Configure a reusable destination policy through `ClientProtocolPolicy`.
+It accepts a list of 1 to 256 complete URI strings from application
+configuration. A configured policy applies to every send using it.
+
+.. code-block:: php
+
+   <?php
+
+   use Infocyph\Runwire\Http\Client\ClientDestinationPolicy;
+   use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
+   use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
+
+   $policy = new ClientProtocolPolicy(
+       destinationPolicy: new ClientDestinationPolicy([
+           'https://api.example.com/status',
+           'https://api.example.com/health',
+       ]),
+   );
+   $outbound = PsrMessageBridge::outboundRequest($psrRequest, $policy);
+
+The immutable `ClientRequest::uriSource` field records how the current
+URI was selected.
+
+* `OutboundUriSource::PSR_REQUEST` — copied directly from the PSR request.
+* `OutboundUriSource::PSR_APPROVAL_MATCH` — matched the caller-supplied approval.
+* `OutboundUriSource::DIRECT` — specified when constructing a client request.
+* `OutboundUriSource::REDIRECT` — resolved from a redirect response. A PSR
+  redirect requires a configured policy match for the new URI.
+
+Use this field for diagnostics. Configure the allowlist independently
+from the request and authorize the exact routes the application may access.
+Use `DialOptions::addressPolicy` when TCP candidate-IP and connected-peer
+restrictions are also needed. Keep TLS hostname verification enabled.
+
+
 Explicit cross-protocol outbound dispatch
 -----------------------------------------
 

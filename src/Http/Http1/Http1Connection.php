@@ -53,8 +53,6 @@ final class Http1Connection
 
     private readonly Http1Syntax $syntax;
 
-    private readonly WebSocketUpgradeOwner $webSocketOwner;
-
     private ?StreamingRequestBody $body = null;
 
     private bool $bodyPressured = false;
@@ -111,6 +109,8 @@ final class Http1Connection
 
     private bool $waitingResponse = false;
 
+    private ?WebSocketUpgradeOwner $webSocketOwner = null;
+
     private ?Http1ResponseWriter $writer = null;
 
     /**
@@ -131,14 +131,6 @@ final class Http1Connection
         $this->chunkSizeDecoder = new ChunkSizeDecoder();
         $this->input = new Http1Input($connection);
         $this->syntax = new Http1Syntax();
-        $this->webSocketOwner = new WebSocketUpgradeOwner(
-            $loop,
-            $connection,
-            $this->input,
-            function (): void {
-                $this->prepareWebSocketHandoff();
-            },
-        );
         $connection->onData(function (): void {
             $this->pump();
         });
@@ -167,7 +159,7 @@ final class Http1Connection
         }
 
         $this->draining = true;
-        if ($this->webSocketOwner->drain()) {
+        if ($this->webSocketOwner?->drain() === true) {
             return;
         }
 
@@ -397,12 +389,14 @@ final class Http1Connection
             function (bool $closeAfter): void {
                 $this->handleResponseEnd($closeAfter);
             },
-            fn(string $accept, ?string $subprotocol, WebSocketOptions $options): WebSocketSession => $this->webSocketOwner->upgrade(
-                $accept,
-                $subprotocol,
-                $options,
-                $this->body,
-            ),
+            fn(string $accept, ?string $subprotocol, WebSocketOptions $options): WebSocketSession => ($this->webSocketOwner ??= new WebSocketUpgradeOwner(
+                $this->loop,
+                $this->connection,
+                $this->input,
+                function (): void {
+                    $this->prepareWebSocketHandoff();
+                },
+            ))->upgrade($accept, $subprotocol, $options, $this->body),
         );
     }
 
@@ -728,7 +722,7 @@ final class Http1Connection
      */
     private function pump(): void
     {
-        if ($this->closed || $this->pumping || $this->webSocketOwner->active()) {
+        if ($this->closed || $this->pumping || $this->webSocketOwner?->active() === true) {
             return;
         }
         $this->pumping = true;

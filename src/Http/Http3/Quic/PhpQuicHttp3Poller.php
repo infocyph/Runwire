@@ -39,7 +39,7 @@ final readonly class PhpQuicHttp3Poller
     }
 
     /**
-     * @param list<PhpQuicHttp3Connection> $connections
+     * @param array<int, PhpQuicHttp3Connection> $connections
      * @param list<PhpQuicConnection> $pendingConnections
      * @return array<int, int>
      * @throws \InvalidArgumentException
@@ -95,7 +95,7 @@ final readonly class PhpQuicHttp3Poller
     }
 
     /**
-     * @param list<PhpQuicHttp3Connection> $connections
+     * @param array<int, PhpQuicHttp3Connection> $connections
      * @param list<PhpQuicConnection> $pendingConnections
      * @return array<int, array{0: object, 1: int}>
      * @throws \LogicException

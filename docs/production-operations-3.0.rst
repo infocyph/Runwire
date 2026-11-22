@@ -52,8 +52,8 @@ independently.
 Preflight checklist
 -------------------
 
-1. Capture exact commit SHA and PHP version (8.4 or 8.5 for the current
-   development matrix), OS/architecture and installed extensions.
+1. Capture exact commit SHA and PHP version (8.4, 8.5 or 8.6 in the current
+   CI matrix; confirm host and extension support on the exact source SHA), OS/architecture and installed extensions.
 2. Validate Composer's release dependency constraints without
    disabling security advisory enforcement.
 3. Verify network binding, firewall and reverse-proxy / LB policy.

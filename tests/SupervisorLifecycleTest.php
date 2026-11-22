@@ -6,11 +6,40 @@ require_once __DIR__ . '/Support/SocketFixture.php';
 
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Supervisor\Enum\SupervisorEventType;
+use Infocyph\Runwire\Supervisor\Internal\LifecycleEmitter;
 use Infocyph\Runwire\Supervisor\RestartPolicy;
 use Infocyph\Runwire\Supervisor\Supervisor;
 use Infocyph\Runwire\Supervisor\SupervisorEvent;
 use Infocyph\Runwire\Supervisor\WorkerContext;
 use Infocyph\Runwire\Supervisor\WorkerGroup;
+
+it('initializes lifecycle event counters without temporary maps and isolates listener failures', function (): void {
+    $expected = [];
+    foreach (SupervisorEventType::cases() as $type) {
+        $expected[$type->value] = 0;
+    }
+    $emitter = new LifecycleEmitter();
+    expect($emitter->failureCounts())->toBe($expected)
+        ->and($emitter->listenerFailures())->toBe(0);
+
+    $delivered = 0;
+    $emitter->listen(static function (SupervisorEvent $event) use (&$delivered): void {
+        if ($event->type === SupervisorEventType::WORKER_READY) {
+            ++$delivered;
+        }
+    });
+    $emitter->listen(static function (SupervisorEvent $event): void {
+        if ($event->type === SupervisorEventType::WORKER_READY) {
+            throw new RuntimeException('Intentional listener failure for counter test.');
+        }
+    });
+    $emitter->emit(new SupervisorEvent(SupervisorEventType::WORKER_READY, 0.0));
+
+    $expected[SupervisorEventType::WORKER_READY->value] = 1;
+    expect($emitter->failureCounts())->toBe($expected)
+        ->and($emitter->listenerFailures())->toBe(1)
+        ->and($delivered)->toBe(1);
+});
 
 it('recycles one worker after replacement readiness and restores normal restart ownership', function (): void {
     $loop = new SelectLoop();

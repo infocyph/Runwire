@@ -40,8 +40,6 @@ final class Http3OutboundClient
 
     private readonly Http3ClientPeerAuxiliary $auxiliary;
 
-    private readonly Http3ClientWireCodec $codec;
-
     private readonly Closure $completion;
 
     private readonly Http3ClientControl $control;
@@ -92,11 +90,14 @@ final class Http3OutboundClient
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
      * @throws \LogicException
+     * @param array{host:string,port:int} $verifiedOrigin
      */
     private function __construct(
         private readonly LoopInterface $loop,
         private readonly ClientRequest $request,
         private readonly QuicClientOptions $options,
+        private readonly array $verifiedOrigin,
+        private readonly Http3ClientWireCodec $codec,
         callable $onHeaders,
         callable $onBody,
         callable $completion,
@@ -108,7 +109,6 @@ final class Http3OutboundClient
         $this->completion = Closure::fromCallable($completion);
         $this->session = new QuicClientSession($loop);
         $this->control = new Http3ClientControl(decoderCapacity: 4_096, maxBlocked: 8);
-        $this->codec = new Http3ClientWireCodec(decoderCapacity: 4_096, maxBlocked: 8);
         $this->peerStreams = new Http3ClientPeerStreamRegistry();
         $this->auxiliary = new Http3ClientPeerAuxiliary($this->codec);
     }
@@ -137,8 +137,11 @@ final class Http3OutboundClient
     ): self {
         $parts = Http3ClientOrigin::validate($request, $options);
         // Fail unsafe framing before opening any native session or DNS path.
-        new Http3ClientWireCodec()->encodeRequestHeaders($request, 1);
-        $client = new self($loop, $request, $options, $onHeaders, $onBody, $completion, $onTrailers);
+        // Static outbound QPACK uses no dynamic references; keep this codec
+        // for the root request instead of allocating a temporary second one.
+        $codec = new Http3ClientWireCodec(decoderCapacity: 4_096, maxBlocked: 8);
+        $codec->encodeRequestHeaders($request, 1);
+        $client = new self($loop, $request, $options, $parts, $codec, $onHeaders, $onBody, $completion, $onTrailers);
         $client->start($parts['host'], $parts['port']);
 
         return $client;
@@ -176,7 +179,7 @@ final class Http3OutboundClient
         if ($this->finished || $this->control->peerGoaway() !== null) {
             throw new RuntimeException('HTTP/3 session is closed or draining after GOAWAY.');
         }
-        if (Http3ClientOrigin::validate($request, $this->options) !== Http3ClientOrigin::validate($this->request, $this->options)) {
+        if (Http3ClientOrigin::validate($request, $this->options) !== $this->verifiedOrigin) {
             throw new InvalidArgumentException('HTTP/3 sibling must use the exact verified original HTTPS origin.');
         }
         $this->codec->encodeRequestHeaders($request, 1);
@@ -225,11 +228,6 @@ final class Http3OutboundClient
         }
 
         return $stream;
-    }
-
-    private static function tokenCancelled(?\Infocyph\Runwire\CancellationToken $token): bool
-    {
-        return $token?->isCancelled() === true;
     }
 
     /**
@@ -654,8 +652,8 @@ final class Http3OutboundClient
     private function start(string $host, int $port): void
     {
         $token = $this->request->cancellation;
-        if (self::tokenCancelled($token)) {
-            $this->finish(new CancelledException($token?->reason() ?? CancellationReason::HOST_CANCELLED));
+        if ($token?->isCancelled() === true) {
+            $this->finish(new CancelledException($token->reason() ?? CancellationReason::HOST_CANCELLED));
 
             return;
         }

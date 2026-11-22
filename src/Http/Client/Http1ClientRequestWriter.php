@@ -120,7 +120,7 @@ final class Http1ClientRequestWriter
      */
     private function buildHead(int $maxHeaderBytes): string
     {
-        $parts = parse_url($this->request->uri);
+        $parts = parse_url($this->request->uriForSend());
         $host = is_array($parts) ? ($parts['host'] ?? null) : null;
         if (!is_array($parts) || !is_string($host)) {
             throw new InvalidArgumentException('Invalid HTTP/1.1 request target.');

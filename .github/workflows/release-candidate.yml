@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ["8.4", "8.5"]
+        php-version: ["8.4", "8.5", "8.6"]
 
     steps:
       - name: Checkout Runwire
@@ -98,11 +98,12 @@ jobs:
 
           grep -Eq '(^|/)composer\.json$' "$listing"
           grep -Eq '(^|/)src/Runtime\.php$' "$listing"
+          grep -Eq '(^|/)runtime/executor-worker\.php$' "$listing"
 
           for forbidden in \
             '.github/' 'benchmarks/' 'docs/' 'tests/' 'vendor/' '.codex/' '.agents/' \
             '.aws/' '.cache/' '.ci/' '.idea/' '.phpunit.cache/' '.psalm-cache/' \
-            '.vscode/' '.windsurf/' 'build/' 'coverage/' 'graphify-out/' 'qa/' 'var/'; do
+            '.vscode/' '.windsurf/' 'build/' 'coverage/' 'graphify-out/' 'qa/' 'tools/' 'var/'; do
             if grep -Fq "$forbidden" "$listing"; then
               echo "::error::Packaged archive unexpectedly contains $forbidden"
               exit 1
@@ -127,6 +128,8 @@ jobs:
           unzip -q build/package/runwire-candidate.zip -d "$workspace/package"
           test -f "$workspace/package/composer.json"
           test -f "$workspace/package/src/RuntimeOptions.php"
+          test -f "$workspace/package/runtime/executor-worker.php"
+          test ! -e "$workspace/package/tools"
           if [ -e "$workspace/package/tests" ] || [ -e "$workspace/package/vendor" ]; then
             echo "::error::Clean archive unexpectedly contains test or vendor dependencies."
             exit 1
@@ -141,18 +144,18 @@ jobs:
                 "url": "../package",
                 "options": {
                   "symlink": false,
-                  "versions": {"infocyph/runwire": "3.0.x-dev"}
+                  "versions": {"infocyph/runwire": "3.1.x-dev"}
                 }
               }
             ],
-            "require": {"infocyph/runwire": "3.0.x-dev"},
+            "require": {"infocyph/runwire": "3.1.x-dev"},
             "minimum-stability": "dev",
             "prefer-stable": true
           }
           JSON
           pushd "$workspace/consumer"
           composer install --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
-          composer show --format=json infocyph/runwire | jq -e '.versions | index("3.0.x-dev") != null' >/dev/null
+          composer show --format=json infocyph/runwire | jq -e '.versions | index("3.1.x-dev") != null' >/dev/null
           composer check-platform-reqs --no-dev
           cmp "$workspace/package/src/RuntimeOptions.php" vendor/infocyph/runwire/src/RuntimeOptions.php
           php -r '

@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Executor\ProcessExecutor;
+use Infocyph\Runwire\Http\Client\ClientDestinationPolicy;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\HttpOutboundDispatcher;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
+use Nyholm\Psr7\Request;
 
 it('exposes a single strict H1/H2/H3 dispatch policy without launching a forbidden dial', function (): void {
     $loop = new SelectLoop();
@@ -20,15 +23,31 @@ it('exposes a single strict H1/H2/H3 dispatch policy without launching a forbidd
     $numeric = new Dialer($loop);
     $dialer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
     $dispatcher = new HttpOutboundDispatcher($loop, $dialer);
+    $unapproved = PsrMessageBridge::outboundRequest(new Request('GET', 'https://example.test/'));
     $h3 = new ClientProtocolPolicy(ProtocolVersion::HTTP_3, [ProtocolVersion::HTTP_3]);
     $mixed = new ClientProtocolPolicy(ProtocolVersion::HTTP_2, [ProtocolVersion::HTTP_2, ProtocolVersion::HTTP_3], allowFallback: true);
+
     try {
-        expect(fn() => $dispatcher->send(new ClientRequest('GET', 'https://example.test/', protocol: $h3),
-            static function (): void {}, static function (): void {}, static function (): void {}))
+        expect(fn() => $dispatcher->send(
+            new ClientRequest('GET', 'https://example.test/', protocol: $h3),
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
+        ))
             ->toThrow(RuntimeUnavailableException::class, 'QUIC');
-        expect(fn() => $dispatcher->send(new ClientRequest('GET', 'https://example.test/', protocol: $mixed),
-            static function (): void {}, static function (): void {}, static function (): void {}))
+        expect(fn() => $dispatcher->send(
+            new ClientRequest('GET', 'https://example.test/', protocol: $mixed),
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
+        ))
             ->toThrow(RuntimeUnavailableException::class, 'downgrade');
+        expect(fn() => $dispatcher->send(
+            $unapproved,
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
+        ))->toThrow(InvalidArgumentException::class, 'destination policy');
         expect($dialer->pendingCount())->toBe(0)
             ->and($numeric->pendingCount())->toBe(0)
             ->and($executor->diagnostics()['submitted'])->toBe(0);
@@ -39,7 +58,7 @@ it('exposes a single strict H1/H2/H3 dispatch policy without launching a forbidd
     }
 });
 
-it('streams one real independent plaintext HTTP peer with owned completion and no socket leak', function (): void {
+it('streams to an approved PSR destination with owned completion and no socket leak', function (): void {
     $listener = stream_socket_server('tcp://127.0.0.1:0', $code, $error);
     \PHPUnit\Framework\Assert::assertIsResource($listener);
     stream_set_blocking($listener, false);
@@ -69,14 +88,25 @@ it('streams one real independent plaintext HTTP peer with owned completion and n
         });
     });
     $watchdog = $loop->delay(2.0, static function () use ($loop): void {
-    $loop->stop();
-});
+        $loop->stop();
+    });
+
     try {
+        $uri = 'http://' . $address . '/test';
+        $policy = new ClientProtocolPolicy(
+            ProtocolVersion::HTTP_1_1,
+            [ProtocolVersion::HTTP_1_1],
+            allowPlaintext: true,
+            destinationPolicy: new ClientDestinationPolicy([$uri]),
+        );
         $handle = $dispatcher->send(
-            new ClientRequest('GET', 'http://' . $address . '/test',
-                protocol: new ClientProtocolPolicy(ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true)),
-            static function (int $status) use (&$headers): void { $headers = $status; },
-            static function (string $chunk) use (&$body): void { $body .= $chunk; },
+            PsrMessageBridge::outboundRequest(new Request('GET', $uri), $policy),
+            static function (int $status) use (&$headers): void {
+                $headers = $status;
+            },
+            static function (string $chunk) use (&$body): void {
+                $body .= $chunk;
+            },
             static function (?Throwable $error) use (&$failure, $loop): void {
                 $failure = $error;
                 $loop->stop();
@@ -100,27 +130,36 @@ it('streams one real independent plaintext HTTP peer with owned completion and n
     }
 });
 
-
 it('uses an explicitly injected same-origin H1 pool and keeps forbidden origins isolated', function (): void {
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 1);
     $numeric = new Dialer($loop);
     $dialer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
     $session = new \Infocyph\Runwire\Http\Client\PooledHttp1Session(
-        $loop, $dialer, 'http://127.0.0.1:8899', 'isolated',
+        $loop,
+        $dialer,
+        'http://127.0.0.1:8899',
+        'isolated',
     );
     $client = new HttpOutboundDispatcher($loop, $dialer, h1Session: $session);
     $strict = new ClientProtocolPolicy(
-        ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true,
+        ProtocolVersion::HTTP_1_1,
+        [ProtocolVersion::HTTP_1_1],
+        allowPlaintext: true,
     );
+
     try {
         expect(fn() => $client->send(
             new ClientRequest('GET', 'http://127.0.0.1:8900/', protocol: $strict),
-            static function (): void {}, static function (): void {}, static function (): void {},
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
         ))->toThrow(InvalidArgumentException::class);
         expect(fn() => $client->send(
             new ClientRequest('GET', 'http://127.0.0.1:8899/', protocol: $strict),
-            static function (): void {}, static function (): void {}, static function (): void {},
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
             new DialOptions(),
         ))->toThrow(InvalidArgumentException::class, 'fixed by its session');
         expect($session->metrics()['active'])->toBe(0)
@@ -134,7 +173,6 @@ it('uses an explicitly injected same-origin H1 pool and keeps forbidden origins 
     }
 });
 
-
 it('reuses a verified H2 multiplex session for two independent dispatcher requests', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     \PHPUnit\Framework\Assert::assertIsArray($pair);
@@ -144,7 +182,10 @@ it('reuses a verified H2 multiplex session for two independent dispatcher reques
     stream_set_blocking($peer, false);
     $loop = new SelectLoop();
     $connection = new \Infocyph\Runwire\Network\Connection(
-        $loop, $socket, negotiatedProtocol: 'h2', encrypted: true,
+        $loop,
+        $socket,
+        negotiatedProtocol: 'h2',
+        encrypted: true,
     );
     $executor = new ProcessExecutor($loop, 1, 1);
     $numeric = new Dialer($loop);
@@ -156,7 +197,13 @@ it('reuses a verified H2 multiplex session for two independent dispatcher reques
     $frames = new \Infocyph\Runwire\Http\Http2\FrameParser();
     $encoder = new \Infocyph\Runwire\Http\Http2\Hpack\Encoder();
     $watch = $loop->onReadable($peer, static function () use (
-        $peer, &$wire, &$preface, &$seen, &$replied, $frames, $encoder,
+        $peer,
+        &$wire,
+        &$preface,
+        &$seen,
+        &$replied,
+        $frames,
+        $encoder,
     ): void {
         $chunk = fread($peer, 8192);
         if (is_string($chunk)) {
@@ -186,8 +233,8 @@ it('reuses a verified H2 multiplex session for two independent dispatcher reques
             $dataType = \Infocyph\Runwire\Http\Http2\Enum\FrameType::DATA->value;
             $head1 = $encoder->encode([[':status', '200']]);
             $head3 = $encoder->encode([[':status', '200']]);
-            $frame = static fn(int $type, int $flags, int $stream, string $data): string =>
-                \Infocyph\Runwire\Http\Http2\FrameWriter::encode(
+            $frame = static fn(int $type, int $flags, int $stream, string $data): string
+                => \Infocyph\Runwire\Http\Http2\FrameWriter::encode(
                     new \Infocyph\Runwire\Http\Http2\Frame($type, $flags, $stream, $data),
                 );
             fwrite($peer, $frame($frameType, 0x4, 3, $head3)
@@ -202,7 +249,8 @@ it('reuses a verified H2 multiplex session for two independent dispatcher reques
         public ?HttpOutboundDispatcher $dispatcher = null;
     };
     $owner = new \Infocyph\Runwire\Http\Client\Http2MultiplexConnection(
-        $loop, $connection,
+        $loop,
+        $connection,
         static function () use ($dispatchState, &$results, &$bodies, $loop): void {
             $dispatcher = $dispatchState->dispatcher;
             if (!$dispatcher instanceof HttpOutboundDispatcher) {
@@ -229,8 +277,9 @@ it('reuses a verified H2 multiplex session for two independent dispatcher reques
     );
     $dispatchState->dispatcher = new HttpOutboundDispatcher($loop, $dialer, h2Session: $owner);
     $watchdog = $loop->delay(3.0, static function () use ($loop): void {
-    $loop->stop();
-});
+        $loop->stop();
+    });
+
     try {
         $owner->start();
         $loop->run();

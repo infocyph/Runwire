@@ -4,17 +4,22 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Tests;
 
-use InvalidArgumentException;
-use RuntimeException;
-use Throwable;
+require_once __DIR__ . '/Support/ProcessFixture.php';
 
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Filesystem\AsyncFileSystem;
+
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use InvalidArgumentException;
+use ReflectionProperty;
+use RuntimeException;
+use Throwable;
+
+use function Infocyph\Runwire\Tests\Support\waitStatus;
 
 it('persists binary offset writes and reads and renames through one bounded worker', function (): void {
     $path = tempnam(sys_get_temp_dir(), 'runwire-async-file-');
@@ -124,6 +129,7 @@ it('rejects unbounded and malformed file operations before any worker dispatch',
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 1);
     $fs = new AsyncFileSystem($executor);
+
     try {
         expect(fn() => $fs->read('', 1, static function (): void {}))->toThrow(InvalidArgumentException::class)
             ->and(fn() => $fs->read('/tmp/file', AsyncFileSystem::MAX_OPERATION_BYTES + 1, static function (): void {}))
@@ -183,23 +189,62 @@ it('preserves a full 1 MiB binary file with SHA-256 parity through bounded offse
     }
 });
 
-it('retires a genuinely blocked active FIFO file reader on cancellation exactly once', function (): void {
-    // Test dependencies include ext-posix; keep this a mandatory exercised fixture.
-    expect(function_exists('posix_mkfifo'))->toBeTrue();
+/**
+ * Pause the owned worker only after it has completed a real filesystem operation.
+ * @throws \RuntimeException
+ */
+function pauseAsyncFileTestWorker(ProcessExecutor $executor): void
+{
+    $workers = (new ReflectionProperty(ProcessExecutor::class, 'workers'))->getValue($executor);
+    \PHPUnit\Framework\Assert::assertIsArray($workers);
+    \PHPUnit\Framework\Assert::assertCount(1, $workers);
+    $worker = reset($workers);
+    \PHPUnit\Framework\Assert::assertIsArray($worker);
+    $process = $worker['process'] ?? null;
+    \PHPUnit\Framework\Assert::assertIsResource($process);
+    $pid = proc_get_status($process)['pid'];
+    if ($pid < 2 || !posix_kill($pid, SIGSTOP)) {
+        throw new RuntimeException('Unable to pause the owned filesystem worker.');
+    }
 
-    $path = tempnam(sys_get_temp_dir(), 'runwire-fifo-job-');
+    $deadline = hrtime(true) + 2_000_000_000;
+    $status = 0;
+    do {
+        $waited = pcntl_waitpid($pid, $status, WNOHANG | WUNTRACED);
+        if ($waited !== 0) {
+            break;
+        }
+        usleep(1_000);
+    } while (hrtime(true) < $deadline);
+
+    if ($waited !== $pid || !pcntl_wifstopped(waitStatus($status))) {
+        throw new RuntimeException('The owned filesystem worker did not stop.');
+    }
+}
+
+it('retires an active filesystem read on a paused worker exactly once', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'runwire-active-file-');
     \PHPUnit\Framework\Assert::assertIsString($path);
-    unlink($path);
-    expect(posix_mkfifo($path, 0600))->toBeTrue();
+    file_put_contents($path, 'fixture');
 
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 2);
     $filesystem = new AsyncFileSystem($executor);
     $callbacks = [];
-    $activeObserved = false;
-    $cancelSucceeded = false;
 
     try {
+        $filesystem->read(
+            $path,
+            1,
+            static function (string $bytes, ?Throwable $error) use ($loop): void {
+                expect($error)->toBeNull()->and($bytes)->toBe('f');
+                $loop->stop();
+            },
+            deadline: RequestDeadline::afterSeconds(2.0, hrtime(true)),
+        );
+        $loop->run();
+        pauseAsyncFileTestWorker($executor);
+
         $id = $filesystem->read(
             $path,
             1,
@@ -207,43 +252,16 @@ it('retires a genuinely blocked active FIFO file reader on cancellation exactly 
                 $callbacks[] = [$bytes, $error];
             },
         );
-        $timer = new class {
-            public ?int $id = null;
-        };
-        $timer->id = $loop->repeat(0.01, static function () use (
-            $loop,
-            $executor,
-            $filesystem,
-            $id,
-            $timer,
-            &$activeObserved,
-            &$cancelSucceeded,
-        ): void {
-            if ($executor->diagnostics()['active'] !== 1) {
-                return;
-            }
-            $activeObserved = true;
-            if ($timer->id !== null) {
-                $loop->cancel($timer->id);
-            }
-            $loop->delay(0.02, static function () use ($filesystem, $id, &$cancelSucceeded): void {
-                $cancelSucceeded = $filesystem->cancel($id);
-            });
+        // The executor's deferred pump assigns the read before this callback runs.
+        $loop->defer(static function () use ($executor, $filesystem, $id, $loop): void {
+            expect($executor->diagnostics()['active'])->toBe(1)
+                ->and($filesystem->cancel($id))->toBeTrue()
+                ->and($filesystem->cancel($id))->toBeFalse();
+            $loop->stop();
         });
-        $watchdog = $loop->delay(1.5, static function () use ($executor): void {
-            $executor->close();
-        });
-        $executor->onDrained(static function () use ($executor, $loop, $timer, $watchdog): void {
-            $loop->cancel($timer->id);
-            $loop->cancel($watchdog);
-            $executor->close();
-        });
-
         $loop->run();
 
-        expect($activeObserved)->toBeTrue()
-            ->and($cancelSucceeded)->toBeTrue()
-            ->and($callbacks)->toHaveCount(1)
+        expect($callbacks)->toHaveCount(1)
             ->and($callbacks[0][0])->toBe('')
             ->and($callbacks[0][1])->toBeInstanceOf(CancelledException::class)
             ->and($executor->diagnostics()['workers'])->toBe(0)
@@ -253,9 +271,7 @@ it('retires a genuinely blocked active FIFO file reader on cancellation exactly 
             ->and($loop->diagnostics()->timersActive)->toBe(0);
     } finally {
         $executor->close();
-        if (is_file($path) || file_exists($path)) {
-            unlink($path);
-        }
+        unlink($path);
     }
 });
 

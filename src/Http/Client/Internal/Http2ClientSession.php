@@ -42,7 +42,7 @@ final class Http2ClientSession
         callable $onHeaders,
         callable $onBody,
     ) {
-        $parts = parse_url($request->uri);
+        $parts = parse_url($request->uriForSend());
         if (!is_array($parts) || strtolower($parts['scheme'] ?? '') !== 'https'
             || !in_array(strtoupper($request->method), ['GET', 'HEAD'], true)
             || strtoupper($request->method) !== $request->method

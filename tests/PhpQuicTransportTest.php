@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use RuntimeException;
+use InvalidArgumentException;
+use LogicException;
+
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicStream;
 use Infocyph\Runwire\Http\Http3\Quic\PhpQuicTransport;
 use Infocyph\Runwire\Tests\Fixtures\QuicTransportState;

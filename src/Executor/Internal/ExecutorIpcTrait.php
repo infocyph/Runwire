@@ -124,7 +124,7 @@ trait ExecutorIpcTrait
      */
     private function startWorker(): int
     {
-        $script = dirname(__DIR__, 3) . '/tools/executor-worker.php';
+        $script = dirname(__DIR__, 3) . '/runtime/executor-worker.php';
         $pipes = [];
         $nullDevice = '/dev/null';
         // A fresh key authenticates each request at the worker-owned IPC boundary.

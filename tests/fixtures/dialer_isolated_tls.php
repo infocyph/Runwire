@@ -32,22 +32,23 @@ try {
     if ($key === false) {
         throw new \RuntimeException('Unable to generate dialer_isolated_tls private key.');
     }
+    $signingKey = $key;
     $csr = openssl_csr_new(
         ['commonName' => 'localhost'],
         $key,
         ['config' => $configFile, 'req_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
     );
-    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
         throw new \RuntimeException('Unable to create dialer_isolated_tls certificate request.');
     }
     $cert = openssl_csr_sign(
         $csr,
         null,
-        $key,
+        $signingKey,
         1,
         ['config' => $configFile, 'x509_extensions' => 'v3_req', 'digest_alg' => 'sha256'],
     );
-    if ($cert === false || !openssl_x509_export($cert, $certPem) || !openssl_pkey_export($key, $keyPem)) {
+    if ($cert === false || !openssl_x509_export($cert, $certPem) || !openssl_pkey_export($signingKey, $keyPem)) {
         throw new RuntimeException('Could not generate independent TLS test certificate.');
     }
     file_put_contents($certificate, $certPem);

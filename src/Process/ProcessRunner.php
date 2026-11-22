@@ -288,7 +288,10 @@ final readonly class ProcessRunner
         $buffer = $chunk;
     }
 
-    /** @param array<array-key, resource> $read */
+    /**
+     * @param array<array-key, resource> $read
+     * @throws \Infocyph\Runwire\Exception\ProcessException
+     */
     private function readInputResource(array $read, ?int $inputResourceId, InputSource $input, string &$buffer): void
     {
         if ($inputResourceId === null || $buffer !== '') {

@@ -5,17 +5,20 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Tests;
 
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
+use Infocyph\Runwire\Http\Client\ClientDestinationPolicy;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Internal\Http3ClientWireCodec;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Http\Http3\Enum\FrameType;
 use Infocyph\Runwire\Http\Http3\FrameParser;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
 use Infocyph\Runwire\Http\Http3\Qpack\Decoder;
 use Infocyph\Runwire\Http\Http3\Qpack\Encoder;
 use InvalidArgumentException;
+use Nyholm\Psr7\Request;
 
 
 /**
@@ -241,3 +244,51 @@ function runwireOwnedHttp3ClientWireCodecTestCase10(): void
     $codec = new Http3ClientWireCodec();
     expect(fn() => $codec->receivePeerDecoderInstructions("\x80"))->toThrow(Http3Exception::class);
 }
+
+it('reuses static QPACK preflight without changing real request frames', function (): void {
+    runwireOwnedHttp3ClientWireCodecPreflightReuse();
+});
+
+/** @throws \Throwable */
+function runwireOwnedHttp3ClientWireCodecPreflightReuse(): void
+{
+    $request = new ClientRequest('GET', 'https://example.com/search',
+        Headers::fromArray(['accept' => 'application/json']), protocol: h3TestPolicy());
+    $codec = new Http3ClientWireCodec(decoderCapacity: 4_096, maxBlocked: 8);
+    $preflight = $codec->encodeRequestHeaders($request, 1);
+    $next = $codec->encodeRequestHeaders($request, 9);
+    $fresh = (new Http3ClientWireCodec(decoderCapacity: 4_096, maxBlocked: 8))->encodeRequestHeaders($request, 9);
+
+    expect($preflight)->toBe($next)
+        ->and($next)->toBe($fresh);
+}
+
+it('refuses to encode unauthorized HTTP/3 request headers on root or shared sibling codec paths', function (): void {
+    $codec = new Http3ClientWireCodec();
+    $uri = 'https://example.com/private';
+    $pending = PsrMessageBridge::outboundRequest(new Request('GET', $uri), h3TestPolicy());
+    expect(fn() => $codec->encodeRequestHeaders($pending, 1))
+        ->toThrow(InvalidArgumentException::class, 'destination policy');
+
+    $protocol = new ClientProtocolPolicy(
+        preferred: ProtocolVersion::HTTP_3,
+        allowedVersions: [ProtocolVersion::HTTP_3],
+        destinationPolicy: new ClientDestinationPolicy(['https://example.com/allowed']),
+    );
+    $rejectedSibling = PsrMessageBridge::outboundRequest(new Request('GET', $uri), $protocol);
+    expect(fn() => $codec->encodeRequestHeaders($rejectedSibling, 4))
+        ->toThrow(InvalidArgumentException::class, 'not approved');
+
+    $allowed = PsrMessageBridge::outboundRequest(new Request('GET', 'https://example.com/allowed'), $protocol);
+    $frames = (new FrameParser())->push($codec->encodeRequestHeaders($allowed, 4));
+    expect($frames)->toHaveCount(1);
+    $decoded = (new Decoder(0, 0))->decode($frames[0]->payload, 4);
+    \PHPUnit\Framework\Assert::assertNotNull($decoded);
+    expect($decoded->fields)->toContain([':authority', 'example.com'])
+        ->not->toContain(['host', 'example.com']);
+
+    $forged = (new Request('GET', 'https://example.com/allowed'))->withHeader('Host', 'attacker.example');
+    $forgedRequest = PsrMessageBridge::outboundRequest($forged, $protocol);
+    expect(fn() => $codec->encodeRequestHeaders($forgedRequest, 4))
+        ->toThrow(InvalidArgumentException::class, 'prohibited');
+});

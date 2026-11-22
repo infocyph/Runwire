@@ -8,12 +8,14 @@ use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\PooledHttp1Session;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use InvalidArgumentException;
+use Nyholm\Psr7\Request;
 use RuntimeException;
 use Throwable;
 
@@ -341,17 +343,18 @@ it('verifies an IPv6 IP-SAN TLS peer and retains the bracketed Host through pool
     if ($key === false) {
         throw new \RuntimeException('Unable to generate Pooled Http1Session Test private key.');
     }
+    $signingKey = $key;
     $csr = openssl_csr_new(['commonName' => 'unrelated.example'], $key, ['config' => $config]);
-    if (!$csr instanceof \OpenSSLCertificateSigningRequest || !$key instanceof \OpenSSLAsymmetricKey) {
+    if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
         throw new \RuntimeException('Unable to create Pooled Http1Session Test certificate request.');
     }
-    $cert = openssl_csr_sign($csr, null, $key, 1, ['config' => $config, 'x509_extensions' => 'v3']);
+    $cert = openssl_csr_sign($csr, null, $signingKey, 1, ['config' => $config, 'x509_extensions' => 'v3']);
     if ($cert === false) {
         throw new \RuntimeException('Unable to sign Pooled Http1Session Test certificate.');
     }
     \PHPUnit\Framework\Assert::assertIsArray(openssl_x509_parse($cert));
     openssl_x509_export($cert, $pem);
-    openssl_pkey_export($key, $keyPem);
+    openssl_pkey_export($signingKey, $keyPem);
     file_put_contents($certificate, $pem);
     file_put_contents($privateKey, $keyPem);
 
@@ -432,4 +435,32 @@ it('verifies an IPv6 IP-SAN TLS peer and retains the bracketed Host through pool
     expect($loop->diagnostics()->timersActive)->toBe(0)
         ->and($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0);
+});
+
+it('refuses an unapproved PSR request before acquiring a pooled HTTP/1 lease', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $numeric = new Dialer($loop);
+    $resolver = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
+    $session = new PooledHttp1Session($loop, $resolver, 'http://example.test:8080', 'untrusted-psr');
+    $protocol = new ClientProtocolPolicy(ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true);
+    $pending = PsrMessageBridge::outboundRequest(new Request('GET', 'http://example.test:8080/denied'), $protocol);
+
+    try {
+        expect(fn() => $session->send(
+            $pending,
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
+        ))->toThrow(InvalidArgumentException::class, 'destination policy');
+        expect($session->metrics()['active'])->toBe(0)
+            ->and($resolver->pendingCount())->toBe(0)
+            ->and($numeric->pendingCount())->toBe(0)
+            ->and($executor->diagnostics()['submitted'])->toBe(0);
+    } finally {
+        $session->close();
+        $resolver->close();
+        $numeric->close();
+        $executor->close();
+    }
 });

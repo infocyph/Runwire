@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: "Exact 40-character Runwire 3.x maintenance candidate SHA (never default to main)"
+        description: "Exact 40-character Runwire 3.1 release candidate SHA (never default to main)"
         required: true
         type: string
   pull_request:
@@ -24,6 +24,7 @@ permissions:
 
 env:
   BASELINE_SHA: 054737bc6a8d4025a8d05fabb8ad390f66ee47ae
+  STRUCTURAL_BASELINE_SHA: f1c99ba83140bf9829406c600296ebe1a78be491
   CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha }}
 
 jobs:
@@ -62,7 +63,7 @@ jobs:
           echo "Immutable source and release documentation verified."
 
   matched-performance:
-    name: "Matched baseline/candidate - PHP 8.5"
+    name: "Matched baseline/candidate - PHP 8.6"
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     needs: release-preflight
     runs-on: ubuntu-latest
@@ -87,13 +88,19 @@ jobs:
             echo "::error::Checkout revision does not match frozen candidate SHA."
             exit 1
           }
-          printf 'Frozen 3.0 candidate: %s\n' "$actual"
+          printf 'Frozen 3.1 candidate: %s\n' "$actual"
 
       - name: Checkout published 3.0 baseline at immutable SHA
         uses: actions/checkout@v7
         with:
           ref: ${{ env.BASELINE_SHA }}
           path: baseline
+
+      - name: Checkout verified pre-optimization structural baseline
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.STRUCTURAL_BASELINE_SHA }}
+          path: structural-baseline
 
       - name: Validate explicit candidate SHA before immutable comparison
         shell: bash
@@ -116,7 +123,7 @@ jobs:
       - name: Setup matched PHP runtime
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.5"
+          php-version: "8.6"
           tools: composer:v2
           extensions: pcntl, posix, event, opcache
           coverage: none
@@ -137,6 +144,7 @@ jobs:
         run: |
           composer install --working-dir=candidate --no-interaction --prefer-dist --no-progress
           composer install --working-dir=baseline --no-interaction --prefer-dist --no-progress
+          composer install --working-dir=structural-baseline --no-interaction --prefer-dist --no-progress
 
       - name: Test sustained benchmark accounting
         working-directory: candidate
@@ -145,6 +153,63 @@ jobs:
           cp vendor/infocyph/phpforge/resources/pest.xml .phpforge-pest-benchmark.xml
           trap 'rm -f .phpforge-pest-benchmark.xml' EXIT
           vendor/bin/pest --configuration=.phpforge-pest-benchmark.xml tests/Http1SustainedBenchTest.php
+
+      - name: Capture matched PHP/OPcache structural-window footprints
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="release-certification/matched"
+          mkdir -p "$output"
+          # Two immutable checkouts on this exact runner and PHP/OPcache configuration.
+          # Each mode is a separate cold CLI process, not a persistent-worker RPM result.
+          for revision in structural-baseline candidate; do
+            for mode in bootstrap lifecycle coroutine; do
+              evidence="$output/footprint-$revision-$mode.json"
+              (
+                cd "$revision"
+                php -d opcache.enable_cli=1 benchmarks/opcache_footprint.php "$mode"
+              ) > "$evidence"
+              jq -e --arg mode "$mode" '
+                .mode == $mode
+                and .correctness_passed == true
+                and .opcache_enabled == true
+                and .source_php_files > 0
+                and .included_runwire_files >= 0
+                and .cached_runwire_files >= 0
+                and .runwire_script_cache_memory_bytes >= 0
+                and ($mode == "bootstrap" or .included_runwire_files > 0)
+              ' "$evidence" >/dev/null
+            done
+          done
+          jq -s \
+            --arg baseline_sha "$STRUCTURAL_BASELINE_SHA" \
+            --arg candidate_sha "$CANDIDATE_SHA" '
+            def counts: {
+              source_php_files,
+              source_bytes,
+              included_runwire_files,
+              cached_runwire_files,
+              runwire_script_cache_memory_bytes
+            };
+            . as $samples
+            | {
+                schema: "runwire-structural-footprint-v1",
+                baseline_sha: $baseline_sha,
+                candidate_sha: $candidate_sha,
+                scope: "cold-cli-single-process-not-throughput-certification",
+                modes: [
+                  range(0;3) as $index
+                  | {
+                      mode: $samples[$index].mode,
+                      baseline: ($samples[$index] | counts),
+                      candidate: ($samples[$index + 3] | counts)
+                    }
+                ]
+              }' \
+            "$output"/footprint-structural-baseline-{bootstrap,lifecycle,coroutine}.json \
+            "$output"/footprint-candidate-{bootstrap,lifecycle,coroutine}.json \
+            > "$output/structural-footprint-comparison.json"
+          jq -e '.modes | length == 3' "$output/structural-footprint-comparison.json" >/dev/null
 
       - name: Run matched sustained comparison
         shell: bash
@@ -163,7 +228,7 @@ jobs:
           retention-days: 90
 
   candidate-soak:
-    name: "Candidate 30-minute HTTP soak - PHP 8.5"
+    name: "Candidate 30-minute HTTP soak - PHP 8.6"
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     needs: release-preflight
     runs-on: ubuntu-latest
@@ -187,13 +252,13 @@ jobs:
             echo "::error::Checkout revision does not match frozen candidate SHA."
             exit 1
           }
-          printf 'Frozen 3.0 candidate: %s\n' "$actual"
+          printf 'Frozen 3.1 candidate: %s\n' "$actual"
 
 
       - name: Setup release PHP runtime
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.5"
+          php-version: "8.6"
           tools: composer:v2
           extensions: pcntl, posix, event, opcache
           coverage: none
@@ -257,7 +322,7 @@ jobs:
             sleep 0.02
           done
 
-          export RUNWIRE_RUNTIME_VERSION="3.0.x-candidate"
+          export RUNWIRE_RUNTIME_VERSION="3.1.x-candidate"
           export RUNWIRE_RUNTIME_BUILD="$RUNWIRE_CANDIDATE_BUILD"
           export RUNWIRE_PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
           export RUNWIRE_INSTRUMENTATION="release-certification-soak"
@@ -334,7 +399,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ["8.4", "8.5"]
+        php-version: ["8.4", "8.5", "8.6"]
 
     steps:
       - name: Checkout exact Runwire candidate
@@ -387,16 +452,16 @@ jobs:
             "name": "runwire/standalone-release-smoke",
             "type": "project",
             "repositories": [
-              {"type": "path", "url": "../package", "options": {"symlink": false, "versions": {"infocyph/runwire": "3.0.x-dev"}}}
+              {"type": "path", "url": "../package", "options": {"symlink": false, "versions": {"infocyph/runwire": "3.1.x-dev"}}}
             ],
-            "require": {"infocyph/runwire": "3.0.x-dev"},
+            "require": {"infocyph/runwire": "3.1.x-dev"},
             "minimum-stability": "dev",
             "prefer-stable": true
           }
           JSON
           composer install --working-dir="$workspace/consumer" --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
           composer show --working-dir="$workspace/consumer" --format=json infocyph/runwire \
-            | jq -e '.versions | index("3.0.x-dev") != null' >/dev/null
+            | jq -e '.versions | index("3.1.x-dev") != null' >/dev/null
           composer check-platform-reqs --working-dir="$workspace/consumer" --no-dev
           cmp runwire/src/RuntimeOptions.php "$workspace/consumer/vendor/infocyph/runwire/src/RuntimeOptions.php"
           cmp runwire/composer.json "$workspace/consumer/vendor/infocyph/runwire/composer.json"
@@ -522,13 +587,13 @@ jobs:
             echo "::error::Checkout revision does not match frozen candidate SHA."
             exit 1
           }
-          printf 'Frozen 3.0 candidate: %s\n' "$actual"
+          printf 'Frozen 3.1 candidate: %s\n' "$actual"
 
 
       - name: Setup release-analysis runtime
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.5"
+          php-version: "8.6"
           tools: composer:v2
           extensions: pcntl, posix, event, opcache
           coverage: none

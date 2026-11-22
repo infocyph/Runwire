@@ -62,6 +62,8 @@ final readonly class WebSocketUpgrade
         }
 
         $key = trim($request->headers->all('sec-websocket-key')[0]);
+        // RFC 6455 mandates SHA-1 for the WebSocket handshake accept proof only.
+        /** @psalm-suppress WeakHash */
         $accept = base64_encode(sha1($key . self::ACCEPT_GUID, true));
 
         return $writer->upgradeWebSocket(

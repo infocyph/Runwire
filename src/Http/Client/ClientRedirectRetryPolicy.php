@@ -71,8 +71,9 @@ final readonly class ClientRedirectRetryPolicy
         if (!in_array(strtoupper($request->method), ['GET', 'HEAD'], true) || $request->body !== null) {
             throw new RuntimeException('Unsafe HTTP redirect would replay a non-idempotent or streaming request.');
         }
-        $uri = self::resolve($request->uri, $location);
-        $original = self::origin($request->uri);
+        $originalUri = $request->uriForSend();
+        $uri = self::resolve($originalUri, $location);
+        $original = self::origin($originalUri);
         $next = self::origin($uri);
         if ($original[0] === 'https' && $next[0] !== 'https') {
             throw new RuntimeException('HTTPS-to-plaintext HTTP redirect is forbidden.');
@@ -84,14 +85,7 @@ final readonly class ClientRedirectRetryPolicy
 
         $headers = self::headersForRedirect($request->headers, $sameOrigin);
 
-        return new ClientRequest(
-            method: $request->method,
-            uri: $uri,
-            headers: $headers,
-            protocol: $request->protocol,
-            cancellation: $request->cancellation,
-            deadline: $request->deadline,
-        );
+        return $request->redirected($uri, $headers);
     }
 
     /** Retry only a bodyless safe method before any response was published. */
@@ -128,6 +122,36 @@ final readonly class ClientRedirectRetryPolicy
     }
 
     /**
+     * Normalize literal dot segments in an absolute path, retaining empty segments.
+     * Query parameters are never interpreted as path components.
+     */
+    private static function removeDotSegments(string $path): string
+    {
+        if (!str_contains($path, '/.')) {
+            return $path;
+        }
+
+        $segments = explode('/', $path);
+        $result = [];
+        $last = count($segments) - 1;
+        foreach ($segments as $index => $segment) {
+            if ($segment === '.' || $segment === '..') {
+                if ($segment === '..' && count($result) > 1) {
+                    array_pop($result);
+                }
+                if ($index === $last) {
+                    $result[] = '';
+                }
+
+                continue;
+            }
+            $result[] = $segment;
+        }
+
+        return implode('/', $result);
+    }
+
+    /**
      * @throws \RuntimeException
      */
     private static function resolve(string $origin, string $location): string
@@ -145,17 +169,33 @@ final readonly class ClientRedirectRetryPolicy
         if (preg_match('~^https?://~i', $location) === 1) {
             return $location;
         }
-        if (str_contains($location, '://') || preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:/', $location) === 1) {
+        // A nested URL in the query does not change the Location reference's scheme.
+        $reference = substr($location, 0, strcspn($location, '?'));
+        if (str_contains($reference, '://') || preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:/', $reference) === 1) {
             throw new RuntimeException('HTTP redirect uses an unsupported protocol.');
         }
         $authority = $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
         $base = $parts['scheme'] . '://' . $authority;
-        if (str_starts_with($location, '/')) {
-            return $base . $location;
-        }
-        $path = $parts['path'] ?? '/';
-        $prefix = substr($path, 0, (int) strrpos($path, '/') + 1);
 
-        return $base . $prefix . $location;
+        return $base . self::resolveRelativePath($parts['path'] ?? '', $location);
+    }
+
+    /** Resolve relative paths and queries while retaining query bytes unchanged. */
+    private static function resolveRelativePath(string $path, string $location): string
+    {
+        if (str_starts_with($location, '?')) {
+            return $path . $location;
+        }
+
+        $queryAt = strpos($location, '?');
+        $relative = $queryAt === false ? $location : substr($location, 0, $queryAt);
+        $query = $queryAt === false ? '' : substr($location, $queryAt);
+        if (str_starts_with($relative, '/')) {
+            return self::removeDotSegments($relative) . $query;
+        }
+
+        $prefix = $path === '' ? '/' : substr($path, 0, (int) strrpos($path, '/') + 1);
+
+        return self::removeDotSegments($prefix . $relative) . $query;
     }
 }

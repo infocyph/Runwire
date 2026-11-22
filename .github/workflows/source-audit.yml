@@ -65,7 +65,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2 # v2
         with:
-          php-version: '8.5'
+          php-version: '8.6'
           coverage: none
 
       - name: Checkout immutable published 2.1.2 comparator

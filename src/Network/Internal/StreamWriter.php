@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Network\Internal;
 
 /**
- * Performs stream writes while containing expected fwrite warnings to the write attempt.
+ * Performs stream writes while containing expected fwrite warnings and notices.
  *
  * @internal
  */
@@ -17,7 +17,10 @@ final class StreamWriter
      */
     public static function write(mixed $stream, string $data, ?int $length = null): int|false
     {
-        set_error_handler(self::writeWarning(...));
+        /** @var ?\Closure(int, string): bool $warningHandler */
+        static $warningHandler = null;
+        $warningHandler ??= self::writeWarning(...);
+        set_error_handler($warningHandler);
 
         try {
             return $length === null
@@ -30,6 +33,7 @@ final class StreamWriter
 
     private static function writeWarning(int $severity, string $message): bool
     {
-        return $severity === E_WARNING && str_starts_with($message, 'fwrite():');
+        return ($severity === E_WARNING || $severity === E_NOTICE)
+            && str_starts_with($message, 'fwrite():');
     }
 }

@@ -54,9 +54,6 @@ try {
             $previousTempPath = $path;
             $file = null;
             $pair = null;
-            $fileRoundtrip = false;
-            $socketRoundtrip = false;
-            $poolRoundtrip = false;
             $pool = null;
             $poolConnection = null;
             $poolPair = null;

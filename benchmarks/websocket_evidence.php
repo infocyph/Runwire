@@ -43,6 +43,8 @@ function wsConnect(int $port): mixed
         throw new WebSocketEvidenceProtocolFailure('Server rejected the WebSocket handshake.');
     }
 
+    // RFC 6455 mandates SHA-1 for the WebSocket handshake accept proof only.
+    /** @psalm-suppress WeakHash */
     $expected = base64_encode(sha1($key . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11', true));
     $headers = [];
     foreach (explode("\r\n", $head) as $line) {
@@ -70,7 +72,7 @@ function wsConnect(int $port): mixed
 function wsCheckEmptyRead(mixed $socket, string $timeout, string $closed): void
 {
     $metadata = stream_get_meta_data($socket);
-    if ($metadata['timed_out']) {
+    if (!empty($metadata['timed_out'])) {
         throw new WebSocketEvidenceTimeout($timeout);
     }
     if (feof($socket)) {
@@ -258,7 +260,7 @@ function wsWriteAll(mixed $socket, string $wire): void
         }
         if ($written === 0) {
             $metadata = stream_get_meta_data($socket);
-            if ($metadata['timed_out'] === true) {
+            if (!empty($metadata['timed_out']) === true) {
                 throw new WebSocketEvidenceTimeout('Timed out writing WebSocket bytes.');
             }
 

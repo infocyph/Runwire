@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
+use Closure;
+use RuntimeException;
+use InvalidArgumentException;
+use LogicException;
+
 require_once __DIR__.'/Support/ProcessFixture.php';
 
 use Infocyph\Runwire\Exception\ApplicationShutdownException;
