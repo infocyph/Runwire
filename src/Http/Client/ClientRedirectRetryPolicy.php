@@ -174,6 +174,7 @@ final readonly class ClientRedirectRetryPolicy
         }
         $authority = $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
         $base = $parts['scheme'] . '://' . $authority;
+
         return $base . self::resolveRelativePath($parts['path'] ?? '', $location);
     }
 
