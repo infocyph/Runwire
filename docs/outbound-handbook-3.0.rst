@@ -211,7 +211,7 @@ the same off-loop `ProcessExecutor` as the default resolver. New test:
 PSR-7 outbound metadata and explicit URI approval
 -------------------------------------------------
 
-`Interop\\Psr\\PsrMessageBridge::outboundRequest()` accepts bodyless PSR-7
+`Interop\Psr\PsrMessageBridge::outboundRequest()` accepts bodyless PSR-7
 requests but must never turn an untrusted PSR URI directly into a network
 destination. A caller-approved **exact URL** is required. The approved value
 must come from immutable trusted application configuration, not the supplied
@@ -222,7 +222,7 @@ scheme, hostname, port, path and query; mismatches fail before dial ownership.
 
    <?php
 
-   use Infocyph\\Runwire\\Interop\\Psr\\PsrMessageBridge;
+   use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 
    // This literal represents an explicitly approved application target.
    $approved = 'https://api.example.com/status';
