@@ -265,6 +265,14 @@ final readonly class Http3ClientWireCodec
             [':path', $target],
         ];
         foreach ($request->headers->fields() as $header) {
+            if ($header->name === 'host') {
+                // A PSR-7 Host may be implicit; HTTP/3 uses :authority instead.
+                if (strcasecmp(trim($header->value), $authority) !== 0) {
+                    throw new InvalidArgumentException('HTTP/3 Host header is prohibited when it differs from the verified authority.');
+                }
+
+                continue;
+            }
             self::assertRequestHeader($header->name, $header->value, $request->body !== null);
             $fields[] = [$header->name, $header->value];
         }

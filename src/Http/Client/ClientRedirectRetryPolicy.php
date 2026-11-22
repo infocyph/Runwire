@@ -122,47 +122,6 @@ final readonly class ClientRedirectRetryPolicy
     }
 
     /**
-     * @throws \RuntimeException
-     */
-    private static function resolve(string $origin, string $location): string
-    {
-        if ($location === '' || strlen($location) > 2_048
-            || preg_match('/[\x00-\x20\x7F#\\\\]/', $location) === 1
-            || str_starts_with($location, '//')) {
-            throw new RuntimeException('HTTP redirect location is malformed or ambiguous.');
-        }
-        $parts = parse_url($origin);
-        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
-            throw new RuntimeException('HTTP redirect base origin is malformed.');
-        }
-
-        if (preg_match('~^https?://~i', $location) === 1) {
-            return $location;
-        }
-        if (str_contains($location, '://') || preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:/', $location) === 1) {
-            throw new RuntimeException('HTTP redirect uses an unsupported protocol.');
-        }
-        $authority = $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
-        $base = $parts['scheme'] . '://' . $authority;
-        $path = $parts['path'] ?? '';
-        if (str_starts_with($location, '?')) {
-            // A query-only relative reference keeps the entire existing path.
-            return $base . $path . $location;
-        }
-
-        $queryAt = strpos($location, '?');
-        $referencePath = $queryAt === false ? $location : substr($location, 0, $queryAt);
-        $query = $queryAt === false ? '' : substr($location, $queryAt);
-        if (str_starts_with($referencePath, '/')) {
-            return $base . self::removeDotSegments($referencePath) . $query;
-        }
-
-        $prefix = $path === '' ? '/' : substr($path, 0, (int) strrpos($path, '/') + 1);
-
-        return $base . self::removeDotSegments($prefix . $referencePath) . $query;
-    }
-
-    /**
      * Normalize literal dot segments in an absolute path, retaining empty segments.
      * Query parameters are never interpreted as path components.
      */
@@ -190,5 +149,50 @@ final readonly class ClientRedirectRetryPolicy
         }
 
         return implode('/', $result);
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    private static function resolve(string $origin, string $location): string
+    {
+        if ($location === '' || strlen($location) > 2_048
+            || preg_match('/[\x00-\x20\x7F#\\\\]/', $location) === 1
+            || str_starts_with($location, '//')) {
+            throw new RuntimeException('HTTP redirect location is malformed or ambiguous.');
+        }
+        $parts = parse_url($origin);
+        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
+            throw new RuntimeException('HTTP redirect base origin is malformed.');
+        }
+
+        if (preg_match('~^https?://~i', $location) === 1) {
+            return $location;
+        }
+        if (str_contains($location, '://') || preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:/', $location) === 1) {
+            throw new RuntimeException('HTTP redirect uses an unsupported protocol.');
+        }
+        $authority = $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+        $base = $parts['scheme'] . '://' . $authority;
+        return $base . self::resolveRelativePath($parts['path'] ?? '', $location);
+    }
+
+    /** Resolve relative paths and queries while retaining query bytes unchanged. */
+    private static function resolveRelativePath(string $path, string $location): string
+    {
+        if (str_starts_with($location, '?')) {
+            return $path . $location;
+        }
+
+        $queryAt = strpos($location, '?');
+        $relative = $queryAt === false ? $location : substr($location, 0, $queryAt);
+        $query = $queryAt === false ? '' : substr($location, $queryAt);
+        if (str_starts_with($relative, '/')) {
+            return self::removeDotSegments($relative) . $query;
+        }
+
+        $prefix = $path === '' ? '/' : substr($path, 0, (int) strrpos($path, '/') + 1);
+
+        return self::removeDotSegments($prefix . $relative) . $query;
     }
 }

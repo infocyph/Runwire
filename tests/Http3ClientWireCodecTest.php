@@ -280,5 +280,15 @@ it('refuses to encode unauthorized HTTP/3 request headers on root or shared sibl
         ->toThrow(InvalidArgumentException::class, 'not approved');
 
     $allowed = PsrMessageBridge::outboundRequest(new Request('GET', 'https://example.com/allowed'), $protocol);
-    expect($codec->encodeRequestHeaders($allowed, 4))->not->toBe('');
+    $frames = (new FrameParser())->push($codec->encodeRequestHeaders($allowed, 4));
+    expect($frames)->toHaveCount(1);
+    $decoded = (new Decoder(0, 0))->decode($frames[0]->payload, 4);
+    \PHPUnit\Framework\Assert::assertNotNull($decoded);
+    expect($decoded->fields)->toContain([':authority', 'example.com'])
+        ->not->toContain(['host', 'example.com']);
+
+    $forged = (new Request('GET', 'https://example.com/allowed'))->withHeader('Host', 'attacker.example');
+    $forgedRequest = PsrMessageBridge::outboundRequest($forged, $protocol);
+    expect(fn() => $codec->encodeRequestHeaders($forgedRequest, 4))
+        ->toThrow(InvalidArgumentException::class, 'prohibited');
 });
