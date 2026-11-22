@@ -89,7 +89,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 - [x] Inspect immutable root-origin revalidation, temporary HTTP/3 codec and static QPACK preflight; reuse the verified origin and preflight codec.
 - [x] Preserve sibling origin/ALPN checks; original root and options are immutable, and preflight still executes before any native session allocation.
-- [ ] Reverify all independent QUIC, GOAWAY, TLS peer, QPACK and cancellation suites on B04 exact head.
+- [x] The original B04 exact-head task is superseded by final-source and B17 exact-head green independent QUIC, H2/H3, SSL/TLS and regression QA; historical interim SHAs are not release candidates.
 - Gate: independent HTTP/3 QUIC PHP 8.4/8.5/8.6 tests, multiplex/cancellation, security and throughput.
 
 ### B05 — Small internal type and call-chain audit [verified, no released symbol deletion, P2]
@@ -111,8 +111,8 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 - [x] Recount source files and interfaces against PR #16 baseline: 448 production PHP files and 23 Interface-named files unchanged; Internal paths 151 unchanged; source bytes 1,982,567 → 1,982,757 (+190). [ ] Run representative autoloaded/compiled-script profiles; GitHub tree is not a loaded-file measurement.
 - [x] Add a same-process PHPBench reference-vs-optimized PSR-15 32-layer workload with identical middleware/terminal/request and separate setup measurement. [ ] Collect resulting PHP 8.4–8.6 benchmark JSON and run production-equivalent sustained RPM, p95/p99, memory and error-budget comparisons before claiming gains.
-- [ ] Confirm PHP 8.4–8.6, optional extensions, docs, public API, packaging, security and final-source SHA; report any unsupported combination precisely.
-- [ ] Separate completed code work from release certification, main-branch merge or tagging; **never automatically merge**.
+- [x] All required workflows, PHPForge-default Psalm/PHPStan/QA on PHP 8.4–8.6, optional native QUIC matrix, docs, source API audit, Composer installed-package checks and release guard passed on frozen source; B17 tracking-only exact-head CI passed too. Extension-dependent features remain optional and host-specific.
+- [x] Kept implementation/production-source certification separate from tracking-only commits and **not** merged/tagged/released. Independent FLOW-02/compatibility authorization remains ungranted.
 - Gate: all required CI green on final exact SHA; blockers explicit.
 
 ### B08 — QUIC worker poll-array copy elimination [implemented and native QUIC verified, P1]
@@ -142,14 +142,14 @@ Do not present source size or file count as direct runtime gains. The small-file
 
 - [ ] Inline the `Connection::invoke()` delegation: **rejected/deferred** after PHPStan found class cognitive complexity 84, limit 80. Restore previously verified dispatcher, no complexity exception or threshold change.
 - [x] Add focused null callback, original throwable, and connection termination regression.
-- [ ] Confirm supported PHP 8.4–8.6 QA/analysis and native/hosted exact-head workflow status without hiding the existing SSRF finding.
+- [x] Confirmed final B17 exact-head required workflows all green (including security/analysis PHP 8.4–8.6, native/hosted). Historic Psalm SSRF was fixed in the PSR boundary, not skipped; worker taint escapes remain scoped and separately under review.
 - Gate: callback ordering, exactly-once abort, cleanup, exception propagation.
 
 ### B11 — Measured structural completion and certification [final-source measured; FLOW-02 approval pending, P0]
 
 - [x] Reconcile historical B07-S1 matched source/OPcache and sustained HTTP/1 evidence from release certification `44927412407`. [ ] Repeat these tests on the final B08/B09/B10 source **after** unsuppressed Psalm and security validation are green.
 - [ ] Evaluate a repeated warm runtime and cold bootstrap separately; do not interpret reduced source lines or helper count as production speedup.
-- [ ] Reconcile every open task, CI result and artifact back into the same plan/tracker; mark `done` only for implemented and verified requirements, with explicit `deferred` for evidence-based major-only changes.
+- [x] Reconciled final-source and B17 CI, historic review-thread resolution, measured artifacts and deferred major-only source/class removals. Approval gates remain explicitly open.
 - [ ] Keep PHPForge's default Psalm configuration untouched; do not merge/tag/release without exact-head green gates and final security disposition.
 - Gate: full current-source CI and release performance evidence, with no unverified claims.
 
@@ -217,7 +217,7 @@ Do not present source size or file count as direct runtime gains. The small-file
 - [x] PR #16 closed without merging; PR #17 retargeted from the former PR #16 branch to `main`. Ancestry check: PR #17 had 25 commits ahead of `main` and 52 changed files, including every PR #16 change and this plan, with none behind `main`.
 - [x] Fixed Sphinx warning-as-error in `docs/security-handbook-3.0.rst`: title underline shorter than title in B01.
 - [x] Retained original `fix/worker-fatal-diagnostics-and-streamwriter-notices` branch for historical traceability; do not delete or merge automatically.
-- [ ] Exact-head docs/source audit and required PR checks must pass after this commit. Previous green checks refer to PR #16 SHA, not the consolidated latest SHA.
+- [x] Historical intermediate gate was superseded: final B17 exact-head 8/8 required workflows passed, including docs/Source Audit. This is not an approval of FLOW-02.
 - [x] Remove the root file-scoped dialer `TaintedSSRF` override in B07-S2; no substitute local Psalm config. [ ] Prove full PHPForge default Psalm/taint analysis passes without the exception and complete independent outbound trust-boundary review.
 
 ### B02 — 2026-11-21
@@ -439,11 +439,11 @@ Do not present source size or file count as direct runtime gains. The small-file
 - The previous `PsrMessageBridge → ClientRequest → Http2OutboundClient → Dialer` Psalm path is **no longer reported** with full taint analysis enabled. No root `psalm.xml`, suppressed issue, expanded ignore, removed reviewer rule or weakened check was introduced. The **independent FLOW-02 security disposition/sign-off is not self-granted**.
 - All these CI results certify candidate `c898c865`; this tracker-only commit does not change production PHP. Next is an opt-in exact-head release certification. The repository already provides a `pull_request:labeled` trigger gated on label `release-certification` plus immutable candidate SHA and baseline, so use that mechanism rather than creating duplicate workflows or modifying main. Preserve PR draft, no merge/tag.
 
-### B13-Cert — planned next gate
+### B13-Cert — final-source certification complete; independent FLOW-02 gate remains open
 
-- [ ] On the completed tracking head, reverify exact required CI; trigger **existing** `release-certification` label on PR #17. Do not modify workflow triggers, disable constraints, or certify a different SHA.
-- [ ] Collect five matched successful-RPS trials, p95/p99, RSS, error ratios, final-source OPcache bootstrap/lifecycle/coroutine footprints and 30-minute soak; benchmark requires matched hardware and acceptable variance.
-- [ ] Compare release baseline and pre-optimization structural baseline with actual production-source candidate; older B07-S1's **-1.273%** H1 result and unchanged 43/62 loaded-file count are historic and not automatically valid on B08–B12 source.
+- [x] Verified eight workflows on final production source `4c7704a2` and tracking-only B17 `7ac413fa`; existing opt-in release certification `44984218524` completed against immutable `4c7704a2` (not a different SHA).
+- [x] Collected five matched 180-second successful-RPS trials, p95/p99/RSS/error ratios, final-source OPcache bootstrap/lifecycle/coroutine artifact and 30-minute soak; matched source and hardware variance guard passed. Numerical OPcache-mode differences were recorded in the artifact but not transcribed into this tracker.
+- [x] Compared the published 3.0 performance baseline and structural OPcache baseline against final production-source `4c7704a2`, with +0.995% median H1 successful RPS and +0.939% peak RSS; older B07-S1 -1.273% H1 and 43/62 loaded counts remain historical, not final-source results.
 - [ ] Reconcile performance decision and an explicitly independent FLOW-02 security approval with latest plan, PR and final-source CI before any release-ready assertion.
 
 ### B14-W — 2026-11-22 (worker taint-policy narrowing and package integrity)
@@ -521,3 +521,12 @@ Do not present source size or file count as direct runtime gains. The small-file
 - Reference verification: `4c7704a20c15ea0364a5d6e82757f19b3f146a6a`, [Security & Standards #44983585423](https://github.com/infocyph/Runwire/actions/runs/44983585423) and corresponding PHPUnit/Pest/PHPForge tests. The current B15/B16 commits change only this tracker, so these historic source issues are still corrected.
 - Thread resolution is administrative evidence about **historical findings only**. It does not assert future CI success, acknowledge independent FLOW-02 security review, or approve the PSR bridge's intentionally breaking security tightening. No changes to production source or tool policy.
 - New exact-head standard workflows were started by B16. Preserve exact-source green certification at `4c7704a2` as evidence and verify the new B17 tracking-only HEAD separately before final record. **No merge/tag/release; PR remains draft.**
+
+### B18 — 2026-11-22 (release-candidate handoff, security proof packet and migration disclosure)
+
+- **Scope:** docs and release-baseline evidence only. No production PHP, workflow, scanner policy or benchmark implementation changes. Latest published release is **3.0.1**; proposed next tag (e.g. 3.0.2) is deliberately **not selected or created** until the maintainer records the public-API compatibility and versioning decision.
+- **Completed:** reconciled nine historically open but actually verified exact-head workflow/benchmark tasks in the batch queue and B13; left unmeasured isolated microbench/cold-script improvements and rejected callback/class consolidations deferred. Preserved the original dated ledger with final-source clarification rather than manufacturing historical CI.
+- **Migration:** updated `docs/migration-playbook-3.0.rst` with explicit 3.0.1-versus-current PR sample and the `PsrMessageBridge::outboundRequest(..., approvedUri: ...)` runtime rejection contract. Earlier four-argument calls do *not* remain compatible by default. Safe migration requires immutable trusted application URI configuration and, separately, network candidate-and-peer policy where inputs are untrusted; no implicit approval from the PSR request is acceptable.
+- **Security handoff:** `qa/release-baseline/next-release-security-and-handoff.md` records actual source lines, trust and threat boundaries, residual TOCTOU/authority assumptions, checker and negative-test evidence, optional runtime capabilities, release candidate notes, release workflow actions and an explicit **unsigned** independent-review/maintainer-approval form.
+- **Verification before approval:** prior source freeze `4c7704a20c15ea0364a5d6e82757f19b3f146a6a`, eight required workflows green and certification [44984218524](https://github.com/infocyph/Runwire/actions/runs/44984218524) (5x180s H1 trials and 1800-second soak). B17 exact-head `7ac413fa4d68df7a2b53272bd1b4a6b55a0c58ab` also verified 8/8 required CI green; 18/18 bot threads resolved. Recheck B18 exact-head workflows after committing.
+- **Still P0:** independent reviewer must personally disposition FLOW-02; maintainer must explicitly approve security-driven PSR compatibility/versioning and authorize publication. Neither can be marked complete by this documentation-only batch or by automated CI. Do not merge, tag, publish or call the candidate release-ready until these are recorded.
