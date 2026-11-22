@@ -71,8 +71,8 @@ event-loop thread as before.
 
 This section is migration guidance for an **unreleased** PR. The tag name
 and acceptance of its compatibility implications are recorded separately
-in `qa/release-baseline/next-release-security-and-handoff.md`. Do not
-treat a passing automated test as maintainer release authorization.
+in the PR #17 review and the published release notes. Do not treat
+a passing automated test as maintainer release authorization.
 
 
 Preserved public methods
