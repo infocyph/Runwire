@@ -236,13 +236,29 @@
                         "reason": "Reviewed authenticated operational worker filesystem boundary and restricted-root/special-file regression coverage; unrestricted-root paths retain caller-owned authority.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "7f8f2417d81e9626471c5d47deef85d47f217fe2049363345d3a18b5d1b45a1f",
+                            "sha256": "360ccb70b88489a596054adc87730d1240cf1076d58bb81f00a6f80cd9d64d0c",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
                             ]
                         },
                         "taint": "file"
+                    },
+                    {
+                        "directive": "@psalm-taint-escape",
+                        "paths": [
+                            "runtime/executor-worker.php"
+                        ],
+                        "reason": "PHP filesystem APIs can dereference network URL wrappers; the HMAC-authorized worker's guard rejects :// wrappers, NUL bytes, and off-root/symlink paths before opening. Bounded filesystem security regressions enforce this contract.",
+                        "security": {
+                            "sanitizer": "runtime/executor-worker.php",
+                            "sha256": "360ccb70b88489a596054adc87730d1240cf1076d58bb81f00a6f80cd9d64d0c",
+                            "tests": [
+                                "tests/AsyncFilePathPolicyTest.php",
+                                "tests/AsyncFileSpecialFileSafetyTest.php"
+                            ]
+                        },
+                        "taint": "ssrf"
                     },
                     {
                         "directive": "@psalm-suppress",
