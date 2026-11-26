@@ -25,6 +25,7 @@ function runwireReleaseSummaryFixture(): array
         'median_successful_rps' => 1000.0,
         'median_successful_rpm' => 60000.0,
         'rps_cv_percent' => 0.5,
+        'median_p95_ms' => 3.0,
         'median_p99_ms' => 5.0,
         'peak_rss_bytes' => 12_000_000,
         'correctness_passed' => true,
@@ -117,7 +118,7 @@ it('rejects a stable throughput regression and cannot certify unstable evidence'
     $candidate['median_successful_rps'] = 900.0;
     [$exit, $output] = runwireCompareReleaseSummaries($baseline, $candidate);
     expect($exit)->toBeGreaterThan(0)
-        ->and($output)->toContain('exceeds the permitted throughput, p99 latency, or RSS regression budget');
+        ->and($output)->toContain('exceeds the permitted throughput, p95/p99 latency, or RSS regression budget');
 
     $candidate = $baseline;
     $candidate['runtime_build'] = 'candidate-test';
@@ -131,7 +132,7 @@ it('rejects a stable throughput regression and cannot certify unstable evidence'
 });
 
 it('fails closed on missing or non-finite release benchmark metrics', function (): void {
-    foreach (['median_p99_ms', 'peak_rss_bytes', 'duration_seconds_per_trial'] as $field) {
+    foreach (['median_p95_ms', 'median_p99_ms', 'peak_rss_bytes', 'duration_seconds_per_trial'] as $field) {
         $baseline = runwireReleaseSummaryFixture();
         $candidate = $baseline;
         unset($candidate[$field]);
@@ -162,6 +163,7 @@ it('rejects p99 and RSS regressions even when successful throughput is unchanged
 
 it('keeps the p99 absolute tolerance for fast workloads without dropping the RSS guard', function (): void {
     $baseline = runwireReleaseSummaryFixture();
+    $baseline['median_p95_ms'] = 0.4;
     $baseline['median_p99_ms'] = 0.5;
     $candidate = $baseline;
     $candidate['runtime_build'] = 'small-latency-delta';

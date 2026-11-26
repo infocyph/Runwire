@@ -17,11 +17,12 @@ it('never certifies the default branch instead of a pinned release candidate', f
         ->and($workflow)->toContain('1800 "$server_pid"', 'Run exact PHPForge release guard');
 });
 
-it('keeps immutable published 3.0 as the release performance baseline', function (): void {
+it('keeps verified published 3.1 as the release performance baseline', function (): void {
     $workflow = file_get_contents(dirname(__DIR__) . '/.github/workflows/release-certification.yml');
     \PHPUnit\Framework\Assert::assertIsString($workflow);
     expect($workflow)
-        ->toContain('BASELINE_SHA: 054737bc6a8d4025a8d05fabb8ad390f66ee47ae')
+        ->toContain("BASELINE_TAG: '3.1'", 'refs/tags/${BASELINE_TAG}^{}', 'baseline_sha: ${{ steps.baseline.outputs.sha }}')
+        ->toContain('ref: refs/tags/${{ env.BASELINE_TAG }}')
         ->toContain('test "$(git -C baseline rev-parse HEAD)" = "$BASELINE_SHA"')
         ->toContain('candidate/benchmarks/matched_release_certification.sh');
 });
