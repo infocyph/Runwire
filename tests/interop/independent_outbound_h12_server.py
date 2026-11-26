@@ -7,9 +7,8 @@ from pathlib import Path
 from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import RequestReceived
-from h2.settings import SettingCodes
 
-BODY = b"runwire-outbound-h3-peer-ok"
+BODY = b"runwire-outbound-h12-peer-ok"
 
 async def handle(reader, writer):
     try:
@@ -23,9 +22,7 @@ async def handle(reader, writer):
             await writer.drain()
         elif proto == "h2":
             h = H2Connection(H2Configuration(client_side=False, header_encoding="utf-8"))
-            # hyper-h2 includes ENABLE_PUSH=0 by default even for server contexts;
-            # RFC 9113 prohibits servers from sending this setting at all.
-            del h.local_settings[SettingCodes.ENABLE_PUSH]
+            # Preserve the reference peer's legal default ENABLE_PUSH=0.
             h.initiate_connection()
             writer.write(h.data_to_send())
             await writer.drain()

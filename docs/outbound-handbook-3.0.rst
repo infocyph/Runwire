@@ -109,19 +109,8 @@ Independent hyper-h2 reference tests provide stronger evidence than
 connecting two Runwire implementations. Do not share one H2 session
 across incompatible authority/trust contexts.
 
-HTTP/3 outbound
----------------
-
-`Http3OutboundClient` uses native QUIC/TLS/H3 capabilities. Stream IDs,
-QPACK instructions, header admission and cancel/reset belong to their
-own QUIC connection lifetime; an H3-only policy must fail closed when
-native QUIC is missing. Never pretend that TCP fallback satisfied a
-mandatory h3 request.
-
-Use independent H3 peers and explicit packet loss/reorder tests for
-verification. WebTransport and QUIC DATAGRAM-based WebTransport
-semantics are excluded regardless of the availability of ordinary
-UDP operations.
+HTTP/3 outbound is removed in 4.0. Select HTTP/1.1 or HTTP/2 explicitly;
+no implicit downgrade or WebTransport support is provided.
 
 HTTP CONNECT and SOCKS5
 -----------------------
