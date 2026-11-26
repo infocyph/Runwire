@@ -139,6 +139,7 @@ it('sends stream-local CANCEL without terminating the sibling live H2 exchange',
     stream_set_blocking($peer, false);
     $loop = new SelectLoop();
     $connection = new Connection($loop, $socket, negotiatedProtocol: 'h2', encrypted: true);
+    VerifiedOutboundTlsPeers::register($connection, 'example.test');
     $wire = '';
     $peerStarted = false;
     $frameParser = new FrameParser();
