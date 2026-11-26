@@ -364,6 +364,7 @@ final class ProcessExecutor
         }
     }
 
+    /** @throws \LogicException */
     private function pump(): void
     {
         if ($this->closed) {

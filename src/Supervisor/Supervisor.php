@@ -564,9 +564,7 @@ final class Supervisor
         );
 
         unset($this->children[$pid]);
-        if (($this->currentSlots[$record->group->name][$record->slot] ?? null) === $pid) {
-            unset($this->currentSlots[$record->group->name][$record->slot]);
-        }
+        ChildSet::removeCurrentSlot($record, $this->currentSlots);
         $replacement = $this->replacementFor($pid);
         if ($replacement !== null && $replacement->replacesPid === $pid) {
             $replacement->replacesPid = null;
@@ -709,20 +707,17 @@ final class Supervisor
         }
 
         unset($this->children[$pid]);
-        if (($this->currentSlots[$record->group->name][$record->slot] ?? null) === $pid) {
-            unset($this->currentSlots[$record->group->name][$record->slot]);
-        }
+        ChildSet::removeCurrentSlot($record, $this->currentSlots);
         $this->closeChildWatchers($record);
-        if ($this->stopping) {
-            if ($this->children === []) {
-                $this->loop->stop();
-            }
+        if (!$this->stopping) {
+            // Keep remaining worker ownership so the fatal drain can retire it safely.
+            $this->fail(new SupervisorException('Kernel child state diverged from the supervisor child table.'));
 
             return;
         }
-
-        // Keep remaining worker ownership so the fatal drain can retire it safely.
-        $this->fail(new SupervisorException('Kernel child state diverged from the supervisor child table.'));
+        if ($this->children === []) {
+            $this->loop->stop();
+        }
     }
 
     private function replacementFor(int $pid): ?ChildRecord

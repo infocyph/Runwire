@@ -78,6 +78,17 @@ final class ChildSet
     }
 
     /**
+     * Retire a slot only if it still points to the exiting child.
+     * @param array<string, array<int, int>> $currentSlots
+     */
+    public static function removeCurrentSlot(ChildRecord $record, array &$currentSlots): void
+    {
+        if (($currentSlots[$record->group->name][$record->slot] ?? null) === $record->pid) {
+            unset($currentSlots[$record->group->name][$record->slot]);
+        }
+    }
+
+    /**
      * Return whether a retired scale-in slot is safe to reissue after reaping its old owner.
      *
      * @param array<string, WorkerGroup> $groups
