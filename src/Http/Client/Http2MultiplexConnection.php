@@ -6,6 +6,7 @@ namespace Infocyph\Runwire\Http\Client;
 
 use Closure;
 use Infocyph\Runwire\CancellationSubscription;
+use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientMultiplexSession;
 use Infocyph\Runwire\Http\Http2\FrameParser;
@@ -154,10 +155,10 @@ final class Http2MultiplexConnection
         $this->queue($result['wire']);
 
         $this->requestWatchers[$streamId]['timer'] = $this->loop->delay($seconds, function () use ($streamId): void {
-            $this->cancel($streamId);
+            $this->cancelRequest($streamId, new RuntimeException('HTTP/2 request deadline expired.'));
         });
-        $subscription = $token?->onCancel(function () use ($streamId): void {
-            $this->cancel($streamId);
+        $subscription = $token?->onCancel(function (CancellationToken $cancelled) use ($streamId): void {
+            $this->cancelRequest($streamId, new CancelledException($cancelled->reason() ?? CancellationReason::HOST_CANCELLED));
         });
         if (isset($this->requestWatchers[$streamId])) {
             $this->requestWatchers[$streamId]['subscription'] = $subscription;
@@ -230,6 +231,24 @@ final class Http2MultiplexConnection
         }
 
         return $seconds;
+    }
+
+    /**
+     * Settle a timed-out or token-cancelled stream without abandoning its siblings.
+     * @throws \Throwable
+     */
+    private function cancelRequest(int $streamId, Throwable $error): void
+    {
+        if ($this->settled || !isset($this->requestWatchers[$streamId])) {
+            return;
+        }
+
+        try {
+            $this->queue($this->session->cancel($streamId, $error));
+            $this->pump();
+        } catch (Throwable $failure) {
+            $this->close($failure);
+        }
     }
 
     /**

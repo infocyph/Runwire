@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\CancellationSource;
+use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http2MultiplexConnection;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
@@ -13,6 +15,8 @@ use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\RequestDeadline;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 
 it('routes two live H2 streams over one callback-owned established connection', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
@@ -120,7 +124,7 @@ it('routes two live H2 streams over one callback-owned established connection', 
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
 
-it('sends stream-local CANCEL without terminating the sibling live H2 exchange', function (): void {
+it('sends stream-local CANCEL without terminating the sibling live H2 exchange', function (string $mode): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
     \PHPUnit\Framework\Assert::assertIsArray($pair);
     \PHPUnit\Framework\Assert::assertCount(2, $pair);
@@ -161,13 +165,17 @@ it('sends stream-local CANCEL without terminating the sibling live H2 exchange',
     });
     $errors = [];
     $body = '';
+    $source = new CancellationSource();
     $timeout = $loop->delay(3.0, static function () use ($loop): void { $loop->stop(); });
     $owner = new Http2MultiplexConnection(
         $loop,
         $connection,
-        static function (Http2MultiplexConnection $mux) use (&$errors, &$body, $loop): void {
+        static function (Http2MultiplexConnection $mux) use (&$errors, &$body, $loop, $source, $mode): void {
             $first = $mux->request(
-                new ClientRequest('GET', 'https://example.test/first'),
+                new ClientRequest('GET', 'https://example.test/first',
+                    cancellation: $source->token(),
+                    deadline: $mode === 'deadline' ? RequestDeadline::afterSeconds(0.2, hrtime(true)) : null,
+                ),
                 static function (): void {},
                 static function (): void {},
                 static function (?Throwable $error) use (&$errors): void { $errors['first'] = $error; },
@@ -181,7 +189,11 @@ it('sends stream-local CANCEL without terminating the sibling live H2 exchange',
                     $loop->stop();
                 },
             );
-            $mux->cancel($first);
+            if ($mode === 'manual') {
+                $mux->cancel($first);
+            } elseif ($mode === 'token') {
+                $source->cancel(CancellationReason::HOST_CANCELLED);
+            }
         },
     );
     try {
@@ -192,7 +204,16 @@ it('sends stream-local CANCEL without terminating the sibling live H2 exchange',
         if (!array_key_exists('first', $errors) || !array_key_exists('second', $errors)) {
             throw new RuntimeException('Both HTTP/2 cancel and sibling responses must finish.');
         }
-        expect($errors['first'])->toBeInstanceOf(RuntimeException::class)
+        $firstError = $errors['first'];
+        expect($firstError)->toBeInstanceOf(RuntimeException::class);
+        if ($mode === 'token') {
+            \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $firstError);
+            expect($firstError->reason)->toBe(CancellationReason::HOST_CANCELLED);
+        } elseif ($mode === 'deadline') {
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $firstError);
+            expect($firstError->getMessage())->toContain('deadline');
+        }
+        expect($source->token()->subscriptionCount())->toBe(0)
             ->and($errors['second'])->toBeNull()
             ->and($body)->toBe('alive')
             ->and($owner->activeCount())->toBe(0);
@@ -205,4 +226,4 @@ it('sends stream-local CANCEL without terminating the sibling live H2 exchange',
     expect($loop->diagnostics()->readWatchers)->toBe(0)
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
-});
+})->with(['manual', 'token', 'deadline']);

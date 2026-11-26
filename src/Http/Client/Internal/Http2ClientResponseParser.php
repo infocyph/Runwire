@@ -204,6 +204,9 @@ final class Http2ClientResponseParser
             throw new RuntimeException('HTTP/2 DATA requires complete headers and supported flags.');
         }
         $bytes = strlen($frame->payload);
+        if ($this->headRequest && $bytes > 0) {
+            throw new RuntimeException('HTTP/2 HEAD response must not contain body bytes.');
+        }
         if ($bytes > $this->maxBodyBytes - $this->bodyBytes) {
             throw new RuntimeException('HTTP/2 response body exceeds configured memory limit.');
         }

@@ -44,7 +44,7 @@ final class Http2ClientMultiplexSession
 
     /**
      * @var array<int, array{
-     *   request:ClientRequest, response:Http2ClientResponseParser,
+     *   response:Http2ClientResponseParser,
      *   headers:Closure, body:Closure, complete:Closure
      * }>
      */
@@ -74,7 +74,7 @@ final class Http2ClientMultiplexSession
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
      */
-    public function cancel(int $streamId): string
+    public function cancel(int $streamId, ?Throwable $error = null): string
     {
         if (!isset($this->streams[$streamId])) {
             throw new InvalidArgumentException('Cannot cancel an unknown H2 client stream.');
@@ -84,7 +84,7 @@ final class Http2ClientMultiplexSession
         }
 
         $this->retired[$streamId] = true;
-        $this->finish($streamId, new RuntimeException('HTTP/2 client stream canceled.'));
+        $this->finish($streamId, $error ?? new RuntimeException('HTTP/2 client stream canceled.'));
 
         return FrameWriter::encode(FrameWriter::rstStream($streamId, ErrorCode::CANCEL));
     }
@@ -198,7 +198,6 @@ final class Http2ClientMultiplexSession
         $this->authority = $authority;
         $this->lastStreamId = $streamId;
         $this->streams[$streamId] = [
-            'request' => $request,
             'response' => new Http2ClientResponseParser(
                 streamId: $streamId,
                 sharedDecoder: $this->decoder,
@@ -313,11 +312,6 @@ final class Http2ClientMultiplexSession
             throw new RuntimeException('HTTP/2 peer used an unknown client response stream.');
         }
         $this->trackHeaderBlock($frame);
-        if ($slot['request']->method === 'HEAD' && $frame->knownType() === FrameType::DATA
-            && $frame->payload !== '') {
-            throw new RuntimeException('HTTP/2 HEAD response must not contain body bytes.');
-        }
-
         try {
             $slot['response']->push($frame, $slot['headers'], $slot['body']);
         } catch (RuntimeException $error) {

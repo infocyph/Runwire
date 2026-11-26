@@ -78,9 +78,6 @@ final class Http2ClientSession
         if (!$this->dispatched || $frame->streamId !== 1) {
             throw new RuntimeException('HTTP/2 response arrived on an unexpected stream.');
         }
-        if ($this->request->method === 'HEAD' && $frame->knownType() === FrameType::DATA && $frame->payload !== '') {
-            throw new RuntimeException('HTTP/2 HEAD response must not contain body bytes.');
-        }
         $this->response->push($frame, $this->headersCallback, $this->bodyCallback);
 
         return !$this->response->done() && $frame->knownType() === FrameType::DATA && strlen($frame->payload) > 0
