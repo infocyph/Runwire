@@ -69,14 +69,6 @@ final readonly class OutboundAddressPolicy
         }
     }
 
-    /** Reject standardized transition prefixes that can conceal an IPv4 destination. */
-    private static function isTransitionAddress(string $packed): bool
-    {
-        return str_starts_with($packed, "\x00\x64\xff\x9b")
-            || str_starts_with($packed, "\x20\x02")
-            || str_starts_with($packed, "\x20\x01\x00\x00");
-    }
-
     /**
      * @throws \RuntimeException
      */
@@ -91,5 +83,13 @@ final readonly class OutboundAddressPolicy
             && substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff"
                 ? substr($packed, 12)
                 : $packed;
+    }
+
+    /** Reject standardized transition prefixes that can conceal an IPv4 destination. */
+    private static function isTransitionAddress(string $packed): bool
+    {
+        return str_starts_with($packed, "\x00\x64\xff\x9b")
+            || str_starts_with($packed, "\x20\x02")
+            || str_starts_with($packed, "\x20\x01\x00\x00");
     }
 }
