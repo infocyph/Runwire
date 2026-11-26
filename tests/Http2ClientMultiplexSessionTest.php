@@ -8,6 +8,7 @@ use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientMultiplexSession;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
@@ -484,3 +485,53 @@ it('does not restore stream credit when a body callback cancels its own stream',
     $session->close();
     expect($completed)->toHaveCount(1);
 });
+
+it('decodes late canceled H2 headers to preserve sibling HPACK state without publishing callbacks', function (bool $partial): void {
+    $session = new Http2ClientMultiplexSession(2);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $canceled = 0;
+    $published = 0;
+    $siblingHeader = '';
+    $siblingDone = false;
+    $session->request(
+        new ClientRequest('GET', 'https://example.test/canceled'),
+        static function () use (&$published): void { ++$published; },
+        static function () use (&$published): void { ++$published; },
+        static function (?Throwable $error) use (&$canceled): void {
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
+            ++$canceled;
+        },
+    );
+    $session->request(
+        new ClientRequest('GET', 'https://example.test/sibling'),
+        static function (int $status, Headers $headers) use (&$siblingHeader): void {
+            expect($status)->toBe(200);
+            $siblingHeader = $headers->all('x-shared')[0] ?? '';
+        },
+        static function (): void {},
+        static function (?Throwable $error) use (&$siblingDone): void {
+            expect($error)->toBeNull();
+            $siblingDone = true;
+        },
+    );
+    $encoder = new Encoder();
+    $fields = [[':status', '200'], ['x-shared', 'late-dynamic-entry']];
+    $block = $encoder->encode($fields);
+    if ($partial) {
+        $session->receive(new Frame(FrameType::HEADERS->value, 0x1, 1, substr($block, 0, 1)));
+        $session->cancel(1);
+        $session->receive(new Frame(FrameType::CONTINUATION->value, 0x4, 1, substr($block, 1)));
+    } else {
+        $session->cancel(1);
+        $session->receive(new Frame(FrameType::HEADERS->value, 0x5, 1, $block));
+    }
+    $indexed = $encoder->encode($fields);
+    expect(strlen($indexed))->toBeLessThan(strlen($block));
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x5, 3, $indexed));
+    expect($published)->toBe(0)
+        ->and($canceled)->toBe(1)
+        ->and($siblingHeader)->toBe('late-dynamic-entry')
+        ->and($siblingDone)->toBeTrue()
+        ->and($session->activeCount())->toBe(0);
+})->with([false, true]);

@@ -37,7 +37,7 @@ final class Http2ClientMultiplexSession
 
     private int $lastStreamId = -1;
 
-    /** @var array<int, true> */
+    /** @var array<int, Http2ClientResponseParser> */
     private array $retired = [];
 
     private bool $started = false;
@@ -83,7 +83,7 @@ final class Http2ClientMultiplexSession
             throw new RuntimeException('H2 canceled-stream tombstone budget exhausted; rotate the connection.');
         }
 
-        $this->retired[$streamId] = true;
+        $this->retired[$streamId] = $this->streams[$streamId]['response'];
         $this->finish($streamId, $error ?? new RuntimeException('HTTP/2 client stream canceled.'));
 
         return FrameWriter::encode(FrameWriter::rstStream($streamId, ErrorCode::CANCEL));
@@ -138,7 +138,7 @@ final class Http2ClientMultiplexSession
             return $this->control($frame);
         }
         if (isset($this->retired[$frame->streamId])) {
-            return $this->retiredFrame($frame);
+            return $this->retiredFrame($frame, $this->retired[$frame->streamId]);
         }
 
         return $this->streamFrame($frame);
@@ -274,17 +274,25 @@ final class Http2ClientMultiplexSession
     }
 
     /**
-     * Drain previously canceled response frames without accepting new headers.
+     * Drain previously canceled response frames without publishing callbacks.
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
      */
-    private function retiredFrame(Frame $frame): string
+    private function retiredFrame(Frame $frame, Http2ClientResponseParser $response): string
     {
         if ($frame->knownType() === FrameType::RST_STREAM) {
             if ($frame->flags !== 0 || strlen($frame->payload) !== 4) {
                 throw new RuntimeException('H2 retired stream RST_STREAM requires four bytes and no flags.');
             }
             unset($this->retired[$frame->streamId]);
+
+            return '';
+        }
+        if ($frame->knownType() === FrameType::HEADERS || $frame->knownType() === FrameType::CONTINUATION) {
+            $this->trackHeaderBlock($frame);
+            if ($response->discardHeaders($frame)) {
+                unset($this->retired[$frame->streamId]);
+            }
 
             return '';
         }
