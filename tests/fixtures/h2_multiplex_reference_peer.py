@@ -10,7 +10,6 @@ import time
 from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import RequestReceived, StreamReset
-from h2.settings import SettingCodes
 
 if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in ("flow", "cancel", "slow")):
     raise SystemExit("Expected certificate, private key, and optional flow/cancel/slow mode")
@@ -35,7 +34,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         if stream.selected_alpn_protocol() != "h2":
             raise RuntimeError("Independent peer requires negotiated TLS h2")
         connection = H2Connection(H2Configuration(client_side=False, header_encoding="utf-8"))
-        del connection.local_settings[SettingCodes.ENABLE_PUSH]
+        # Preserve the independent peer's default SETTINGS (including ENABLE_PUSH=0).
         connection.initiate_connection()
         stream.sendall(connection.data_to_send())
 

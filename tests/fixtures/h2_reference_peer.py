@@ -14,7 +14,6 @@ import time
 from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import RequestReceived
-from h2.settings import SettingCodes
 
 if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in ("http1", "deny")):
     raise SystemExit("Usage: h2_reference_peer.py certificate.pem private.pem [http1|deny]")
@@ -73,9 +72,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
             if stream.selected_alpn_protocol() != "h2":
                 raise RuntimeError("H2 reference peer expected verified ALPN h2")
             connection = H2Connection(H2Configuration(client_side=False, header_encoding="utf-8"))
-            # hyper-h2 defaults to emitting ENABLE_PUSH=0 in its server preface;
-            # RFC 9113 forbids any server ENABLE_PUSH setting, so omit it.
-            del connection.local_settings[SettingCodes.ENABLE_PUSH]
+            # Preserve the independent peer's default SETTINGS (including ENABLE_PUSH=0).
             connection.initiate_connection()
             stream.sendall(connection.data_to_send())
             responded = False

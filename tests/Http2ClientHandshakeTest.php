@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Tests;
 
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientHandshake;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameParser;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
+use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Http\Http2\PeerSettings;
 use RuntimeException;
 
@@ -187,3 +189,49 @@ function runwireOwnedHttp2ClientHandshakeTestCase05(): void
     expect(fn() => $hostile->receive(new Frame(FrameType::GOAWAY->value, 0, 0, 'short')))
         ->toThrow(RuntimeException::class, 'last stream');
 }
+
+it('accepts omitted and zero server push settings including later updates and unknown flags', function (): void {
+    $handshake = new Http2ClientHandshake();
+    $handshake->start();
+    $ack = FrameWriter::encode(FrameWriter::settings([], true));
+    expect($handshake->receive(FrameWriter::settings()))->toBe($ack);
+    $payload = pack('nNnNnN', PeerSettings::MAX_CONCURRENT_STREAMS, 4, PeerSettings::ENABLE_PUSH, 0, PeerSettings::ENABLE_PUSH, 0);
+    expect($handshake->receive(new Frame(FrameType::SETTINGS->value, 0x80, 0, $payload)))->toBe($ack)
+        ->and($handshake->peerMaxConcurrentStreams())->toBe(4)
+        ->and($handshake->ready())->toBeTrue();
+
+    $initial = new Http2ClientHandshake();
+    $initial->start();
+    expect($initial->receive(FrameWriter::settings([PeerSettings::ENABLE_PUSH => 0])))->toBe($ack)
+        ->and($initial->firstRequest('HEAD', 'https', 'example.test', '/'))->not->toBe('');
+});
+
+it('rejects nonzero server push and malformed SETTINGS with the correct error code', function (): void {
+    foreach ([
+        [pack('nN', PeerSettings::ENABLE_PUSH, 1), 0, 0, ErrorCode::PROTOCOL_ERROR],
+        [pack('nN', PeerSettings::ENABLE_PUSH, 2), 0, 0, ErrorCode::PROTOCOL_ERROR],
+        [pack('nNnN', PeerSettings::ENABLE_PUSH, 1, PeerSettings::ENABLE_PUSH, 0), 0, 0, ErrorCode::PROTOCOL_ERROR],
+        ["\x00", 0, 0, ErrorCode::FRAME_SIZE_ERROR],
+        [pack('nN', PeerSettings::ENABLE_PUSH, 0), 0, 1, ErrorCode::PROTOCOL_ERROR],
+    ] as [$payload, $flags, $stream, $expected]) {
+        $handshake = new Http2ClientHandshake();
+        $handshake->start();
+        try {
+            $handshake->receive(new Frame(FrameType::SETTINGS->value, $flags, $stream, $payload));
+            \PHPUnit\Framework\Assert::fail('Invalid server SETTINGS accepted.');
+        } catch (ConnectionError $error) {
+            expect($error->errorCode)->toBe($expected)
+                ->and($handshake->ready())->toBeFalse();
+        }
+    }
+
+    $handshake = new Http2ClientHandshake();
+    $handshake->start();
+    $handshake->receive(FrameWriter::settings());
+    try {
+        $handshake->receive(new Frame(FrameType::SETTINGS->value, 1, 0, pack('nN', PeerSettings::ENABLE_PUSH, 0)));
+        \PHPUnit\Framework\Assert::fail('Nonempty SETTINGS ACK accepted.');
+    } catch (ConnectionError $error) {
+        expect($error->errorCode)->toBe(ErrorCode::FRAME_SIZE_ERROR);
+    }
+});
