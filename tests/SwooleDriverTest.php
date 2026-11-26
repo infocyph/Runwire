@@ -494,7 +494,7 @@ it('reports host-owned Swoole persistence with the Runwire reactor bridge availa
         ->and($selection->capabilities->supportsWorkerRecycle)->toBeTrue()
         ->and($selection->capabilities->supportsHttp1)->toBeTrue()
         ->and($selection->capabilities->supportsHttp2)->toBeTrue()
-        ->and(property_exists($selection->capabilities, 'supportsHttp3'))->toBeFalse()
+        ->and($selection->capabilities->toArray())->not->toHaveKey('supports_http3')
         ->and($selection->capabilities->ownsHttp1Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp2Wire)->toBeFalse();
 });

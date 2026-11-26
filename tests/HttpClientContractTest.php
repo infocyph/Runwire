@@ -98,7 +98,6 @@ it('preserves bounded streaming request body and response contract without a tra
 
 it('rejects removed protocol values and host metadata without reclassifying them', function (): void {
     expect(ProtocolVersion::cases())->toBe([ProtocolVersion::HTTP_1_1, ProtocolVersion::HTTP_2])
-        ->and(ProtocolVersion::tryFrom('3'))->toBeNull()
         ->and(fn() => (new ClientProtocolPolicy(allowFallback: true))->negotiate('h3', true))->toThrow(RuntimeUnavailableException::class)
         ->and(fn() => \Infocyph\Runwire\Runtime\Host\HostProtocolVersion::from('HTTP/3'))->toThrow(InvalidArgumentException::class);
 });

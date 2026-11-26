@@ -261,7 +261,7 @@ it('reports RoadRunner host protocols without claiming Runwire wire ownership', 
         ->and($selection->capabilities->supportsHttp2)->toBeFalse()
         ->and($selection->capabilities->ownsHttp1Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp2Wire)->toBeFalse()
-        ->and(property_exists($selection->capabilities, 'ownsHttp3Wire'))->toBeFalse();
+        ->and($selection->capabilities->toArray())->not->toHaveKey('owns_http3_wire');
 });
 
 it('enforces declared Content-Length in RoadRunner response writers', function (): void {

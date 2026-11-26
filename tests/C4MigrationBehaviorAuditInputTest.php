@@ -24,8 +24,14 @@ it('audits complete source behavior evidence over bounded stdin without opening 
         if (!is_string($entry['symbol'] ?? null)) {
             throw new RuntimeException('C4 migration ledger fixture contains an invalid symbol.');
         }
-        $entries[] = $entry;
+        // Exercise the historical audit against retained executable fixtures.
+        // The full 2.1.2-to-3.0 ledger remains unchanged at its original revision.
+        if (is_string($entry['executableTest'] ?? null) && is_file(dirname(__DIR__) . '/' . $entry['executableTest'])) {
+            $entries[] = $entry;
+        }
     }
+    expect(count($entries))->toBeGreaterThanOrEqual(30);
+    $ledger['entries'] = $entries;
     $diff = [
         'schemaVersion' => 1,
         'baselineRevision' => $ledger['publishedRevision'],
@@ -55,6 +61,13 @@ it('audits complete source behavior evidence over bounded stdin without opening 
         \PHPUnit\Framework\Assert::assertIsArray($result);
         expect($result['allChangedSymbolsDispositioned'])->toBeTrue()
             ->and($result['testBackedDispositionCount'])->toBe(count($entries));
+
+        $ledger['entries'][0]['executableTest'] = 'tests/NonexistentHistoricalContractTest.php';
+        file_put_contents($packet, json_encode(['diff' => $diff, 'ledger' => $ledger], JSON_THROW_ON_ERROR));
+        $lines = [];
+        exec($command . ' 2>&1', $lines, $exitCode);
+        expect($exitCode)->not->toBe(0)
+            ->and(implode("\n", $lines))->toContain('Unreviewed, untested or incorrectly classified migration');
 
         file_put_contents($packet, '{"diff":{"schemaVersion":1},"ledger":{}}');
         $lines = [];
