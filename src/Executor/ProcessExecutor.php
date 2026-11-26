@@ -388,6 +388,7 @@ final class ProcessExecutor
             $this->workers[$available]['job'] = $jobId;
             $this->workers[$available]['inputBuffer'] = $this->jobs[$jobId]['packet'];
             $this->workers[$available]['outputBuffer'] = '';
+
             try {
                 $this->workers[$available]['writeWatcher'] = $this->loop->onWritable(
                     $this->workers[$available]['input'],
