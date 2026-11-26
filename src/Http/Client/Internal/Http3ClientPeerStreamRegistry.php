@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Client\Internal;
 use Infocyph\Runwire\Http\Http3\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http3\Enum\StreamType;
 use Infocyph\Runwire\Http\Http3\Http3Exception;
+use Infocyph\Runwire\Http\Http3\VarIntCodec;
 
 /** @internal Owns one bounded classification per peer-created unidirectional QUIC stream. */
 final class Http3ClientPeerStreamRegistry
@@ -14,7 +15,7 @@ final class Http3ClientPeerStreamRegistry
     /** @var array<int, true> */
     private array $critical = [];
 
-    /** @var array<int, Http3ClientPeerStreamType> */
+    /** @var array<int, string> */
     private array $pending = [];
 
     /** @var array<int, int> */
@@ -32,20 +33,25 @@ final class Http3ClientPeerStreamRegistry
             return ['type' => $this->types[$stream], 'payload' => $bytes, 'wire' => $bytes, 'initial' => false];
         }
 
-        $probe = ($this->pending[$stream] ??= new Http3ClientPeerStreamType())->push($bytes);
-        if ($probe === null) {
+        $prefix = $this->pending[$stream] ?? '';
+        $probe = $prefix . substr($bytes, 0, 8 - strlen($prefix));
+        $decoded = VarIntCodec::tryDecode($probe);
+        if ($decoded === null) {
             if ($eof) {
                 throw new Http3Exception(ErrorCode::STREAM_CREATION_ERROR, 'Peer HTTP/3 stream ended before its type was complete.');
             }
+            $this->pending[$stream] = $probe;
 
             return null;
         }
 
+        [$type, $offset] = $decoded;
+        $wire = $prefix . $bytes;
         unset($this->pending[$stream]);
-        $this->assertUniqueCritical($probe['type']);
-        $this->types[$stream] = $probe['type'];
+        $this->assertUniqueCritical($type);
+        $this->types[$stream] = $type;
 
-        return $probe + ['initial' => true];
+        return ['type' => $type, 'payload' => substr($wire, $offset), 'wire' => $wire, 'initial' => true];
     }
 
     /**

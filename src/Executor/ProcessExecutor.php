@@ -9,7 +9,6 @@ use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Executor\Internal\ExecutorIpcTrait;
-use Infocyph\Runwire\Executor\Internal\ExecutorPendingQueueTrait;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
@@ -30,7 +29,6 @@ use Throwable;
 final class ProcessExecutor
 {
     use ExecutorIpcTrait;
-    use ExecutorPendingQueueTrait;
 
     private const int IO_CHUNK_BYTES = 8192;
 
@@ -322,6 +320,30 @@ final class ProcessExecutor
         }
 
         return $this->startWorker();
+    }
+
+    /**
+     * Canceled queued jobs can leave stale IDs in the FIFO while its one
+     * worker is busy. Compact only at a bounded threshold, preserving
+     * submission order of active jobs without an unbounded tombstone list.
+     */
+    private function compactPendingQueue(): void
+    {
+        $capacity = $this->maxWorkers + $this->maxQueue;
+        if ($this->pending->count() <= $capacity * 2 + 32) {
+            return;
+        }
+
+        $active = [];
+        while (!$this->pending->isEmpty()) {
+            $id = $this->pending->dequeue();
+            if (isset($this->jobs[$id]) && $this->jobs[$id]['worker'] === null) {
+                $active[] = $id;
+            }
+        }
+        foreach ($active as $id) {
+            $this->pending->enqueue($id);
+        }
     }
 
     private function expire(int $id): void

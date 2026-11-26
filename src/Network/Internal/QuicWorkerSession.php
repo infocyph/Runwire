@@ -128,6 +128,23 @@ final class QuicWorkerSession
     }
 
     /**
+     * @return array{wire_stream_id:int}|array{}
+     * @throws \RuntimeException
+     */
+    private static function wireStreamIdentity(object $stream): array
+    {
+        if (!method_exists($stream, 'getId')) {
+            return [];
+        }
+        $id = $stream->getId();
+        if (!is_int($id) || $id < 0) {
+            throw new RuntimeException('Native QUIC returned an invalid wire stream identifier.');
+        }
+
+        return ['wire_stream_id' => $id];
+    }
+
+    /**
      * Import one peer-created QUIC stream without transferring native ownership.
      *
      * @return array{pending:bool}|array{stream:int, bidirectional:bool, incoming:bool}
@@ -353,7 +370,7 @@ final class QuicWorkerSession
         }
 
         return ['stream' => $id, 'bidirectional' => $bidirectional]
-            + QuicWorkerStreamIdentity::fields($stream);
+            + self::wireStreamIdentity($stream);
     }
 
     /** @return array{polled:bool} */
