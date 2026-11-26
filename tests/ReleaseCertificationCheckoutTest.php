@@ -19,7 +19,9 @@ it('checks out the exact matched benchmark candidate in its own working tree', f
         ->toContain('          path: candidate')
         ->and($matched)->toContain('actual="$(git -C candidate rev-parse HEAD)"')
         ->toContain('test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_CANDIDATE"')
-        ->toContain('test "$(git -C baseline rev-parse HEAD)" = "$BASELINE_SHA"');
+        ->toContain('test "$(git -C baseline rev-parse HEAD)" = "$BASELINE_SHA"')
+        ->toContain('ref: refs/tags/${{ env.BASELINE_TAG }}')
+        ->and($workflow)->toContain("BASELINE_TAG: '3.1'", 'baseline_sha: ${{ steps.baseline.outputs.sha }}');
 });
 
 it('collects evidence only for an immutable, successfully qualified candidate', function (): void {

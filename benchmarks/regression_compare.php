@@ -45,7 +45,7 @@ function regressionValidateFields(array $summary, string $path): void
     foreach ([
         'trials', 'duration_seconds_per_trial', 'workers', 'concurrency',
         'median_successful_rps', 'median_successful_rpm', 'rps_cv_percent',
-        'median_p99_ms', 'peak_rss_bytes',
+        'median_p95_ms', 'median_p99_ms', 'peak_rss_bytes',
     ] as $field) {
         regressionSummaryMetric($summary, $field);
     }
@@ -98,6 +98,8 @@ function loadSummary(string $path): array
         || regressionSummaryMetric($summary, 'workers') <= 0 || regressionSummaryMetric($summary, 'concurrency') <= 0
         || regressionSummaryMetric($summary, 'median_successful_rps') <= 0 || regressionSummaryMetric($summary, 'median_successful_rpm') <= 0
         || regressionSummaryMetric($summary, 'rps_cv_percent') < 0 || regressionSummaryMetric($summary, 'median_p99_ms') < 0
+        || regressionSummaryMetric($summary, 'median_p95_ms') < 0
+        || regressionSummaryMetric($summary, 'median_p95_ms') > regressionSummaryMetric($summary, 'median_p99_ms')
         || regressionSummaryMetric($summary, 'peak_rss_bytes') < 0) {
         throw new RuntimeException(sprintf('Summary "%s" has invalid measurement ranges.', $path));
     }
@@ -131,24 +133,28 @@ $regressionPercent = (($candidateRps - $baselineRps) / $baselineRps) * 100.0;
 $budgetPercent = 5.0;
 $varianceCeilingPercent = 2.5;
 $enforced = $maxCv < $varianceCeilingPercent;
+$baselineP95 = regressionSummaryMetric($baseline, 'median_p95_ms');
+$candidateP95 = regressionSummaryMetric($candidate, 'median_p95_ms');
 $baselineP99 = regressionSummaryMetric($baseline, 'median_p99_ms');
 $candidateP99 = regressionSummaryMetric($candidate, 'median_p99_ms');
 $baselineRss = regressionSummaryMetric($baseline, 'peak_rss_bytes');
 $candidateRss = regressionSummaryMetric($candidate, 'peak_rss_bytes');
 
 // Reuse Runwire's already-established adaptive-promotion safety margins:
-// a p99 regression must exceed BOTH 15% and 0.5 ms; RSS must exceed 110% + 4 MiB.
+// a p95 or p99 regression must exceed BOTH 15% and 0.5 ms; RSS must exceed 110% + 4 MiB.
 // Throughput variance remains a separate hard release-certification gate.
 $p99RelativeCeiling = 1.15;
 $p99AbsoluteToleranceMs = 0.5;
 $rssRelativeCeiling = 1.10;
 $rssAbsoluteToleranceBytes = 4_194_304.0;
+$p95Passed = $candidateP95 <= $baselineP95 * $p99RelativeCeiling
+    || $candidateP95 - $baselineP95 <= $p99AbsoluteToleranceMs;
 $p99Passed = $candidateP99 <= $baselineP99 * $p99RelativeCeiling
     || $candidateP99 - $baselineP99 <= $p99AbsoluteToleranceMs;
 $rssLimitBytes = $baselineRss * $rssRelativeCeiling + $rssAbsoluteToleranceBytes;
 $rssPassed = $candidateRss <= $rssLimitBytes;
 $throughputPassed = $regressionPercent >= -$budgetPercent;
-$passed = $enforced && $throughputPassed && $p99Passed && $rssPassed;
+$passed = $enforced && $throughputPassed && $p95Passed && $p99Passed && $rssPassed;
 $certificationStatus = !$enforced ? 'inconclusive_variance' : ($passed ? 'passed' : 'failed');
 
 $result = [
@@ -160,6 +166,10 @@ $result = [
     'baseline_rps_cv_percent' => round($baselineCv, 3),
     'candidate_rps_cv_percent' => round($candidateCv, 3),
     'max_rps_cv_percent' => round($maxCv, 3),
+    'baseline_median_p95_ms' => $baselineP95,
+    'candidate_median_p95_ms' => $candidateP95,
+    'p95_delta_percent' => $baselineP95 > 0 ? round(($candidateP95 - $baselineP95) / $baselineP95 * 100.0, 3) : null,
+    'p95_passed' => $p95Passed,
     'baseline_median_p99_ms' => $baselineP99,
     'candidate_median_p99_ms' => $candidateP99,
     'p99_delta_percent' => $baselineP99 > 0 ? round(($candidateP99 - $baselineP99) / $baselineP99 * 100.0, 3) : null,
@@ -187,6 +197,6 @@ if (!$passed) {
     throw new RuntimeException(
         !$enforced
             ? 'Benchmark evidence is inconclusive: measured variance exceeds the 2.5% certification ceiling.'
-            : 'Benchmark evidence exceeds the permitted throughput, p99 latency, or RSS regression budget.',
+            : 'Benchmark evidence exceeds the permitted throughput, p95/p99 latency, or RSS regression budget.',
     );
 }
