@@ -73,7 +73,7 @@ final class Http2ClientSession
         if (!$this->started || $this->response->done()) {
             throw new RuntimeException('HTTP/2 session is not accepting frames.');
         }
-        if ($frame->streamId === 0) {
+        if ($frame->streamId === 0 || $frame->knownType() === FrameType::SETTINGS) {
             return $this->control($frame);
         }
         if (!$this->dispatched || $frame->streamId !== 1) {

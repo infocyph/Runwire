@@ -10,6 +10,8 @@ use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientSession;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Http2\FrameParser;
+use Infocyph\Runwire\Http\Http2\FrameWriter;
+use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
@@ -207,6 +209,13 @@ final class Http2ConnectedExchange
             $this->ownsCallbacks = false;
         }
         // Not yet an active HTTP/2 connection pool: never advertise reuse.
+        if ($error instanceof ConnectionError && $this->outgoing === '' && $this->connection->pendingWriteBytes() === 0) {
+            try {
+                $this->connection->write(FrameWriter::encode(FrameWriter::goAway(0, $error->errorCode)));
+            } catch (Throwable) {
+                // Best effort only: preserve the protocol error and abort even if the peer is gone.
+            }
+        }
         $this->connection->abort();
         ($this->completion)(null, $error);
     }

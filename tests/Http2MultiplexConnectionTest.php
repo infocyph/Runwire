@@ -8,6 +8,7 @@ use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Http2MultiplexConnection;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameParser;
@@ -242,3 +243,39 @@ it('sends stream-local CANCEL without terminating the sibling live H2 exchange',
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 })->with(['manual', 'token', 'deadline']);
+
+it('sends GOAWAY for invalid peer SETTINGS without admitting a multiplex request', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    [$socket, $peer] = $pair;
+    stream_set_timeout($peer, 2);
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $socket, negotiatedProtocol: 'h2', encrypted: true);
+    $ready = 0;
+    $owner = new Http2MultiplexConnection($loop, $connection, static function () use (&$ready): void {
+        ++$ready;
+    });
+    $timeout = $loop->delay(2.0, static function () use ($loop): void {
+        $loop->stop();
+    });
+    try {
+        $owner->start();
+        fwrite($peer, FrameWriter::encode(FrameWriter::settings([2 => 1])));
+        $loop->run();
+        $wire = stream_get_contents($peer);
+        \PHPUnit\Framework\Assert::assertIsString($wire);
+        expect($wire)->toBe(Http2Connection::CLIENT_PREFACE
+            . FrameWriter::encode(FrameWriter::settings([2 => 0]))
+            . FrameWriter::encode(FrameWriter::goAway(0, ErrorCode::PROTOCOL_ERROR)))
+            ->and($ready)->toBe(0)
+            ->and($owner->activeCount())->toBe(0);
+    } finally {
+        $owner->close();
+        $loop->cancel($timeout);
+        fclose($peer);
+    }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});

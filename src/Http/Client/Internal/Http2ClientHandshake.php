@@ -101,7 +101,7 @@ final class Http2ClientHandshake
             throw new RuntimeException('HTTP/2 client handshake is not active.');
         }
         if (!$this->receivedSettings && ($frame->knownType() !== FrameType::SETTINGS || $frame->hasFlag(0x1))) {
-            throw new RuntimeException('HTTP/2 server must send SETTINGS as its first frame.');
+            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 server must send SETTINGS as its first frame.');
         }
 
         return match ($frame->knownType()) {

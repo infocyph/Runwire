@@ -9,6 +9,8 @@ use Infocyph\Runwire\Http\Client\Http2OutboundClient;
 use Infocyph\Runwire\Http\Client\HttpNegotiatingOutboundClient;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
+use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Connection;
@@ -23,9 +25,20 @@ foreach ([
     'verified H2 with explicit H1 fallback permission' => 'auto-h2',
     'verified H1 fallback when TLS peer cannot negotiate H2' => 'fallback-h1',
     'strict H2 rejects H1-only peer without publishing request' => 'reject-h1',
+    'omitted server push setting' => 'omit-push',
+    'strict H2 rejects nonzero push' => 'push-one-strict',
+    'negotiated H2 rejects nonzero push without downgrade' => 'push-one-auto',
+    'malformed SETTINGS length' => 'malformed-settings',
+    'SETTINGS on a nonzero stream' => 'wrong-stream',
+    'ACK as first server frame' => 'first-ack',
 ] as $scenario => $mode) {
     it('interoperates over real verified TLS h2 with strict and explicitly negotiated client ALPN: ' . $scenario, function () use ($mode): void {
-        $auto = $mode !== 'strict-h2';
+        $auto = !in_array($mode, ['strict-h2', 'push-one-strict'], true);
+        $expectedError = match ($mode) {
+            'push-one-strict', 'push-one-auto', 'wrong-stream', 'first-ack' => ErrorCode::PROTOCOL_ERROR,
+            'malformed-settings' => ErrorCode::FRAME_SIZE_ERROR,
+            default => null,
+        };
         $fallbackH1 = $mode === 'fallback-h1';
         $rejectH1 = $mode === 'reject-h1';
         if (!function_exists('proc_open') || !extension_loaded('openssl')) {
@@ -83,6 +96,8 @@ foreach ([
             $peerCommand = ['python3', '-u', $script, $cert, $keyFile];
             if ($fallbackH1 || $rejectH1) {
                 $peerCommand[] = $rejectH1 ? 'deny' : 'http1';
+            } elseif ($expectedError !== null || $mode === 'omit-push') {
+                $peerCommand[] = $mode;
             }
             $process = proc_open(
                 $peerCommand,
@@ -143,7 +158,14 @@ foreach ([
             );
             $loop->run();
             Assert::assertSame(1, $completed);
-            if ($rejectH1) {
+            if ($expectedError !== null) {
+                Assert::assertInstanceOf(ConnectionError::class, $failure);
+                Assert::assertSame($expectedError, $failure->errorCode);
+                Assert::assertNull($statusCode);
+                Assert::assertSame('', $body);
+                stream_set_timeout($pipes[2], 5);
+                Assert::assertSame("reference-ok\n", fgets($pipes[2]), 'Peer must observe the exact GOAWAY code and no request.');
+            } elseif ($rejectH1) {
                 Assert::assertInstanceOf(Throwable::class, $failure);
                 Assert::assertNull($statusCode);
                 Assert::assertSame('', $body);

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import socket
 import ssl
+import struct
 import sys
 import time
 
@@ -15,10 +16,51 @@ from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import RequestReceived
 
-if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in ("http1", "deny")):
-    raise SystemExit("Usage: h2_reference_peer.py certificate.pem private.pem [http1|deny]")
-http1_mode = len(sys.argv) == 4
-deny_mode = http1_mode and sys.argv[3] == "deny"
+negative_modes = {
+    "push-one-strict": (struct.pack("!HI", 2, 1), 0, 0, 1),
+    "push-one-auto": (struct.pack("!HI", 2, 1), 0, 0, 1),
+    "malformed-settings": (b"\x00", 0, 0, 6),
+    "wrong-stream": (b"", 0, 1, 1),
+    "first-ack": (b"", 1, 0, 1),
+}
+modes = {"http1", "deny", "omit-push", *negative_modes}
+if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in modes):
+    raise SystemExit("Expected certificate, private key and optional reference mode")
+mode = sys.argv[3] if len(sys.argv) == 4 else "default"
+http1_mode = mode in ("http1", "deny")
+deny_mode = mode == "deny"
+
+
+def read_exact(stream, length):
+    result = bytearray()
+    while len(result) < length:
+        chunk = stream.recv(length - len(result))
+        if not chunk:
+            raise RuntimeError("Peer closed before complete HTTP/2 frame")
+        result.extend(chunk)
+    return bytes(result)
+
+
+def verify_rejected_settings(stream):
+    payload, flags, stream_id, error_code = negative_modes[mode]
+    # Construct intentionally invalid frames independently of Runwire and hyper-h2 validation.
+    stream.sendall(len(payload).to_bytes(3, "big") + bytes([4, flags]) + struct.pack("!I", stream_id) + payload)
+    if read_exact(stream, 24) != b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n":
+        raise RuntimeError("Missing client connection preface")
+    header = read_exact(stream, 9)
+    length = int.from_bytes(header[:3], "big")
+    if header[3:] != b"\x04\x00\x00\x00\x00\x00" or length != 6:
+        raise RuntimeError("Expected initial client SETTINGS")
+    if read_exact(stream, length) != struct.pack("!HI", 2, 0):
+        raise RuntimeError("Client did not disable server push")
+    header = read_exact(stream, 9)
+    length = int.from_bytes(header[:3], "big")
+    if header[3:] != b"\x07\x00\x00\x00\x00\x00" or length != 8:
+        raise RuntimeError("Expected GOAWAY, never a request or SETTINGS acknowledgment")
+    if read_exact(stream, length) != struct.pack("!II", 0, error_code):
+        raise RuntimeError("Incorrect connection error or last peer stream ID")
+    if stream.recv(1):
+        raise RuntimeError("Application bytes followed rejected SETTINGS")
 
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -45,6 +87,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
                 forbidden = b""
             if forbidden:
                 raise RuntimeError("Strict H2 policy transmitted a forbidden H1 request")
+        elif mode in negative_modes:
+            if stream.selected_alpn_protocol() != "h2":
+                raise RuntimeError("Negative SETTINGS requires H2 ALPN")
+            verify_rejected_settings(stream)
         elif http1_mode:
             if stream.selected_alpn_protocol() != "http/1.1":
                 raise RuntimeError("Independent fallback peer requires explicit TLS ALPN http/1.1")
@@ -74,7 +120,14 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
             connection = H2Connection(H2Configuration(client_side=False, header_encoding="utf-8"))
             # Preserve the independent peer's default SETTINGS (including ENABLE_PUSH=0).
             connection.initiate_connection()
-            stream.sendall(connection.data_to_send())
+            settings = connection.data_to_send()
+            if mode == "omit-push":
+                # Preserve all other initial settings, removing only the six-byte push entry.
+                payload = settings[9:]
+                payload = b"".join(payload[i:i + 6] for i in range(0, len(payload), 6)
+                                   if payload[i:i + 2] != b"\x00\x02")
+                settings = len(payload).to_bytes(3, "big") + settings[3:9] + payload
+            stream.sendall(settings)
             responded = False
             while not responded:
                 packet = stream.recv(65_536)

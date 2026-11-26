@@ -134,7 +134,7 @@ final class Http2ClientMultiplexSession
                 || $frame->streamId !== $this->continuationStreamId)) {
             throw new RuntimeException('HTTP/2 connection interleaved a frame during CONTINUATION.');
         }
-        if ($frame->streamId === 0) {
+        if ($frame->streamId === 0 || $frame->knownType() === FrameType::SETTINGS) {
             return $this->control($frame);
         }
         if (isset($this->retired[$frame->streamId])) {
