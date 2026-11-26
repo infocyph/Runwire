@@ -42,7 +42,7 @@ function runwireOwnedHttp3ClientPeerStreamTypeTestCase02(): void
         foreach (str_split(substr($wire, 0, -1)) as $byte) {
             expect($reader->push(3, $byte, false))->toBeNull();
         }
-        expect($reader->push(3, substr($wire, -1, false) . "\x20"))->toBe([
+        expect($reader->push(3, substr($wire, -1) . "\x20", false))->toBe([
             'type' => 16_384 + $type,
             'payload' => "\x20",
             'wire' => $wire . "\x20",
