@@ -57,7 +57,8 @@ try {
             $socketClean = false;
             $pool = null;
             $poolConnection = null;
-            $poolPair = null;
+            $poolSocket = null;
+            $poolPeer = null;
             $poolLoop = null;
 
             try {
@@ -82,8 +83,9 @@ try {
                 if (!is_array($poolPair) || count($poolPair) !== 2) {
                     throw new RuntimeException('RoadRunner pooled socket-pair is unavailable.');
                 }
+                [$poolSocket, $poolPeer] = $poolPair;
                 $poolLoop = new SelectLoop();
-                $poolConnection = new Connection($poolLoop, $poolPair[0]);
+                $poolConnection = new Connection($poolLoop, $poolSocket);
                 $pool = new IdleConnectionPool($poolLoop, maxIdle: 1, idleTtlSeconds: 1.0);
                 $poolKey = new PoolIsolationKey(
                     DialEndpoint::parse('unix:///tmp/runwire-rr-scoped-pool.sock'),
@@ -97,11 +99,11 @@ try {
                 $pool?->close();
                 $poolClosed = $poolConnection?->state() === ConnectionState::CLOSED;
                 $poolConnection?->abort();
-                if (is_array($poolPair)) {
-                    if ($poolConnection === null) {
-                        fclose($poolPair[0]);
-                    }
-                    fclose($poolPair[1]);
+                if ($poolConnection === null && $poolSocket !== null) {
+                    fclose($poolSocket);
+                }
+                if ($poolPeer !== null) {
+                    fclose($poolPeer);
                 }
                 $poolWatchersClean = $poolLoop === null || (
                     $poolLoop->diagnostics()->readWatchers === 0
