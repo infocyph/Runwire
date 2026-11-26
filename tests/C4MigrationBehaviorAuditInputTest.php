@@ -26,7 +26,8 @@ it('audits complete source behavior evidence over bounded stdin without opening 
         }
         // Exercise the historical audit against retained executable fixtures.
         // The full 2.1.2-to-3.0 ledger remains unchanged at its original revision.
-        if (is_string($entry['executableTest'] ?? null) && is_file(dirname(__DIR__) . '/' . $entry['executableTest'])) {
+        $testPath = $entry['executableTest'] ?? null;
+        if (is_string($testPath) && is_file(dirname(__DIR__) . '/' . $testPath)) {
             $entries[] = $entry;
         }
     }
