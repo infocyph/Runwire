@@ -152,9 +152,7 @@ final class QuicWorkerSession
      */
     private function acceptStream(): array
     {
-        if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {
-            throw new RuntimeException('QUIC native stream admission limit exceeded.');
-        }
+        $this->assertStreamCapacity();
         $connection = $this->connection;
         if (!is_object($connection) || !method_exists($connection, 'acceptStream')) {
             throw new RuntimeException('Native QUIC backend cannot accept peer streams.');
@@ -173,17 +171,7 @@ final class QuicWorkerSession
         if (!is_bool($bidirectional)) {
             throw new RuntimeException('Native QUIC backend returned invalid stream directionality.');
         }
-        $id = $this->nextStreamId++;
-        $this->streams[$id] = [
-            'stream' => $stream,
-            'bidirectional' => $bidirectional,
-            'readable' => true,
-            'writable' => $bidirectional,
-            'send_finished' => false,
-        ];
-        if ($this->profiling) {
-            $this->profilePeakStreams = max($this->profilePeakStreams, count($this->streams));
-        }
+        $id = $this->registerStream($stream, $bidirectional, true, $bidirectional);
 
         return ['stream' => $id, 'bidirectional' => $bidirectional, 'incoming' => true];
     }
@@ -220,6 +208,14 @@ final class QuicWorkerSession
         if ($host === '' || strlen($host) > 253 || preg_match('/[\x00-\x20\x7f]/', $host) === 1
             || $port < 1 || $port > 65_535 || $limit < 1 || $limit > 65_536) {
             throw new InvalidArgumentException('Invalid native QUIC endpoint or stream capacity.');
+        }
+    }
+
+    /** @throws \RuntimeException */
+    private function assertStreamCapacity(): void
+    {
+        if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {
+            throw new RuntimeException('QUIC native stream admission limit exceeded.');
         }
     }
 
@@ -344,9 +340,7 @@ final class QuicWorkerSession
      */
     private function openStream(bool $bidirectional): array
     {
-        if (count($this->streams) >= $this->maxOpenStreams || $this->nextStreamId === PHP_INT_MAX) {
-            throw new RuntimeException('QUIC native stream admission limit exceeded.');
-        }
+        $this->assertStreamCapacity();
 
         $connection = $this->connection;
         if (!is_object($connection) || !method_exists($connection, 'openStream')) {
@@ -357,17 +351,7 @@ final class QuicWorkerSession
             || !method_exists($stream, 'read') || !method_exists($stream, 'reset')) {
             throw new RuntimeException('Native QUIC backend returned an invalid stream.');
         }
-        $id = $this->nextStreamId++;
-        $this->streams[$id] = [
-            'stream' => $stream,
-            'bidirectional' => $bidirectional,
-            'readable' => $bidirectional,
-            'writable' => true,
-            'send_finished' => false,
-        ];
-        if ($this->profiling) {
-            $this->profilePeakStreams = max($this->profilePeakStreams, count($this->streams));
-        }
+        $id = $this->registerStream($stream, $bidirectional, $bidirectional, true);
 
         return ['stream' => $id, 'bidirectional' => $bidirectional]
             + self::wireStreamIdentity($stream);
@@ -443,6 +427,24 @@ final class QuicWorkerSession
             'data' => is_string($data) ? base64_encode($data) : '',
             'eof' => $data === null,
         ];
+    }
+
+    /** Register a validated native stream under its worker-local handle. */
+    private function registerStream(object $stream, bool $bidirectional, bool $readable, bool $writable): int
+    {
+        $id = $this->nextStreamId++;
+        $this->streams[$id] = [
+            'stream' => $stream,
+            'bidirectional' => $bidirectional,
+            'readable' => $readable,
+            'writable' => $writable,
+            'send_finished' => false,
+        ];
+        if ($this->profiling) {
+            $this->profilePeakStreams = max($this->profilePeakStreams, count($this->streams));
+        }
+
+        return $id;
     }
 
     /**
