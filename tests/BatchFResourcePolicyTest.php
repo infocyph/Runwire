@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Infocyph\Runwire\DatagramServer;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
-use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
@@ -14,7 +13,6 @@ use Infocyph\Runwire\Network\ListenerOptions;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
 use Infocyph\Runwire\Network\Internal\ByteQueue;
 use Infocyph\Runwire\Network\SocketCapabilityProbe;
-use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\ApplicationLifecycle;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
@@ -111,7 +109,7 @@ it('keeps HTTP3 overload rejection request-local', function (): void {
                     throw new LogicException('Lifecycle test fixture was not initialized.');
                 }
                 $lifecycle->handle(
-                    batchFRequest('/overload', ProtocolVersion::HTTP_3),
+                    batchFRequest('/overload', ProtocolVersion::HTTP_2),
                     batchFWriter($overload),
                 );
             }
@@ -122,7 +120,7 @@ it('keeps HTTP3 overload rejection request-local', function (): void {
     );
 
     $lifecycle->handle(
-        batchFRequest('/first', ProtocolVersion::HTTP_3),
+        batchFRequest('/first', ProtocolVersion::HTTP_2),
         batchFWriter(new ArrayObject()),
     );
 
@@ -226,26 +224,9 @@ it('reports native resource and socket capabilities explicitly', function (): vo
         ]);
 });
 
-it('keeps reuse port default-off and forwards it to HTTP3 only when explicit', function (): void {
+it('keeps reuse port default-off and binds TCP with explicit capability', function (): void {
     $listener = new ListenerOptions();
     expect($listener->reusePort)->toBeFalse();
-
-    $certificate = tempnam(sys_get_temp_dir(), 'runwire-cert-');
-    if (!is_string($certificate)) {
-        throw new RuntimeException('Unable to create temporary certificate fixture.');
-    }
-
-    try {
-        file_put_contents($certificate, 'fixture');
-        $tls = new TlsOptions($certificate);
-        $http3 = new Http3Options();
-        expect($http3->listenerOptions($tls)['reuse_port'])->toBeFalse()
-            ->and($http3->listenerOptions($tls, true)['reuse_port'])->toBeTrue();
-    } finally {
-        if (is_file($certificate)) {
-            unlink($certificate);
-        }
-    }
 
     $listener = \Infocyph\Runwire\Network\TcpListener::bind(
         '127.0.0.1:0',

@@ -270,11 +270,7 @@ function adaptivePromotionPython(string $protocol): string
         'h2' => 'RUNWIRE_H2_PYTHON',
         default => throw new InvalidArgumentException('Unknown adaptive promotion protocol.'),
     };
-    $fallback = match ($protocol) {
-        'http1' => '/usr/bin/python3',
-        'h2' => '/tmp/runwire-h2/bin/python',
-        default => throw new InvalidArgumentException('Unknown adaptive promotion protocol.'),
-    };
+    $fallback = $protocol === 'http1' ? '/usr/bin/python3' : '/tmp/runwire-h2/bin/python';
     $configured = getenv($variable);
 
     return $configured !== false && $configured !== '' && $configured !== '0' ? $configured : $fallback;

@@ -18,7 +18,6 @@ use Infocyph\Runwire\Runtime\CoroutineRequestHandler;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Infocyph\Runwire\Runtime\Host\RuntimeApplication;
 use Infocyph\Runwire\Runtime\Internal\NativeHttpWorker;
-use Infocyph\Runwire\Runtime\Internal\NativeHttp3Worker;
 use Infocyph\Runwire\Runtime\Internal\WorkerDiagnosticsSampler;
 use Infocyph\Runwire\Runtime\RequestResetterInterface;
 use Infocyph\Runwire\RuntimeContext;
@@ -62,7 +61,7 @@ function nativeCompletionWriter(): CallbackResponseWriter
 function nativeCompletionDispatch(string $owner, RuntimeApplication $application, WorkerContext $worker, RuntimeContext $runtime, SelectLoop $loop): Closure
 {
     $sampler = new WorkerDiagnosticsSampler($worker, $runtime->metrics, new DiagnosticsPolicy(), $loop);
-    if (!in_array($owner, [NativeHttpWorker::class, NativeHttp3Worker::class], true)) {
+    if (!in_array($owner, [NativeHttpWorker::class], true)) {
         throw new InvalidArgumentException('Unknown native worker request-handler owner.');
     }
     $dispatch = (new ReflectionMethod($owner, 'requestHandler'))->invoke(null, $application, $worker, $sampler);
@@ -108,7 +107,7 @@ it('counts native completion and recycles only after the coroutine and its child
     } finally {
         $worker->close();
     }
-})->with([NativeHttpWorker::class, NativeHttp3Worker::class]);
+})->with([NativeHttpWorker::class]);
 
 it('retires native workers when deferred coroutine cleanup fails after response end', function (string $owner): void {
     $loop = new SelectLoop();
@@ -149,7 +148,7 @@ it('retires native workers when deferred coroutine cleanup fails after response 
     } finally {
         $worker->close();
     }
-})->with([NativeHttpWorker::class, NativeHttp3Worker::class]);
+})->with([NativeHttpWorker::class]);
 
 it('keeps native work active through coroutine cancellation cleanup', function (string $owner): void {
     $loop = new SelectLoop();
@@ -183,7 +182,7 @@ it('keeps native work active through coroutine cancellation cleanup', function (
     } finally {
         $worker->close();
     }
-})->with([NativeHttpWorker::class, NativeHttp3Worker::class]);
+})->with([NativeHttpWorker::class]);
 
 it('accounts rejected and synchronous failed native requests exactly once', function (string $owner): void {
     $loop = new SelectLoop();
@@ -221,7 +220,7 @@ it('accounts rejected and synchronous failed native requests exactly once', func
     } finally {
         $worker->close();
     }
-})->with([NativeHttpWorker::class, NativeHttp3Worker::class]);
+})->with([NativeHttpWorker::class]);
 
 it('drains an attached native TCP worker after a late coroutine reset failure', function (): void {
     $loop = new SelectLoop();

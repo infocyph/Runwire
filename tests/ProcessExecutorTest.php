@@ -484,7 +484,7 @@ it('rejects removed native transport operations before allocating executor jobs'
     try {
         foreach (['quic_probe', 'quic_session'] as $operation) {
             expect(fn() => $executor->submit($operation, [], static function (): void {}))
-                ->toThrow(InvalidArgumentException::class, 'Unsupported executor operation');
+                ->toThrow(\InvalidArgumentException::class, 'Unsupported executor operation');
         }
         expect($executor->diagnostics()['submitted'])->toBe(0);
     } finally {

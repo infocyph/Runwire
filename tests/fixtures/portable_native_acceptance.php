@@ -5,13 +5,11 @@ declare(strict_types=1);
 use Infocyph\Runwire\Control\ControlOptions;
 use Infocyph\Runwire\DatagramServer;
 use Infocyph\Runwire\Exception\RuntimeUnavailableException;
-use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Datagram;
 use Infocyph\Runwire\Network\DatagramListener;
 use Infocyph\Runwire\Network\TcpListener;
-use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Network\UnixListener;
 use Infocyph\Runwire\Protocol\FramedConnection;
 use Infocyph\Runwire\Protocol\LineCodec;
@@ -105,35 +103,6 @@ $expectUnavailable(
     ),
     'Worker recycle thresholds require',
 );
-
-$certificate = tempnam(sys_get_temp_dir(), 'runwire-portable-cert-');
-if ($certificate === false) {
-    $fail('Unable to allocate temporary TLS certificate path.');
-}
-file_put_contents($certificate, "placeholder\n");
-try {
-    $http3 = new Server(
-        name: 'http3',
-        address: '127.0.0.1:0',
-        handler: $noopHttp,
-        tls: new TlsOptions($certificate),
-        http3: new Http3Options,
-    );
-    if (! $capabilities->supportsQuic) {
-        $expectUnavailable(
-            static fn () => NativeTopologyValidator::assertSupported(
-                ['http3' => $http3],
-                $selection,
-                new RuntimeOptions(driver: RuntimeDriver::NATIVE),
-            ),
-            'QUIC capability is unavailable',
-        );
-    }
-} finally {
-    if (file_exists($certificate)) {
-        unlink($certificate);
-    }
-}
 
 $runtimeFailure = static function (callable $configure, string $needle, ?RuntimeOptions $options = null) use (
     $expectUnavailable,

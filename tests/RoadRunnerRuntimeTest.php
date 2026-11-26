@@ -46,7 +46,7 @@ it('normalizes RoadRunner host requests into the common HTTP contract', function
 
         public string $method = 'POST';
 
-        public string $protocol = 'HTTP/3.0';
+        public string $protocol = 'HTTP/2.0';
 
         public string $remoteAddr = '203.0.113.7:44321';
 
@@ -87,7 +87,7 @@ it('normalizes RoadRunner host requests into the common HTTP contract', function
 
     expect($request->method)->toBe('POST')
         ->and($request->target)->toBe('/rr?q=1')
-        ->and($request->version)->toBe(ProtocolVersion::HTTP_3)
+        ->and($request->version)->toBe(ProtocolVersion::HTTP_2)
         ->and($request->headers->all('x-trace-id'))->toBe(['one', 'two'])
         ->and($request->body->read())->toBe('{"ok":true}')
         ->and($request->peerAddress)->toBe('203.0.113.7:44321')
@@ -259,11 +259,9 @@ it('reports RoadRunner host protocols without claiming Runwire wire ownership', 
         ->and($selection->capabilities->supportsWorkerRecycle)->toBeTrue()
         ->and($selection->capabilities->supportsHttp1)->toBeTrue()
         ->and($selection->capabilities->supportsHttp2)->toBeFalse()
-        ->and($selection->capabilities->supportsHttp3)->toBeFalse()
-        ->and($selection->capabilities->supportsQuic)->toBeFalse()
         ->and($selection->capabilities->ownsHttp1Wire)->toBeFalse()
         ->and($selection->capabilities->ownsHttp2Wire)->toBeFalse()
-        ->and($selection->capabilities->ownsHttp3Wire)->toBeFalse();
+        ->and(property_exists($selection->capabilities, 'ownsHttp3Wire'))->toBeFalse();
 });
 
 it('enforces declared Content-Length in RoadRunner response writers', function (): void {
