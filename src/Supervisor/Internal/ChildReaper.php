@@ -106,28 +106,24 @@ final class ChildReaper
     public static function reapOwned(array $ownedPids, callable $onExit, callable $onMissing): void
     {
         foreach ($ownedPids as $pid) {
-            while (true) {
+            do {
                 $status = 0;
                 $result = pcntl_waitpid($pid, $status, WNOHANG);
-                if ($result === $pid) {
-                    $exitStatus = self::supportedStatus($status);
-                    if ($exitStatus === null) {
-                        throw new SupervisorException('waitpid returned a non-integer child status.');
-                    }
-                    $onExit($pid, $exitStatus);
+            } while ($result === -1 && self::retryWait());
 
-                    break;
-                }
-                if ($result === 0) {
-                    break;
-                }
-                if (self::retryWait()) {
-                    continue;
-                }
+            if ($result === -1) {
                 $onMissing($pid);
 
-                break;
+                continue;
             }
+            if ($result === 0) {
+                continue;
+            }
+            $exitStatus = self::supportedStatus($status);
+            if ($exitStatus === null) {
+                throw new SupervisorException('waitpid returned a non-integer child status.');
+            }
+            $onExit($pid, $exitStatus);
         }
     }
 

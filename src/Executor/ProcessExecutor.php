@@ -384,18 +384,26 @@ final class ProcessExecutor
                 return;
             }
 
-            $this->jobs[$jobId]['worker'] = $available;
-            $this->workers[$available]['job'] = $jobId;
-            $this->workers[$available]['inputBuffer'] = $this->jobs[$jobId]['packet'];
-            $this->workers[$available]['outputBuffer'] = '';
+            $job = $this->jobs[$jobId] ?? null;
+            $worker = $this->workers[$available] ?? null;
+            if ($job === null || $worker === null) {
+                throw new LogicException('Executor admission lost its job or worker ownership.');
+            }
+            $job['worker'] = $available;
+            $this->jobs[$jobId] = $job;
+            $worker['job'] = $jobId;
+            $worker['inputBuffer'] = $job['packet'];
+            $worker['outputBuffer'] = '';
+            $this->workers[$available] = $worker;
 
             try {
-                $this->workers[$available]['writeWatcher'] = $this->loop->onWritable(
-                    $this->workers[$available]['input'],
+                $worker['writeWatcher'] = $this->loop->onWritable(
+                    $worker['input'],
                     function () use ($available): void {
                         $this->writeWorker($available);
                     },
                 );
+                $this->workers[$available] = $worker;
             } catch (Throwable $error) {
                 // The worker owns the job before registration; retirement settles both.
                 $this->retire($available, $error);
