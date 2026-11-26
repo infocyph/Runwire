@@ -10,6 +10,7 @@ use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\TlsClientOptions;
+use Infocyph\Runwire\RequestDeadline;
 use PHPUnit\Framework\Assert;
 
 foreach ([
@@ -17,10 +18,13 @@ foreach ([
     'large flow-control windows and sibling fairness' => 'flow',
     'authenticated RST cancel with continuing sibling' => 'cancel',
     'slow H2 stream does not starve live sibling' => 'slow',
+    'peer PING acknowledgment on the same TLS socket' => 'ping',
+    'request deadline resets only its own stream' => 'deadline',
+    'HEAD metadata and sibling GET body' => 'head',
+    'peer reset isolates a live sibling' => 'reset',
+    'graceful GOAWAY drains the accepted stream' => 'goaway',
 ] as $scenario => $mode) {
     it('interoperates with upstream hyper-h2 over real TLS for parallel streams and flow credit: ' . $scenario, function () use ($mode): void {
-        $flowPressure = $mode === 'flow';
-        $cancelMode = $mode === 'cancel';
         if (!function_exists('proc_open') || !extension_loaded('openssl')) {
             throw new RuntimeException('Independent H2 multiplexer QA requires process and OpenSSL tooling.');
         }
@@ -111,7 +115,7 @@ foreach ([
                     &$headers,
                     &$bodies,
                     &$errors,
-                    $cancelMode,
+                    $mode,
                 ): void {
                     if ($connection === null || $failure !== null) {
                         $errors['dial'] = $failure ?? new RuntimeException('Missing TLS connection.');
@@ -131,14 +135,23 @@ foreach ([
                             &$errors,
                             $loop,
                             $port,
-                            $cancelMode,
+                            $mode,
                         ): void {
                             ++$ready;
                             $firstStreamId = 0;
                             foreach (['one', 'two'] as $path) {
                                 $streamId = $transport->request(
-                                    new ClientRequest('GET', 'https://127.0.0.1:' . $port . '/multiplex/' . $path),
-                                    static function (int $status, Headers $received) use (&$headers, $path): void {
+                                    new ClientRequest(
+                                        $mode === 'head' && $path === 'one' ? 'HEAD' : 'GET',
+                                        'https://127.0.0.1:' . $port . '/multiplex/' . $path,
+                                        deadline: $mode === 'deadline' && $path === 'one'
+                                            ? RequestDeadline::afterSeconds(0.5, hrtime(true))
+                                            : null,
+                                    ),
+                                    static function (int $status, Headers $received) use (&$headers, $path, $mode): void {
+                                        if ($mode === 'head' && $path === 'one') {
+                                            Assert::assertSame('4096', $received->first('content-length'));
+                                        }
                                         $headers[$path] = [$status, $received->first('x-reference-server')];
                                     },
                                     static function (string $chunk) use (&$bodies, $path): void {
@@ -155,7 +168,7 @@ foreach ([
                                     $firstStreamId = $streamId;
                                 }
                             }
-                            if ($cancelMode) {
+                            if ($mode === 'cancel') {
                                 $transport->cancel($firstStreamId);
                             }
                         },
@@ -171,11 +184,22 @@ foreach ([
             if (!array_key_exists('one', $errors) || !array_key_exists('two', $errors)) {
                 throw new RuntimeException('Multiplex reference did not complete both requested streams.');
             };
-            if ($cancelMode) {
+            if (in_array($mode, ['cancel', 'deadline', 'reset'], true)) {
                 Assert::assertInstanceOf(RuntimeException::class, $errors['one']);
+                if ($mode === 'deadline') {
+                    Assert::assertStringContainsString('deadline', $errors['one']->getMessage());
+                } elseif ($mode === 'reset') {
+                    Assert::assertStringContainsString('RST_STREAM', $errors['one']->getMessage());
+                }
                 Assert::assertNull($errors['two']);
                 Assert::assertSame(['two' => [200, 'hyper-h2-multiplex']], $headers);
                 Assert::assertSame(['two' => 'hyper-h2-second'], $bodies);
+            } elseif ($mode === 'goaway') {
+                Assert::assertNull($errors['one']);
+                Assert::assertInstanceOf(RuntimeException::class, $errors['two']);
+                Assert::assertStringContainsString('GOAWAY', $errors['two']->getMessage());
+                Assert::assertSame(['one' => [200, 'hyper-h2-multiplex']], $headers);
+                Assert::assertSame(['one' => 'hyper-h2-first'], $bodies);
             } else {
                 Assert::assertNull($errors['one']);
                 Assert::assertNull($errors['two']);
@@ -183,10 +207,15 @@ foreach ([
                     'two' => [200, 'hyper-h2-multiplex'],
                     'one' => [200, 'hyper-h2-multiplex'],
                 ], $headers);
-                Assert::assertSame($flowPressure
-                    ? ['two' => str_repeat('3', 131_072), 'one' => str_repeat('1', 131_072)]
-                    : ['two' => ($mode === 'slow' ? 'slow-second' : 'hyper-h2-second'), 'one' => 'hyper-h2-first'], $bodies);
+                Assert::assertSame(match ($mode) {
+                    'flow' => ['two' => str_repeat('3', 131_072), 'one' => str_repeat('1', 131_072)],
+                    'head' => ['two' => 'hyper-h2-second'],
+                    'slow' => ['two' => 'slow-second', 'one' => 'hyper-h2-first'],
+                    default => ['two' => 'hyper-h2-second', 'one' => 'hyper-h2-first'],
+                }, $bodies);
             }
+            Assert::assertInstanceOf(Http2MultiplexConnection::class, $owner);
+            Assert::assertSame(0, $owner->activeCount());
         } finally {
             $owner?->close();
             $dialer?->close();

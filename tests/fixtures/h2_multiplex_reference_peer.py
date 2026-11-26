@@ -9,13 +9,16 @@ import time
 
 from h2.config import H2Configuration
 from h2.connection import H2Connection
-from h2.events import RequestReceived, StreamReset
+from h2.events import PingAckReceived, RequestReceived, StreamReset
+from hyperframe.frame import GoAwayFrame
 
-if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in ("flow", "cancel", "slow")):
-    raise SystemExit("Expected certificate, private key, and optional flow/cancel/slow mode")
-flow_mode = len(sys.argv) == 4 and sys.argv[3] == "flow"
-cancel_mode = len(sys.argv) == 4 and sys.argv[3] == "cancel"
-slow_mode = len(sys.argv) == 4 and sys.argv[3] == "slow"
+modes = ("default", "flow", "cancel", "slow", "ping", "deadline", "head", "reset", "goaway")
+if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in modes):
+    raise SystemExit("Expected certificate, private key, and optional reference mode")
+mode = sys.argv[3] if len(sys.argv) == 4 else "default"
+flow_mode = mode == "flow"
+cancel_mode = mode in ("cancel", "deadline")
+slow_mode = mode == "slow"
 
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -46,11 +49,14 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
                 raise RuntimeError("Peer disconnected before concurrent H2 requests")
             for event in connection.receive_data(packet):
                 if isinstance(event, StreamReset) and event.stream_id == 1:
+                    if event.error_code != 8:
+                        raise RuntimeError("Expected client CANCEL error code")
                     reset_seen = True
                 if not isinstance(event, RequestReceived):
                     continue
                 headers = dict(event.headers)
-                if headers.get(":method") != "GET" or headers.get(":scheme") != "https":
+                method = "HEAD" if mode == "head" and event.stream_id == 1 else "GET"
+                if headers.get(":method") != method or headers.get(":scheme") != "https":
                     raise RuntimeError("Peer sent an invalid H2 method or scheme")
                 if headers.get(":authority") is None:
                     raise RuntimeError("Peer omitted original TLS origin")
@@ -71,6 +77,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
                     raise RuntimeError("Missing H2 RST_STREAM before sibling completion")
                 for event in connection.receive_data(packet):
                     if isinstance(event, StreamReset) and event.stream_id == 1:
+                        if event.error_code != 8:
+                            raise RuntimeError("Expected client CANCEL error code")
                         reset_seen = True
             connection.send_headers(3, [
                 (":status", "200"),
@@ -78,6 +86,49 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
                 ("x-reference-server", "hyper-h2-multiplex"),
             ])
             connection.send_data(3, b"hyper-h2-second", end_stream=True)
+            stream.sendall(connection.data_to_send())
+            time.sleep(0.25)
+            sys.exit(0)
+
+        if mode == "ping":
+            payload = b"runwire!"
+            connection.ping(payload)
+            stream.sendall(connection.data_to_send())
+            while True:
+                packet = stream.recv(65_536)
+                if not packet:
+                    raise RuntimeError("Peer disconnected before PING acknowledgment")
+                events = connection.receive_data(packet)
+                if any(isinstance(event, PingAckReceived) and event.ping_data == payload for event in events):
+                    break
+
+        if mode in ("reset", "goaway", "head"):
+            def send_response(stream_id, body, head=False):
+                headers = [
+                    (":status", "200"),
+                    ("content-type", "text/plain"),
+                    ("x-reference-server", "hyper-h2-multiplex"),
+                ]
+                if head:
+                    headers.append(("content-length", "4096"))
+                connection.send_headers(stream_id, headers, end_stream=head)
+                if not head:
+                    connection.send_data(stream_id, body, end_stream=True)
+
+            if mode == "reset":
+                connection.reset_stream(1, error_code=8)
+                send_response(3, b"hyper-h2-second")
+            elif mode == "goaway":
+                # hyper-h2's close_connection() prevents subsequent stream writes;
+                # emit a standard GOAWAY frame directly to exercise graceful draining.
+                goaway = GoAwayFrame(0)
+                goaway.last_stream_id = 1
+                goaway.error_code = 0
+                stream.sendall(goaway.serialize())
+                send_response(1, b"hyper-h2-first")
+            else:
+                send_response(3, b"hyper-h2-second")
+                send_response(1, b"", head=True)
             stream.sendall(connection.data_to_send())
             time.sleep(0.25)
             sys.exit(0)
