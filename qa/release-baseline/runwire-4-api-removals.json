@@ -91,6 +91,7 @@
     "Infocyph\\Runwire\\Http\\Client\\Internal\\Http2ClientMultiplexSession",
     "Infocyph\\Runwire\\Http\\Client\\Internal\\Http2ClientResponseParser",
     "Infocyph\\Runwire\\Http\\Client\\Internal\\Http2ClientSession",
+    "Infocyph\\Runwire\\Http\\Client\\PooledHttp1Session",
     "Infocyph\\Runwire\\Http\\Enum\\ProtocolVersion",
     "Infocyph\\Runwire\\Http\\Internal\\RequestHeaderValidator",
     "Infocyph\\Runwire\\Metrics\\Enum\\ProtocolMetric",
@@ -110,7 +111,9 @@
     "Infocyph\\Runwire\\Server",
     "Infocyph\\Runwire\\Supervisor\\Internal\\ChildReaper",
     "Infocyph\\Runwire\\Supervisor\\Internal\\ChildSet",
-    "Infocyph\\Runwire\\Supervisor\\Supervisor"
+    "Infocyph\\Runwire\\Supervisor\\Internal\\WorkerOwnedResourceCleanup",
+    "Infocyph\\Runwire\\Supervisor\\Supervisor",
+    "Infocyph\\Runwire\\Supervisor\\WorkerContext"
   ],
   "declarations": [
     {
@@ -183,14 +186,6 @@
       "symbol": "Infocyph\\Runwire\\Server::withHttp3"
     },
     {
-      "type": "removed_method",
-      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\NativeTopologyValidator::assertHttp3Available"
-    },
-    {
-      "type": "removed_method",
-      "symbol": "Infocyph\\Runwire\\Runtime\\Internal\\PortableNativeRuntime::attachHttp3"
-    },
-    {
       "type": "removed_property",
       "symbol": "Infocyph\\Runwire\\Server::$http3"
     },
@@ -209,6 +204,22 @@
     {
       "type": "removed_property",
       "symbol": "Infocyph\\Runwire\\RuntimeCapabilities::$supportsQuic"
+    },
+    {
+      "type": "removed_method",
+      "symbol": "Infocyph\\Runwire\\Supervisor\\WorkerContext::ownQuicSession"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\WorkerOwnedResourceCleanup::network"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Http\\Client\\Http1ClientResponseHeadParser::parse"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Http\\Client\\Internal\\Http2ClientMultiplexSession::cancel"
     }
   ]
 }

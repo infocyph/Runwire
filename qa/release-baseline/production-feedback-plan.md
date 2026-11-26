@@ -97,3 +97,5 @@ Batch I direct outbound removal: delete eleven HTTP/3-only client source files, 
 - Exact-head hosted QA, complete retained workloads, matched performance and soak are mandatory before final closure. Do not mark verified until evidence exists.
 
 - QA on `629380b`: Sphinx passed; native admission retained a removed protocol enum reference, cascading into Swoole, independent mixed lifecycle and standalone package worker failures. Fix admission and retired capability assertion; add explicit source-audit mismatch diagnostics while retaining the fail-closed allowlist. Full hosted requalification remains required.
+
+- Second hosted audit on `25ad673`: production scan found retired worker session ownership and cleanup; remove these APIs and storage. Correct jq predicate grouping (no relaxation) and enumerate two previously reviewed retained protocol signature changes. Preserve H1 pool, dialer, connection and executor teardown.

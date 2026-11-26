@@ -90,14 +90,14 @@ jobs:
             missingRemoved: ($policy[0].removedTypes - [.breaking[] | select(.type == "removed_type") | .symbol]),
             unexpectedChanged: ([.changed[] | select(.type == "source_changed") | .symbol] - $policy[0].changedTypes),
             missingChanged: ($policy[0].changedTypes - [.changed[] | select(.type == "source_changed") | .symbol]),
-            unexpectedDeclarations: [.breaking[], .changed[] | select(.type != "removed_type" and .type != "source_changed") | . as $actual | select(any($policy[0].declarations[]; .type == $actual.type and .symbol == $actual.symbol and (has("before") | not or .before == $actual.before)) | not)]}
+            unexpectedDeclarations: [.breaking[], .changed[] | select(.type != "removed_type" and .type != "source_changed") | . as $actual | select(any($policy[0].declarations[]; .type == $actual.type and .symbol == $actual.symbol and ((has("before") | not) or .before == $actual.before)) | not)]}
           ' api-baseline/migration-source-diff.json
           jq -e --slurpfile policy qa/release-baseline/runwire-4-api-removals.json '
             .baselineRevision == $policy[0].baselineRevision and .propertyInventoryCompared
             and ([.breaking[] | select(.type == "removed_type") | .symbol] | sort) == $policy[0].removedTypes
             and ([.changed[] | select(.type == "source_changed") | .symbol] | sort) == $policy[0].changedTypes
             and .additionCount == 0
-            and ([.breaking[], .changed[] | select(.type != "removed_type" and .type != "source_changed")] | all(. as $actual | any($policy[0].declarations[]; .type == $actual.type and .symbol == $actual.symbol and (has("before") | not or .before == $actual.before))))
+            and ([.breaking[], .changed[] | select(.type != "removed_type" and .type != "source_changed")] | all(. as $actual | any($policy[0].declarations[]; .type == $actual.type and .symbol == $actual.symbol and ((has("before") | not) or .before == $actual.before))))
           ' api-baseline/migration-source-diff.json
           sha256sum api-baseline/*.json | tee api-baseline/sha256sums.txt
           echo "Reviewed 4.0 source declarations; behavioral certification remains separate." >> "$GITHUB_STEP_SUMMARY"
