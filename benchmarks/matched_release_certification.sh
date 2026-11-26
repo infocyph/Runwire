@@ -189,9 +189,10 @@ start_server "$candidate_dir" "$candidate_port" "$output_dir/candidate-server.lo
 candidate_pid="$LAST_PID"
 wait_ready "$candidate_port" "$candidate_pid" "$output_dir/candidate-server.log"
 
-# One explicit 30-second warm-up per server before the five measured trials.
-run_evidence "3.1-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 30 0.1 "$output_dir/baseline-warmup.json"
-run_evidence "3.1.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 30 0.1 "$output_dir/candidate-warmup.json"
+# Each measured trial receives its own identical 30-second warm-up.
+# An idle server must not inherit a colder starting state merely because
+# its comparator ran first. Retain all five 180-second samples and their
+# original alternating order; do not discard outliers or relax variance.
 
 baseline_trials=()
 candidate_trials=()
@@ -200,11 +201,11 @@ for trial in 1 2 3 4 5; do
   candidate_result="$output_dir/candidate-trial-$trial.json"
 
   if [ $((trial % 2)) -eq 1 ]; then
-    run_evidence "3.1-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 0 180 "$baseline_result"
-    run_evidence "3.1.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
+    run_evidence "3.1-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 30 180 "$baseline_result"
+    run_evidence "4.0.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 30 180 "$candidate_result"
   else
-    run_evidence "3.1.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 0 180 "$candidate_result"
-    run_evidence "3.1-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 0 180 "$baseline_result"
+    run_evidence "4.0.x-candidate" "$candidate_port" "$candidate_pid" "$candidate_build" 30 180 "$candidate_result"
+    run_evidence "3.1-baseline" "$baseline_port" "$baseline_pid" "$baseline_build" 30 180 "$baseline_result"
   fi
 
   baseline_trials+=("$baseline_result")
@@ -213,13 +214,18 @@ done
 
 php "$candidate_dir/benchmarks/sustained_summary.php" "${baseline_trials[@]}" > "$output_dir/baseline-summary.json"
 php "$candidate_dir/benchmarks/sustained_summary.php" "${candidate_trials[@]}" > "$output_dir/candidate-summary.json"
+cat "$output_dir/baseline-summary.json"
+cat "$output_dir/candidate-summary.json"
+
+# Preserve the comparator's nonzero status, but emit its numeric decision
+# even when the strict variance or regression gate fails.
+comparison_status=0
 php "$candidate_dir/benchmarks/regression_compare.php" \
   "$output_dir/baseline-summary.json" \
   "$output_dir/candidate-summary.json" \
-  > "$output_dir/comparison.json"
-
-jq -e '.budget_enforced == true and .passed == true' "$output_dir/comparison.json" >/dev/null
-
-cat "$output_dir/baseline-summary.json"
-cat "$output_dir/candidate-summary.json"
+  > "$output_dir/comparison.json" || comparison_status=$?
 cat "$output_dir/comparison.json"
+if [ "$comparison_status" -ne 0 ]; then
+  exit "$comparison_status"
+fi
+jq -e '.budget_enforced == true and .passed == true' "$output_dir/comparison.json" >/dev/null

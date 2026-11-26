@@ -26,8 +26,11 @@ it('audits complete source behavior evidence over bounded stdin without opening 
         }
         // Exercise the historical audit against retained executable fixtures.
         // The full 2.1.2-to-3.0 ledger remains unchanged at its original revision.
-        $testPath = $entry['executableTest'] ?? null;
-        if (is_string($testPath) && is_file(dirname(__DIR__) . '/' . $testPath)) {
+        if (!isset($entry['executableTest']) || !is_string($entry['executableTest'])) {
+            throw new RuntimeException('C4 migration ledger fixture contains an invalid test path.');
+        }
+        $testPath = $entry['executableTest'];
+        if (is_file(dirname(__DIR__) . '/' . $testPath)) {
             $entries[] = $entry;
         }
     }
