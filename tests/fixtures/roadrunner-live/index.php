@@ -54,6 +54,7 @@ try {
             $previousTempPath = $path;
             $file = null;
             $pair = null;
+            $socketClean = false;
             $pool = null;
             $poolConnection = null;
             $poolPair = null;
@@ -97,11 +98,10 @@ try {
                 $poolClosed = $poolConnection?->state() === ConnectionState::CLOSED;
                 $poolConnection?->abort();
                 if (is_array($poolPair)) {
-                    foreach ($poolPair as $poolStream) {
-                        if (is_resource($poolStream)) {
-                            fclose($poolStream);
-                        }
+                    if ($poolConnection === null) {
+                        fclose($poolPair[0]);
                     }
+                    fclose($poolPair[1]);
                 }
                 $poolWatchersClean = $poolLoop === null || (
                     $poolLoop->diagnostics()->readWatchers === 0
@@ -112,11 +112,8 @@ try {
                     fclose($file);
                 }
                 if (is_array($pair)) {
-                    foreach ($pair as $stream) {
-                        if (is_resource($stream)) {
-                            fclose($stream);
-                        }
-                    }
+                    $socketClean = fclose($pair[0]);
+                    $socketClean = fclose($pair[1]) && $socketClean;
                 }
                 if (is_file($path)) {
                     unlink($path);
@@ -124,8 +121,6 @@ try {
             }
             clearstatcache(true, $path);
             $fileClean = gettype($file) === 'resource (closed)' && !is_file($path);
-            $socketClean = gettype($pair[0]) === 'resource (closed)'
-                && gettype($pair[1]) === 'resource (closed)';
             $afterFds = roadRunnerFixtureFdCount();
             $fdStable = $afterFds <= $beforeFds;
             $lastRequestFds = $afterFds;

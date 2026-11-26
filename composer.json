@@ -24,9 +24,9 @@
         }
     ],
     "require": {
-        "ext-filter": "*",
         "php": "^8.4",
-        "php-64bit": "^8.4"
+        "php-64bit": "^8.4",
+        "ext-filter": "*"
     },
     "require-dev": {
         "ext-pcntl": "*",

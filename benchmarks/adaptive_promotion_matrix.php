@@ -188,13 +188,28 @@ function adaptivePromotionWriteJson(string $path, array $value): void
 }
 
 /**
+ * Quote each argument for the POSIX benchmark launcher. Exec preserves the
+ * process identity used by the setsid/process-group cleanup path.
+ * @param list<string> $command
+ */
+function adaptivePromotionExecCommand(array $command): string
+{
+    $quoted = [];
+    foreach ($command as $argument) {
+        $quoted[] = escapeshellarg($argument);
+    }
+
+    return 'exec ' . implode(' ', $quoted);
+}
+
+/**
  * @param list<string> $command
  * @throws \RuntimeException
  */
 function adaptivePromotionCommandOutput(array $command): string
 {
     $process = proc_open(
-        $command,
+        adaptivePromotionExecCommand($command),
         [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
         dirname(__DIR__),
@@ -733,7 +748,7 @@ function adaptivePromotionPickPort(bool $udp): int
 function adaptivePromotionStart(array $command, string $stdout, string $stderr, array $environment = []): array
 {
     $process = proc_open(
-        array_merge(['setsid'], $command),
+        adaptivePromotionExecCommand(['setsid', ...$command]),
         [0 => ['file', '/dev/null', 'r'], 1 => ['file', $stdout, 'a'], 2 => ['file', $stderr, 'a']],
         $pipes,
         dirname(__DIR__),

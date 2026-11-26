@@ -235,3 +235,9 @@ it('parses list/run/evaluate CLI options without allowing short sustained eviden
         ->and(fn() => adaptivePromotionArguments(['script', 'run', '--protocol', 'bogus']))
         ->toThrow(InvalidArgumentException::class);
 });
+
+it('preserves literal benchmark arguments without shell expansion', function (): void {
+    $arguments = ['space separated', '$(printf injected)', "single'quote", '; echo injected', ''];
+    $command = [PHP_BINARY, '-r', 'echo json_encode(array_slice($argv, 1), JSON_THROW_ON_ERROR);', '--', ...$arguments];
+    expect(adaptivePromotionCommandOutput($command))->toBe(json_encode($arguments, JSON_THROW_ON_ERROR));
+});
