@@ -24,12 +24,15 @@
         }
     ],
     "require": {
+        "ext-filter": "*",
         "php": "^8.4",
         "php-64bit": "^8.4"
     },
     "require-dev": {
         "ext-pcntl": "*",
+        "ext-phar": "*",
         "ext-posix": "*",
+        "ext-tokenizer": "*",
         "infocyph/phpforge": "dev-main@dev",
         "nyholm/psr7": "^1.8.2",
         "psr/http-factory": "^1.1",

@@ -34,7 +34,7 @@ it('keeps portable package runtime requirements free of hard optional extensions
     \PHPUnit\Framework\Assert::assertIsArray($package['autoload']);
     expect($package['name'])->toBe('infocyph/runwire')
         ->and($package['type'])->toBe('library')
-        ->and($package['require'])->toHaveKeys(['php', 'php-64bit'])
+        ->and($package['require'])->toHaveKeys(['php', 'php-64bit', 'ext-filter'])
         ->and($package['require'])->not->toHaveKey('infocyph/foundation')
         ->and($package['require'])->not->toHaveKey('ext-event')
         ->and($package['require'])->not->toHaveKey('ext-pcntl')

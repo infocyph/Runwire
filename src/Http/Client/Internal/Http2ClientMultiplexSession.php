@@ -276,6 +276,7 @@ final class Http2ClientMultiplexSession
     /**
      * Drain previously canceled response frames without accepting new headers.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
     private function retiredFrame(Frame $frame): string
     {
@@ -293,6 +294,7 @@ final class Http2ClientMultiplexSession
         if ($frame->hasFlag(0x1)) {
             unset($this->retired[$frame->streamId]);
         }
+
         return self::credit($frame, false);
     }
 

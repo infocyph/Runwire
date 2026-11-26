@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Infocyph\Runwire\Tests;
+
 use Infocyph\Runwire\CancellationSource;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\ClientRequest;
@@ -17,6 +19,8 @@ use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
+use RuntimeException;
+use Throwable;
 
 it('routes two live H2 streams over one callback-owned established connection', function (): void {
     $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);

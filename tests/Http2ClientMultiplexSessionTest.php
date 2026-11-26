@@ -447,11 +447,17 @@ it('continues accepted streams through graceful GOAWAY, PING and decreasing last
     $ping = new Frame(FrameType::PING->value, 0, 0, '12345678');
     expect($session->receive($ping))->toBe(FrameWriter::encode(new Frame(FrameType::PING->value, 1, 0, '12345678')));
     $session->receive(FrameWriter::goAway(1, ErrorCode::NO_ERROR));
+    if (!array_key_exists(3, $completed) || !array_key_exists(5, $completed)) {
+        throw new RuntimeException('Both refused HTTP/2 streams must settle.');
+    }
     expect($session->activeCount())->toBe(1)
         ->and($completed[3])->toBeInstanceOf(RuntimeException::class)
         ->and($completed[5])->toBeInstanceOf(RuntimeException::class);
     $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, (new Encoder())->encode([[':status', '200']])));
     $session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'drained'));
+    if (!array_key_exists(1, $completed)) {
+        throw new RuntimeException('The accepted HTTP/2 stream must settle.');
+    }
     expect($completed[1])->toBeNull()->and($body)->toBe('drained')->and($session->activeCount())->toBe(0);
     expect(fn() => $session->receive(FrameWriter::goAway(3, ErrorCode::NO_ERROR)))
         ->toThrow(RuntimeException::class, 'cannot increase');

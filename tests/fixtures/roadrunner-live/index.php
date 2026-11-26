@@ -98,7 +98,7 @@ try {
                 $poolConnection?->abort();
                 if (is_array($poolPair)) {
                     foreach ($poolPair as $poolStream) {
-                        if (get_resource_type($poolStream) !== 'Unknown') {
+                        if (is_resource($poolStream)) {
                             fclose($poolStream);
                         }
                     }
@@ -113,7 +113,7 @@ try {
                 }
                 if (is_array($pair)) {
                     foreach ($pair as $stream) {
-                        if (get_resource_type($stream) !== 'Unknown') {
+                        if (is_resource($stream)) {
                             fclose($stream);
                         }
                     }
@@ -123,9 +123,9 @@ try {
                 }
             }
             clearstatcache(true, $path);
-            $fileClean = get_resource_type($file) === 'Unknown' && !is_file($path);
-            $socketClean = get_resource_type($pair[0]) === 'Unknown'
-                && get_resource_type($pair[1]) === 'Unknown';
+            $fileClean = gettype($file) === 'resource (closed)' && !is_file($path);
+            $socketClean = gettype($pair[0]) === 'resource (closed)'
+                && gettype($pair[1]) === 'resource (closed)';
             $afterFds = roadRunnerFixtureFdCount();
             $fdStable = $afterFds <= $beforeFds;
             $lastRequestFds = $afterFds;
