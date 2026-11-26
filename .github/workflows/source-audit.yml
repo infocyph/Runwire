@@ -85,6 +85,13 @@ jobs:
           php tools/public-api-manifest.php published-3.1/src "$baseline" --with-properties > api-baseline/published-3.1.json
           php tools/public-api-manifest.php src "${GITHUB_SHA}" --with-properties > api-baseline/current.json
           jq -cn --slurpfile baseline api-baseline/published-3.1.json --slurpfile candidate api-baseline/current.json '{baseline: $baseline[0], candidate: $candidate[0]}' | php tools/public-api-diff.php > api-baseline/migration-source-diff.json
+          jq --slurpfile policy qa/release-baseline/runwire-4-api-removals.json '
+            {unexpectedRemoved: ([.breaking[] | select(.type == "removed_type") | .symbol] - $policy[0].removedTypes),
+            missingRemoved: ($policy[0].removedTypes - [.breaking[] | select(.type == "removed_type") | .symbol]),
+            unexpectedChanged: ([.changed[] | select(.type == "source_changed") | .symbol] - $policy[0].changedTypes),
+            missingChanged: ($policy[0].changedTypes - [.changed[] | select(.type == "source_changed") | .symbol]),
+            unexpectedDeclarations: [.breaking[], .changed[] | select(.type != "removed_type" and .type != "source_changed") | . as $actual | select(any($policy[0].declarations[]; .type == $actual.type and .symbol == $actual.symbol and (has("before") | not or .before == $actual.before)) | not)]}
+          ' api-baseline/migration-source-diff.json
           jq -e --slurpfile policy qa/release-baseline/runwire-4-api-removals.json '
             .baselineRevision == $policy[0].baselineRevision and .propertyInventoryCompared
             and ([.breaking[] | select(.type == "removed_type") | .symbol] | sort) == $policy[0].removedTypes
@@ -96,6 +103,7 @@ jobs:
           echo "Reviewed 4.0 source declarations; behavioral certification remains separate." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Reject removed protocol references in production
+        if: always()
         shell: bash
         run: |
           set -euo pipefail

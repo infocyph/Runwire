@@ -95,3 +95,5 @@ Batch I direct outbound removal: delete eleven HTTP/3-only client source files, 
 - I–K implementation: removed native HTTP/3, QUIC, QPACK, dedicated tests and dependency provisioning; retained H1/H2, HPACK, TLS, TCP/UDP, WebSocket, executor and mixed lifecycle coverage. Source inventory: 451 published 3.1 files to 377 candidate files (74 removed, including prior consolidations).
 - L: upgrade documentation and 4.0 candidate package identity updated; downstream compatibility and consumer qualification still pending.
 - Exact-head hosted QA, complete retained workloads, matched performance and soak are mandatory before final closure. Do not mark verified until evidence exists.
+
+- QA on `629380b`: Sphinx passed; native admission retained a removed protocol enum reference, cascading into Swoole, independent mixed lifecycle and standalone package worker failures. Fix admission and retired capability assertion; add explicit source-audit mismatch diagnostics while retaining the fail-closed allowlist. Full hosted requalification remains required.

@@ -101,6 +101,7 @@
     "Infocyph\\Runwire\\RuntimeCapabilities",
     "Infocyph\\Runwire\\Runtime\\Enum\\RuntimeCapability",
     "Infocyph\\Runwire\\Runtime\\Host\\HostProtocolVersion",
+    "Infocyph\\Runwire\\Runtime\\Internal\\AdmissionController",
     "Infocyph\\Runwire\\Runtime\\Internal\\NativeTopologyValidator",
     "Infocyph\\Runwire\\Runtime\\Internal\\PortableNativeRuntime",
     "Infocyph\\Runwire\\Runtime\\RuntimeCapabilityResolver",

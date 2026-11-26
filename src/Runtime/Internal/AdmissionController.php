@@ -90,6 +90,6 @@ final class AdmissionController
 
     private static function isStream(ProtocolVersion $version): bool
     {
-        return $version === ProtocolVersion::HTTP_2 || $version === ProtocolVersion::HTTP_3;
+        return $version === ProtocolVersion::HTTP_2;
     }
 }
