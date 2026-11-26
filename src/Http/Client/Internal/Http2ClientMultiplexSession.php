@@ -230,14 +230,14 @@ final class Http2ClientMultiplexSession
      * Account for receive-window consumption without extending terminated streams.
      * @throws \InvalidArgumentException
      */
-    private static function credit(Frame $frame): string
+    private static function credit(Frame $frame, bool $streamOpen): string
     {
         $bytes = $frame->knownType() === FrameType::DATA ? strlen($frame->payload) : 0;
         if ($bytes === 0) {
             return '';
         }
         $wire = FrameWriter::encode(FrameWriter::windowUpdate(0, $bytes));
-        if (!$frame->hasFlag(0x1)) {
+        if ($streamOpen && !$frame->hasFlag(0x1)) {
             $wire .= FrameWriter::encode(FrameWriter::windowUpdate($frame->streamId, $bytes));
         }
 
@@ -293,11 +293,7 @@ final class Http2ClientMultiplexSession
         if ($frame->hasFlag(0x1)) {
             unset($this->retired[$frame->streamId]);
         }
-        $bytes = strlen($frame->payload);
-
-        return $bytes > 0
-            ? FrameWriter::encode(FrameWriter::windowUpdate(0, $bytes))
-            : '';
+        return self::credit($frame, false);
     }
 
     /**
@@ -323,10 +319,11 @@ final class Http2ClientMultiplexSession
             return '';
         }
         if ($slot['response']->done()) {
+            unset($this->retired[$frame->streamId]);
             $this->finish($frame->streamId, null);
         }
 
-        return self::credit($frame);
+        return self::credit($frame, isset($this->streams[$frame->streamId]));
     }
 
     /** Never allow sibling frames to interleave an incomplete header block. */

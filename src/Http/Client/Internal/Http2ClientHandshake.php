@@ -97,7 +97,7 @@ final class Http2ClientHandshake
      */
     public function receive(Frame $frame): string
     {
-        if (!$this->started || $this->closed) {
+        if (!$this->started) {
             throw new RuntimeException('HTTP/2 client handshake is not active.');
         }
         if (!$this->receivedSettings && ($frame->knownType() !== FrameType::SETTINGS || $frame->hasFlag(0x1))) {
@@ -179,7 +179,11 @@ final class Http2ClientHandshake
         if (!is_int($lastId) || !is_int($errorCode)) {
             throw new RuntimeException('HTTP/2 GOAWAY has invalid stream or error fields.');
         }
-        $this->peerGoAwayLastStreamId = $lastId & 0x7FFF_FFFF;
+        $lastId &= 0x7FFF_FFFF;
+        if ($this->peerGoAwayLastStreamId !== null && $lastId > $this->peerGoAwayLastStreamId) {
+            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 GOAWAY last stream ID cannot increase.');
+        }
+        $this->peerGoAwayLastStreamId = $lastId;
         $this->peerGoAwayErrorCode = $errorCode;
         $this->closed = true;
 

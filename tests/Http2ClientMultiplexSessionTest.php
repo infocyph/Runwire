@@ -427,3 +427,54 @@ it('does not reserve a multiplexed HTTP/2 stream for an unapproved PSR destinati
         ->and($session->activeCount())->toBe(1);
     $session->close();
 });
+
+it('continues accepted streams through graceful GOAWAY, PING and decreasing last stream IDs', function (): void {
+    $session = new Http2ClientMultiplexSession(3);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $completed = [];
+    $body = '';
+    foreach ([1, 3, 5] as $id) {
+        $session->request(
+            new ClientRequest('GET', 'https://example.test/' . $id),
+            static function (): void {},
+            static function (string $bytes) use (&$body): void { $body .= $bytes; },
+            static function (?Throwable $error) use ($id, &$completed): void { $completed[$id] = $error; },
+        );
+    }
+    $session->receive(FrameWriter::goAway(5, ErrorCode::NO_ERROR));
+    expect($session->ready())->toBeFalse()->and($session->activeCount())->toBe(3);
+    $ping = new Frame(FrameType::PING->value, 0, 0, '12345678');
+    expect($session->receive($ping))->toBe(FrameWriter::encode(new Frame(FrameType::PING->value, 1, 0, '12345678')));
+    $session->receive(FrameWriter::goAway(1, ErrorCode::NO_ERROR));
+    expect($session->activeCount())->toBe(1)
+        ->and($completed[3])->toBeInstanceOf(RuntimeException::class)
+        ->and($completed[5])->toBeInstanceOf(RuntimeException::class);
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, (new Encoder())->encode([[':status', '200']])));
+    $session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'drained'));
+    expect($completed[1])->toBeNull()->and($body)->toBe('drained')->and($session->activeCount())->toBe(0);
+    expect(fn() => $session->receive(FrameWriter::goAway(3, ErrorCode::NO_ERROR)))
+        ->toThrow(RuntimeException::class, 'cannot increase');
+});
+
+it('does not restore stream credit when a body callback cancels its own stream', function (): void {
+    $session = new Http2ClientMultiplexSession(2);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $completed = [];
+    $session->request(
+        new ClientRequest('GET', 'https://example.test/cancel-in-body'),
+        static function (): void {},
+        static function () use ($session): void { $session->cancel(1); },
+        static function (?Throwable $error) use (&$completed): void { $completed[] = $error; },
+    );
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, (new Encoder())->encode([[':status', '200']])));
+    $wire = $session->receive(new Frame(FrameType::DATA->value, 0, 1, 'chunk'));
+    expect($wire)->toBe(FrameWriter::encode(FrameWriter::windowUpdate(0, 5)))
+        ->and($session->activeCount())->toBe(0)
+        ->and($completed)->toHaveCount(1)
+        ->and($completed[0])->toBeInstanceOf(RuntimeException::class);
+    $session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'late'));
+    $session->close();
+    expect($completed)->toHaveCount(1);
+});
