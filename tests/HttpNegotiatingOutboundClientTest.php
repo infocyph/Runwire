@@ -40,7 +40,7 @@ it('rejects unsupported H3 and unsafe H1/H2 fallback before any socket or DNS wo
             $callback,
             $callback,
             $callback,
-        ))->toThrow(RuntimeUnavailableException::class, 'QUIC');
+        ))->toThrow(RuntimeUnavailableException::class, 'HTTP/3 is unsupported');
         expect(fn() => HttpNegotiatingOutboundClient::connect(
             $loop,
             $dialer,

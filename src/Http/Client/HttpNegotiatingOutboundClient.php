@@ -18,8 +18,8 @@ use Throwable;
 /**
  * Experimental TLS-negotiated one-request H1/H2 client with explicit fallback.
  *
- * Uses the same verified stream/dialer as standalone clients. H3 requires an
- * independently implemented QUIC client and is never silently downgraded.
+ * Uses the same verified stream/dialer as standalone clients. Unsupported
+ * protocol requests are rejected before any socket or DNS work.
  */
 final readonly class HttpNegotiatingOutboundClient
 {
@@ -46,7 +46,7 @@ final readonly class HttpNegotiatingOutboundClient
         $policy = $request->protocol;
         if ($policy->preferred === ProtocolVersion::HTTP_3
             || in_array(ProtocolVersion::HTTP_3, $policy->allowedVersions, true)) {
-            throw new RuntimeUnavailableException('HTTP/3 is not supported by this H1/H2 negotiator; use Http3OutboundClient with native QUIC.');
+            throw new RuntimeUnavailableException('HTTP/3 is unsupported; explicitly select HTTP/1.1 or HTTP/2.');
         }
         $parts = parse_url($request->uriForSend());
         $originHost = $parts['host'] ?? null;

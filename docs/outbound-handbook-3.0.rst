@@ -275,19 +275,12 @@ Explicit cross-protocol outbound dispatch
 -----------------------------------------
 
 `Http\\Client\\HttpOutboundDispatcher` provides one callback-based
-`send()` entry point for the existing verified H1/H2 TLS-ALPN client
-and optional native QUIC H3 implementation. Every request receives an
-`OutboundHttpHandle` that owns a linked cancellation source through
-final settlement, and an H1 reusable socket is aborted on completion
-unless retained by an independently qualified owning pool. No ambient
-cookies, implicit H3 downgrade, plaintext fallback, cross-origin reuse,
-unverified certificate policy or automatic session pool is introduced.
-H3 requires explicit `QuicClientOptions` and a strict H3-only policy,
-while H1/H2 use caller-owned `HappyEyeballsDialer`. Only the current
-per-request transport lifecycle is unified; multi-request H2/H3
-pooling and same-origin capacity management remain separately exposed
-protocol APIs, pending independent lifecycle, performance and
-cross-tenant acceptance.
+`send()` entry point for verified H1/H2 TLS-ALPN exchanges. Every request
+receives an `OutboundHttpHandle` that owns a linked cancellation source
+through final settlement. H1 reusable sockets are aborted on completion
+unless retained by an independently qualified owning pool. Explicit H3
+or mixed H3 policies are rejected before DNS or socket allocation; no
+implicit downgrade, plaintext fallback or cross-origin reuse is introduced.
 
 
 Explicit bounded HTTP/1.1 keep-alive session
@@ -314,25 +307,14 @@ H2 multiplex and native H3 session siblings retain their own explicit lifecycle.
 Unified explicit transport and reusable session routing
 -------------------------------------------------------
 
-The `Http\\Client\\HttpOutboundDispatcher` provides one request ownership,
-cancellation and completion contract. With constructor opt-ins, it can
-route strict H1 requests into a fixed `PooledHttp1Session` (bounded real
-keep-alive sockets), strict H2 requests into a caller-established,
-verified and SETTINGS-ready `Http2MultiplexConnection` (bounded independent
-stream owners), and strict H3 requests into a caller-established
-`Http3OutboundClient` session's independently cancellable siblings.
-Without those injected sessions it continues using the existing verified
-H1/H2 ALPN dialer or explicitly configured native H3 QUIC transport.
-
-The supplied sessions must be created by the same worker/tenant trust
-scope, must be explicitly closed by their owners, and must enforce their
-original origin and TLS/ALPN policy. H2/H3 session reuse requires the
-caller to establish the protocol session first; this facade does **not**
-automatically cache QUIC or multiplex sockets across distinct origins,
-tenants or trust-policy revisions. Per-request TCP dial/TLS options on an
-injected pooled H1/H2 session are rejected rather than ignored. No H3
-fallback to H2 or H1 is attempted. Completion always disposes the request
-cancellation source and never silently retains an unverified socket.
+The dispatcher can route strict H1 requests into a fixed
+`PooledHttp1Session` and strict H2 requests into a caller-established,
+verified and SETTINGS-ready `Http2MultiplexConnection`. Without injected
+sessions it uses the verified H1/H2 ALPN dialer. Sessions belong to the
+same worker/tenant trust scope and must be explicitly closed by their
+owners. Per-request TCP dial/TLS overrides on injected sessions are
+rejected. Completion disposes the request cancellation source and never
+silently retains an unverified socket.
 
 
 How to configure DNS coalescing safely
@@ -426,6 +408,6 @@ For H2, verify negotiated ``h2`` ALPN and use caller-established
 
 Do not interpret these policy objects as opened sockets.
 ``tests/HttpOutboundDispatcherTest.php`` verifies strict transport
-routing and rejection of mixed TCP/QUIC fallback. Probe real H2
+routing and rejection of unsupported H3 policies. Probe real H2
 with the independent hyper-h2 acceptance and H3 with native QUIC
 interoperability checks.

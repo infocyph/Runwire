@@ -15,11 +15,9 @@ use Infocyph\Runwire\Network\AsyncDnsResolver;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
-use Infocyph\Runwire\Network\OutboundAddressPolicy;
-use Infocyph\Runwire\Network\QuicClientOptions;
 use Nyholm\Psr7\Request;
 
-it('exposes a single strict H1/H2/H3 dispatch policy without launching a forbidden dial', function (): void {
+it('rejects strict and mixed HTTP/3 dispatch before allocating DNS or sockets', function (): void {
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 1);
     $numeric = new Dialer($loop);
@@ -36,22 +34,14 @@ it('exposes a single strict H1/H2/H3 dispatch policy without launching a forbidd
             static function (): void {},
             static function (): void {},
         ))
-            ->toThrow(RuntimeUnavailableException::class, 'QUIC');
+            ->toThrow(RuntimeUnavailableException::class, 'HTTP/3 dispatch is unsupported');
         expect(fn() => $dispatcher->send(
             new ClientRequest('GET', 'https://example.test/', protocol: $mixed),
             static function (): void {},
             static function (): void {},
             static function (): void {},
         ))
-            ->toThrow(RuntimeUnavailableException::class, 'downgrade');
-        $quicDispatcher = new HttpOutboundDispatcher($loop, $dialer, new QuicClientOptions('example.test'));
-        expect(fn() => $quicDispatcher->send(
-            new ClientRequest('GET', 'https://example.test/', protocol: $h3),
-            static function (): void {},
-            static function (): void {},
-            static function (): void {},
-            new DialOptions(addressPolicy: new OutboundAddressPolicy()),
-        ))->toThrow(InvalidArgumentException::class, 'not TCP dial options');
+            ->toThrow(RuntimeUnavailableException::class, 'HTTP/3 dispatch is unsupported');
         expect(fn() => $dispatcher->send(
             $unapproved,
             static function (): void {},
