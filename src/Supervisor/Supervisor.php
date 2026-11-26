@@ -694,30 +694,34 @@ final class Supervisor
      */
     private function reapChildren(): void
     {
-        ChildReaper::reap(
+        ChildReaper::reapOwned(
+            array_keys($this->children),
             $this->handleChildExit(...),
-            $this->reconcileNoChildren(...),
+            $this->reconcileMissingChild(...),
         );
     }
 
-    private function reconcileNoChildren(): void
+    private function reconcileMissingChild(int $pid): void
     {
-        if ($this->children === []) {
+        $record = $this->children[$pid] ?? null;
+        if ($record === null) {
             return;
         }
 
-        $orphans = $this->children;
-        $this->children = [];
-        $this->currentSlots = [];
-        foreach ($orphans as $record) {
-            $this->closeChildWatchers($record);
+        unset($this->children[$pid]);
+        if (($this->currentSlots[$record->group->name][$record->slot] ?? null) === $pid) {
+            unset($this->currentSlots[$record->group->name][$record->slot]);
         }
+        $this->closeChildWatchers($record);
         if ($this->stopping) {
-            $this->loop->stop();
+            if ($this->children === []) {
+                $this->loop->stop();
+            }
 
             return;
         }
 
+        // Keep remaining worker ownership so the fatal drain can retire it safely.
         $this->fail(new SupervisorException('Kernel child state diverged from the supervisor child table.'));
     }
 

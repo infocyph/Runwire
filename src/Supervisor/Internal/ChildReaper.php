@@ -35,11 +35,16 @@ final class ChildReaper
      */
     public static function forceKillAndWait(array $children, int $deadlineNanoseconds): array
     {
+        $running = [];
         foreach ($children as $record) {
-            posix_kill($record->pid, SIGKILL);
+            // Do not signal a PID whose child status has already been collected.
+            if (!self::waitForUntil($record->pid, 0)) {
+                posix_kill($record->pid, SIGKILL);
+                $running[] = $record->pid;
+            }
         }
         $unreaped = [];
-        foreach (array_keys($children) as $pid) {
+        foreach ($running as $pid) {
             if (!self::waitForUntil($pid, $deadlineNanoseconds)) {
                 $unreaped[] = $pid;
             }
@@ -87,6 +92,42 @@ final class ChildReaper
             }
 
             throw new SupervisorException(sprintf('waitpid failed with PCNTL error %d.', $error));
+        }
+    }
+
+    /**
+     * Reap only registered children; unrelated child status belongs to its owner.
+     *
+     * @param list<int> $ownedPids
+     * @param callable(int, int): void $onExit
+     * @param callable(int): void $onMissing
+     * @throws \Infocyph\Runwire\Exception\SupervisorException
+     */
+    public static function reapOwned(array $ownedPids, callable $onExit, callable $onMissing): void
+    {
+        foreach ($ownedPids as $pid) {
+            while (true) {
+                $status = 0;
+                $result = pcntl_waitpid($pid, $status, WNOHANG);
+                if ($result === $pid) {
+                    $exitStatus = self::supportedStatus($status);
+                    if ($exitStatus === null) {
+                        throw new SupervisorException('waitpid returned a non-integer child status.');
+                    }
+                    $onExit($pid, $exitStatus);
+
+                    break;
+                }
+                if ($result === 0) {
+                    break;
+                }
+                if (self::retryWait()) {
+                    continue;
+                }
+                $onMissing($pid);
+
+                break;
+            }
         }
     }
 

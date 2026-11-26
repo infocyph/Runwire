@@ -369,39 +369,38 @@ final class ProcessExecutor
         if ($this->closed) {
             return;
         }
-        while (!$this->pending->isEmpty()) {
+        while (($jobId = $this->nextQueuedJob()) !== null) {
             try {
                 $available = $this->availableWorker();
             } catch (Throwable $error) {
-                $jobId = $this->nextQueuedJob();
-                if ($jobId !== null) {
-                    $this->settle($jobId, null, $error);
-                }
+                $this->settle($jobId, null, $error);
 
                 return;
             }
             if ($available === null) {
-                return;
-            }
-            $jobId = $this->nextQueuedJob();
-            if ($jobId === null) {
+                // Preserve FIFO order when all workers are occupied.
+                $this->pending->unshift($jobId);
+
                 return;
             }
 
-            $job = $this->jobs[$jobId];
-            $job['worker'] = $available;
-            $this->jobs[$jobId] = $job;
-            $worker = $this->workers[$available];
-            $worker['job'] = $jobId;
-            $worker['inputBuffer'] = $job['packet'];
-            $worker['outputBuffer'] = '';
-            $worker['writeWatcher'] = $this->loop->onWritable(
-                $worker['input'],
-                function () use ($available): void {
-                    $this->writeWorker($available);
-                },
-            );
-            $this->workers[$available] = $worker;
+            $this->jobs[$jobId]['worker'] = $available;
+            $this->workers[$available]['job'] = $jobId;
+            $this->workers[$available]['inputBuffer'] = $this->jobs[$jobId]['packet'];
+            $this->workers[$available]['outputBuffer'] = '';
+            try {
+                $this->workers[$available]['writeWatcher'] = $this->loop->onWritable(
+                    $this->workers[$available]['input'],
+                    function () use ($available): void {
+                        $this->writeWorker($available);
+                    },
+                );
+            } catch (Throwable $error) {
+                // The worker owns the job before registration; retirement settles both.
+                $this->retire($available, $error);
+
+                return;
+            }
         }
     }
 

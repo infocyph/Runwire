@@ -454,3 +454,30 @@ it('does not execute unsigned or incorrectly signed subprocess requests', functi
         }
     }
 });
+
+it('does not allocate a subprocess for a fully canceled queue', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 2);
+    $completions = [];
+    try {
+        $id = $executor->submit('sleep', ['milliseconds' => 10], static function (mixed $value, ?Throwable $error) use (&$completions): void {
+            expect($value)->toBeNull();
+            $completions[] = $error;
+        });
+        expect($executor->cancel($id))->toBeTrue();
+        $loop->defer(static function () use ($loop): void {
+            $loop->stop();
+        });
+        $loop->run();
+        expect($completions)->toHaveCount(1)
+            ->and($executor->diagnostics()['workers'])->toBe(0)
+            ->and($executor->diagnostics()['active'])->toBe(0)
+            ->and($executor->diagnostics()['queued'])->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+        \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $completions[0]);
+    } finally {
+        $executor->close();
+    }
+});
