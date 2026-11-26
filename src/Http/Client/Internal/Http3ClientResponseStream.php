@@ -162,8 +162,10 @@ final class Http3ClientResponseStream
         if ($this->expectedBodyBytes !== null && $length > $this->expectedBodyBytes - $this->receivedBodyBytes) {
             throw new Http3Exception(ErrorCode::MESSAGE_ERROR, 'HTTP/3 response content exceeds its declared or permitted length.');
         }
-        $this->receivedBodyBytes += $length;
-        ($this->onBody)($frame->payload);
+        if ($length > 0) {
+            $this->receivedBodyBytes += $length;
+            ($this->onBody)($frame->payload);
+        }
     }
 
     /**

@@ -372,3 +372,15 @@ function runwireForbiddenH3Content(bool $head, int $status): void
     expect(fn() => $stream->push((new Frame(FrameType::DATA->value, 'bad'))->encode()))->toThrow(Http3Exception::class);
     expect($body)->toBe('')->and($stream->isFinished())->toBeFalse();
 }
+
+it('does not publish empty H3 DATA as body callbacks', function (): void {
+    $calls = 0;
+    $stream = new Http3ClientResponseStream(4, static function (): void {}, static function () use (&$calls): void {
+        ++$calls;
+    }, headRequest: true);
+    $block = (new Encoder(0, 0))->encode([[':status', '200'], ['content-length', '99']], 4)->block;
+    $stream->push(new Frame(FrameType::HEADERS->value, $block)->encode()
+        . new Frame(FrameType::DATA->value, '')->encode());
+    $stream->finish();
+    expect($stream->isFinished())->toBeTrue()->and($calls)->toBe(0);
+});

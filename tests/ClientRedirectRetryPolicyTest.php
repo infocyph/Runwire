@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\ClientDestinationPolicy;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRedirectRetryPolicy;
@@ -10,6 +11,7 @@ use Infocyph\Runwire\Http\Enum\OutboundUriSource;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
+use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use Nyholm\Psr7\Request;
 
 it('strips all confidential and origin-specific headers on an explicitly allowed cross-origin redirect', function (): void {
@@ -111,7 +113,8 @@ it('retries only safe bodyless requests prior to visible response under an expli
         ->and($policy->shouldRetry($safe, 1, new RuntimeException('disconnected'), false))->toBeFalse()
         ->and($policy->shouldRetry($safe, 0, new RuntimeException('disconnected'), true))->toBeFalse()
         ->and($policy->shouldRetry($safe, 0, new InvalidArgumentException('bad config'), false))->toBeFalse()
-        ->and($policy->shouldRetry($post, 0, new RuntimeException('disconnected'), false))->toBeFalse();
+        ->and($policy->shouldRetry($post, 0, new RuntimeException('disconnected'), false))->toBeFalse()
+        ->and($policy->shouldRetry($safe, 0, new CancelledException(CancellationReason::HOST_CANCELLED), false))->toBeFalse();
 });
 
 it('resolves query-only and dot-segment relative locations without changing query contents', function (): void {

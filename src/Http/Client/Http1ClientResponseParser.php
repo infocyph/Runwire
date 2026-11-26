@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Client;
 
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Internal\ResponseSemantics;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -175,6 +176,9 @@ final class Http1ClientResponseParser
 
             return;
         }
+        if ($this->status !== null && ResponseSemantics::suppressesBody($this->headRequest, $this->status)) {
+            throw new RuntimeException('HTTP/1.1 response content is forbidden by its status or method.');
+        }
         if (strlen($bytes) > $this->maxBodyBytes - $this->bodyBytes) {
 
             throw new RuntimeException('HTTP/1.1 response body exceeds configured size.');
@@ -323,7 +327,7 @@ final class Http1ClientResponseParser
             throw new RuntimeException('HTTP/1.1 response headers exceed byte budget.');
         }
 
-        $head = Http1ClientResponseHeadParser::parse(substr($this->buffer, 0, $end), $this->maxBodyBytes);
+        $head = Http1ClientResponseHeadParser::parse(substr($this->buffer, 0, $end), $this->maxBodyBytes, $this->headRequest);
         $this->buffer = substr($this->buffer, $end + 4);
         if ($head['code'] < 200) {
             if ($head['code'] === 101) {

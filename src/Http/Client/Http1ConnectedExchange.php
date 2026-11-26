@@ -8,6 +8,7 @@ use Closure;
 use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
@@ -66,8 +67,16 @@ final class Http1ConnectedExchange
             || $request->protocol->negotiate($connection->negotiatedProtocol(), $tls) !== ProtocolVersion::HTTP_1_1) {
             throw new InvalidArgumentException('HTTP/1.1 exchange requires the exact requested verified transport and ALPN.');
         }
-        $this->headCallback = Closure::fromCallable($onHeaders);
-        $this->bodyCallback = Closure::fromCallable($onBody);
+        $this->headCallback = function (int $status, Headers $headers) use ($onHeaders): void {
+            if (!$this->settled) {
+                $onHeaders($status, $headers);
+            }
+        };
+        $this->bodyCallback = function (string $bytes) use ($onBody): void {
+            if (!$this->settled) {
+                $onBody($bytes);
+            }
+        };
         $this->completion = Closure::fromCallable($onComplete);
         $this->writer = new Http1ClientRequestWriter($request);
         $this->parser = new Http1ClientResponseParser(strcasecmp($request->method, 'HEAD') === 0);
