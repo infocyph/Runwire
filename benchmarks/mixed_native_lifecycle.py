@@ -58,9 +58,22 @@ async def request_http1(port):
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     context.set_alpn_protocols(["http/1.1"])
-    reader, writer = await asyncio.open_connection(
-        "127.0.0.1", port, ssl=context, server_hostname="localhost"
-    )
+    # A reload-completed callback immediately requests manual worker recycle.
+    # A TCP/TLS handshake may therefore be reset before any HTTP bytes are
+    # sent. Retry only that pre-request boundary, never an admitted request.
+    for attempt in range(3):
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(
+                    "127.0.0.1", port, ssl=context, server_hostname="localhost"
+                ),
+                timeout=3,
+            )
+            break
+        except (ConnectionResetError, ConnectionRefusedError):
+            if attempt == 2:
+                raise
+            await asyncio.sleep(0.05)
     try:
         if writer.get_extra_info("ssl_object").selected_alpn_protocol() != "http/1.1":
             raise RuntimeError("H1 ALPN mismatch")
