@@ -38,7 +38,7 @@ final readonly class OutboundAddressPolicy
 
         if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_GLOBAL_RANGE) === false
             || (strlen($packed) === 4 && (ord($packed[0]) & 0xF0) === 0xE0)
-            || (strlen($packed) === 16 && ord($packed[0]) === 0xFF)) {
+            || (strlen($packed) === 16 && (ord($packed[0]) === 0xFF || self::isTransitionAddress($packed)))) {
             throw new RuntimeException('Outbound address policy blocks non-public IP.');
         }
     }
@@ -67,6 +67,14 @@ final readonly class OutboundAddressPolicy
         if (self::canonicalAddress($approvedIp) !== self::canonicalAddress($peer->host)) {
             throw new RuntimeException('Connected peer differs from the authorized resolved IP.');
         }
+    }
+
+    /** Reject standardized transition prefixes that can conceal an IPv4 destination. */
+    private static function isTransitionAddress(string $packed): bool
+    {
+        return str_starts_with($packed, "\x00\x64\xff\x9b")
+            || str_starts_with($packed, "\x20\x02")
+            || str_starts_with($packed, "\x20\x01\x00\x00");
     }
 
     /**

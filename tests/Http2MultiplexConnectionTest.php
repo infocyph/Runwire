@@ -17,6 +17,7 @@ use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use RuntimeException;
@@ -33,6 +34,7 @@ it('routes two live H2 streams over one callback-owned established connection', 
     // The socket-pair fixture injects verified metadata; TLS and ALPN are
     // independently accepted by the real hyper-h2 reference workflow.
     $connection = new Connection($loop, $socket, negotiatedProtocol: 'h2', encrypted: true);
+    VerifiedOutboundTlsPeers::register($connection, 'example.test');
     $wire = '';
     $startedPeer = false;
     $requests = [];
@@ -175,6 +177,14 @@ it('sends stream-local CANCEL without terminating the sibling live H2 exchange',
         $loop,
         $connection,
         static function (Http2MultiplexConnection $mux) use (&$errors, &$body, $loop, $source, $mode): void {
+            expect(fn() => $mux->request(
+                new ClientRequest('GET', 'https://other.example.test/blocked'),
+                static function (): void {},
+                static function (): void {},
+                static function (): void {},
+            ))->toThrow(\InvalidArgumentException::class, 'authenticated TLS peer');
+            expect($mux->activeCount())->toBe(0);
+
             $first = $mux->request(
                 new ClientRequest('GET', 'https://example.test/first',
                     cancellation: $source->token(),

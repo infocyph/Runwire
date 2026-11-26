@@ -10,6 +10,7 @@ use Infocyph\Runwire\Http\Client\Http1ConnectedExchange;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use InvalidArgumentException;
 use Throwable;
 
@@ -116,4 +117,32 @@ it('rejects silent plaintext fallback when a secure URI is requested', function 
         $connection->abort();
         fclose($server);
     }
+});
+
+it('rejects a different origin on a recorded authenticated H1 peer before request ownership', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    [$socket, $server] = $pair;
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $socket, negotiatedProtocol: 'http/1.1', encrypted: true);
+    VerifiedOutboundTlsPeers::register($connection, 'verified.example.test');
+    $request = new ClientRequest('GET', 'https://other.example.test/private', protocol: new ClientProtocolPolicy(ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1]));
+    try {
+        expect(fn() => new Http1ConnectedExchange(
+            $loop,
+            $connection,
+            $request,
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
+        ))->toThrow(InvalidArgumentException::class, 'authenticated TLS peer');
+        expect($connection->isPoolIdleSafe())->toBeTrue();
+    } finally {
+        $connection->abort();
+        fclose($server);
+    }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
 });

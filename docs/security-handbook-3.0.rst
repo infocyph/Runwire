@@ -201,7 +201,15 @@ Checking only the hostname or a cached DNS answer would be insufficient
 against rebinding and cross-network redirects. The above example is a
 policy-construction check, not an actual network connection or proof of
 the target's legitimacy. Inspect ``tests/OutboundAddressPolicyTest.php``
-for IPv4, IPv6, mapped-IPv6 and hostile proxy failure cases.
+for IPv4, IPv6, mapped-IPv6 and hostile proxy failure cases. Standardized
+IPv6 translation/tunneling prefixes (64:ff9b::/32, 2002::/16 and
+2001:0::/32) are also denied by this conservative public-address guard;
+network-specific translation prefixes require independent egress controls.
+Native QUIC currently does not expose equivalent approved-candidate and
+kernel-peer verification. Do not use H3 for an untrusted JWKS URL requiring
+this guard; use strict H1/H2 with the TCP address policy and an exact URI
+allowlist. The dispatcher rejects TCP dial options on H3 instead of silently
+ignoring them.
 
 Static-analysis trust boundary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

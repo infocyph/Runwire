@@ -12,6 +12,7 @@ use Infocyph\Runwire\Http\Client\Internal\Http2ClientMultiplexSession;
 use Infocyph\Runwire\Http\Http2\FrameParser;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
@@ -137,6 +138,7 @@ final class Http2MultiplexConnection
             || strlen($this->outgoing) > 240_000) {
             throw new RuntimeException('H2 multiplex connection is not available for request admission.');
         }
+        VerifiedOutboundTlsPeers::assertOrigin($this->connection, $request->uriForSend());
         $seconds = self::requestDeadline($request);
         $token = $request->cancellation;
 

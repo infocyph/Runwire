@@ -263,6 +263,12 @@ Use this field for diagnostics. Configure the allowlist independently
 from the request and authorize the exact routes the application may access.
 Use `DialOptions::addressPolicy` when TCP candidate-IP and connected-peer
 restrictions are also needed. Keep TLS hostname verification enabled.
+Connected H1/H2 exchanges and multiplex admission reject a mismatch with
+Runwire-recorded authenticated TLS peer identity before request publication.
+Externally adopted sockets remain explicitly caller-verified. Native H3
+cannot provide the same numeric-peer guard; the dispatcher rejects TCP
+options on H3. Select guarded H1/H2 for untrusted destinations that require
+candidate-to-connected-peer verification.
 
 
 Explicit cross-protocol outbound dispatch

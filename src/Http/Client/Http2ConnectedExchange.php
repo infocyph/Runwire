@@ -12,6 +12,7 @@ use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Http2\FrameParser;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
@@ -64,6 +65,7 @@ final class Http2ConnectedExchange
             throw new InvalidArgumentException('HTTP/2 exchange requires a live verified TLS h2 transport and approved protocol.');
         }
 
+        VerifiedOutboundTlsPeers::assertOrigin($connection, $request->uriForSend());
         $this->session = new Http2ClientSession($request, $onHeaders, $onBody);
         $this->frames = new FrameParser();
         $this->completion = Closure::fromCallable($onComplete);
