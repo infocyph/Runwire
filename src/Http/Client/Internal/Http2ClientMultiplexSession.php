@@ -308,6 +308,7 @@ final class Http2ClientMultiplexSession
             throw new RuntimeException('HTTP/2 peer used an unknown client response stream.');
         }
         $this->trackHeaderBlock($frame);
+
         try {
             $slot['response']->push($frame, $slot['headers'], $slot['body']);
         } catch (RuntimeException $error) {

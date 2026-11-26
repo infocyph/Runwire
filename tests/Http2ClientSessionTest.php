@@ -113,7 +113,7 @@ function runwireOwnedHttp2ClientSessionTestCase02(): void
     $session->receive(FrameWriter::settings());
     expect(fn() => $session->receive(new Frame(FrameType::DATA->value, 0x1, 3, 'foreign')))
         ->toThrow(RuntimeException::class, 'unexpected stream');
-    expect(fn() => $session->receive(FrameWriter::goAway(1, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR)))
+    expect(fn() => $session->receive(FrameWriter::goAway(0, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR)))
         ->toThrow(RuntimeException::class, 'before END_STREAM');
 }
 
