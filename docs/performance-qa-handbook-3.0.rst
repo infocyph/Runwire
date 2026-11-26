@@ -29,14 +29,14 @@ Test pyramid
      - Real network throughput
    * - Portable native probes
      - Real loopback TCP/Unix/UDP without prefork assumptions
-     - Native QUIC support on every host
+     - Native prefork support on every host
    * - Real hosted runtime
      - Host-owned request worker correctness
      - Native supervisor behavior under all signal combinations
    * - Native process lifecycle smoke
      - SIGKILL/reload/scale/drain, short/120s resource bounds
      - Final 1800-second release resource plateau
-   * - Independent H2/H3 peer
+   * - Independent H2 peer
      - External reference protocol interoperability and adversarial cases
      - Guaranteed availability without required PHP extensions
    * - Diagnostic protocol matrix

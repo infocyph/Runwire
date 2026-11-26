@@ -80,9 +80,7 @@ Graceful versus forced shutdown
 
 Graceful termination stops new admission before draining accepted work.
 Native H2 sends GOAWAY and completes previously admitted streams subject
-to protocol limits and a drain deadline. QUIC/H3 likewise has its own
-stream and connection draining semantics, which cannot be represented by
-simply closing the TCP listener.
+to protocol limits and a drain deadline.
 
 Forced termination is different: SIGKILL, a cancelled deadline or an
 operator force-stop can lose in-flight work. Configure supervisors and
@@ -91,7 +89,7 @@ completion. Do not promise zero loss after a hard kill.
 
 Stop processing needs a wakeup path even if one cleanup callback throws.
 The worker's cleanup inventory includes pending DNS/dial racing, active
-connections, pools, QUIC sessions, background scopes, periodic timers,
+connections, pools,  background scopes, periodic timers,
 process executors, signal/control watchers and IPC pipes. Independent
 resources are retired even when one observer fails. A timer or watcher
 that fails to cancel must remain available for a subsequent cleanup

@@ -8,9 +8,8 @@ These exercises use runnable source examples, independent
 network peers and observable cleanup rather than assumed cloud services.
 
 Run with 64-bit PHP 8.4 or 8.5, Composer and free loopback ports.
-Prefork stages also require PCNTL/POSIX; TLS stages require OpenSSL,
-and HTTP/3 requires an **actual compatible native QUIC implementation**.
-Shared hosting can prohibit fork, daemons and native QUIC.
+Prefork stages also require PCNTL/POSIX; TLS stages require OpenSSL.
+Shared hosting can prohibit fork and daemons.
 
 .. code-block:: console
 
@@ -20,7 +19,7 @@ Shared hosting can prohibit fork, daemons and native QUIC.
    composer install --no-interaction --prefer-dist --no-progress
    php tests/fixtures/portable_native_acceptance.php
 
-Do not interpret portable success as native prefork or QUIC qualification.
+Do not interpret portable success as native prefork qualification.
 
 Exercise A: run a minimal loopback HTTP listener
 -------------------------------------------------
@@ -164,15 +163,13 @@ certification.
 Exercise G: prove protocols with independent counterparts
 -----------------------------------------------------------
 
-HTTP/1.1, HTTP/2 and HTTP/3 have different framing and flow-control
-semantics. The independent H2 peer uses hyper-h2. The native H3
-interoperability workflow uses real QUIC plus independent aioquic.
-An emulated UDP listener cannot stand in for native QUIC.
+HTTP/1.1 and HTTP/2 have different framing and flow-control
+semantics. The independent H2 peer uses hyper-h2.
 
 The repository's `benchmarks/mixed_native_lifecycle.py` additionally
-tests real H1/H2/H3/TCP/UDP peers across restart, recycle and graceful
+tests real H1/H2/TCP/UDP peers across restart, recycle and graceful
 shutdown, with explicit admission and accepted-response accounting.
-Run it only with its native QUIC test environment and supporting
+Run it only with its native test environment and supporting
 Python requirements.
 
 Exercise H: finish with an honest evidence sheet
@@ -181,7 +178,7 @@ Exercise H: finish with an honest evidence sheet
 A reproducible lab records the exact SHA, PHP/runtime extensions,
 host type, test command, observed peer correctness, resource state,
 warnings, exceptions and unverified capabilities. Do not promote a
-skipped native-QUIC lane to success on an incapable platform.
+skipped native lane to success on an incapable platform.
 
 Use :doc:`operations-exercises-3.0` for rollback scenarios,
 :doc:`compatibility-audit-3.0` for published-version migration and

@@ -8,8 +8,6 @@ use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
 use Infocyph\Runwire\Http\Http2\Internal\AdaptiveResponseStrategy as Http2AdaptiveResponseStrategy;
-use Infocyph\Runwire\Http\Http3\Internal\AdaptivePumpStrategy as Http3AdaptivePumpStrategy;
-use Infocyph\Runwire\Http\Http3\Internal\AdaptiveResponseStrategy as Http3AdaptiveResponseStrategy;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use PhpBench\Attributes\BeforeMethods;
 use PhpBench\Attributes\Iterations;
@@ -31,14 +29,6 @@ final class AdaptiveProtocolBench
     private Http2AdaptiveResponseStrategy $http2Auto;
 
     private Http2AdaptiveResponseStrategy $http2Fixed;
-
-    private Http3AdaptivePumpStrategy $http3PumpAuto;
-
-    private Http3AdaptivePumpStrategy $http3PumpFixed;
-
-    private Http3AdaptiveResponseStrategy $http3ResponseAuto;
-
-    private Http3AdaptiveResponseStrategy $http3ResponseFixed;
 
     private AdaptiveLoadSample $low;
 
@@ -68,10 +58,6 @@ final class AdaptiveProtocolBench
         $this->http1Fixed = new AdaptiveConnectionStrategy(policy: $fixed);
         $this->http2Auto = new Http2AdaptiveResponseStrategy(policy: $auto);
         $this->http2Fixed = new Http2AdaptiveResponseStrategy(policy: $fixed);
-        $this->http3PumpAuto = new Http3AdaptivePumpStrategy(policy: $auto);
-        $this->http3PumpFixed = new Http3AdaptivePumpStrategy(policy: $fixed);
-        $this->http3ResponseAuto = new Http3AdaptiveResponseStrategy(policy: $auto);
-        $this->http3ResponseFixed = new Http3AdaptiveResponseStrategy(policy: $fixed);
         $this->low = new AdaptiveLoadSample(false, 0, 0);
     }
 
@@ -103,59 +89,5 @@ final class AdaptiveProtocolBench
     public function benchHttp2Fixed(): int
     {
         return $this->http2Fixed->wireLimit($this->high);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     */
-    public function benchHttp3PumpAutoHigh(): int
-    {
-        $this->http3PumpAuto->observe(100, 100, 100);
-
-        return $this->http3PumpAuto->readLimit(256) + $this->http3PumpAuto->acceptLimit(64);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     */
-    public function benchHttp3PumpAutoLow(): int
-    {
-        $this->http3PumpAuto->observe(0, 0, 100);
-
-        return $this->http3PumpAuto->readLimit(256) + $this->http3PumpAuto->acceptLimit(64);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     */
-    public function benchHttp3PumpFixed(): int
-    {
-        $this->http3PumpFixed->observe(100, 100, 100);
-
-        return $this->http3PumpFixed->readLimit(256) + $this->http3PumpFixed->acceptLimit(64);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     */
-    public function benchHttp3ResponseAutoHigh(): int
-    {
-        return $this->http3ResponseAuto->writeLimit($this->high, 128);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     */
-    public function benchHttp3ResponseAutoLow(): int
-    {
-        return $this->http3ResponseAuto->writeLimit($this->low, 128);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     */
-    public function benchHttp3ResponseFixed(): int
-    {
-        return $this->http3ResponseFixed->writeLimit($this->high, 128);
     }
 }

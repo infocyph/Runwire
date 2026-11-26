@@ -21,10 +21,7 @@ it('executes real protocol benchmark fixtures through their decoders and validat
         ->and($benchmark->benchHttp2FragmentedFrameParse())->toBe(1_024)
         ->and($benchmark->benchHttp2HpackDecode())->toBe(7)
         ->and($benchmark->benchHttp2HpackEncode())->toBeGreaterThan(0)
-        ->and($benchmark->benchHttp2HuffmanDecode())->toBe(strlen('https://example.test/benchmark'))
-        ->and($benchmark->benchHttp3FrameDecode())->toBe(1_024)
-        ->and($benchmark->benchHttp3QpackStaticDecode())->toBe(7)
-        ->and($benchmark->benchHttp3QpackStaticEncode())->toBeGreaterThan(0);
+        ->and($benchmark->benchHttp2HuffmanDecode())->toBe(strlen('https://example.test/benchmark'));
 });
 
 it('checks coroutine benchmark checksums and repeated fixture initialization', function (): void {
@@ -75,12 +72,6 @@ it('checks adaptive benchmark fixtures exercise distinct bounded load states', f
             ->and($benchmark->benchHttp1Fixed())->toBeTrue()
             ->and($benchmark->benchHttp2AutoHigh())->toBe(256)
             ->and($benchmark->benchHttp2AutoLow())->toBe(1_024)
-            ->and($benchmark->benchHttp2Fixed())->toBe(1_024)
-            ->and($benchmark->benchHttp3PumpAutoHigh())->toBe(320)
-            ->and($benchmark->benchHttp3PumpAutoLow())->toBe(128)
-            ->and($benchmark->benchHttp3PumpFixed())->toBe(320)
-            ->and($benchmark->benchHttp3ResponseAutoHigh())->toBe(128)
-            ->and($benchmark->benchHttp3ResponseAutoLow())->toBe(32)
-            ->and($benchmark->benchHttp3ResponseFixed())->toBe(128);
+            ->and($benchmark->benchHttp2Fixed())->toBe(1_024);
     }
 });

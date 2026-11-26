@@ -64,13 +64,9 @@ capability, fail visibly instead of blocking the reactor.
 Security and unsupported features
 ---------------------------------
 
-A reused connection needs exact origin, TLS peer and ALPN identity,
-tenant and proxy-route isolation. Verified HTTPS over a cleartext
-HTTP CONNECT tunnel is separate from the unavailable TLS-over-TLS
-HTTPS-proxy nesting. WebTransport remains excluded from Runwire 3.0
-because the available PHP native QUIC runtime does not provide the
-required DATAGRAM capability. H3 itself remains supported on
-capable native backends.
+Native HTTP/3, QUIC and WebTransport are not included in Runwire 4.0.
+Use a dedicated edge proxy for public HTTP/3; verified nested TLS over an
+HTTPS proxy remains unsupported.
 
 For full details consult :doc:`handbook-3.0`,
 :doc:`runtime-lifecycle-3.0`, :doc:`configuration-reference-3.0`

@@ -11,8 +11,8 @@ Performance controls
 
 Tune resource ceilings before pursuing peak throughput: event-loop
 read/write work per turn, bounded worker job concurrency and queues,
-connection admission, H1/H2/H3 stream budgets, HPACK/QPACK blocked
-bytes, flow control, WebSocket payload buffers and QUIC poll timeouts.
+connection admission, H1/H2 stream budgets, HPACK table budgets,
+flow control and WebSocket payload buffers.
 Prefer the highest sustainable successful requests per minute (RPM)
 under stable p99, RSS, CPU, FD, error and queue constraints.
 
@@ -50,8 +50,8 @@ Threat boundaries
 -----------------
 
 Inbound threats include HTTP request smuggling, oversized headers,
-HPACK/QPACK state amplification, slow or canceled peers, invalid
-WebSocket masking/control frames and QUIC reset/GOAWAY churn.
+HPACK state amplification, slow or canceled peers, invalid
+WebSocket masking/control frames and H2 reset/GOAWAY churn.
 Bounded parsers, per-session owners, frame/work admission quotas
 and independent peer fault tests reduce exposure but do not replace
 a full U14 fuzz and adversarial release audit.
@@ -65,7 +65,7 @@ connected IP; applications without an explicit policy are not
 automatically protected. TlsClientOptions verifies peer chain/name
 and ALPN. PoolIsolationKey prevents treating different scopes,
 trust revisions or proxy identities as one reusable identity.
-Bounded connection pooling, CONNECT/SOCKS5 tunnels, and H1 redirect/retry policies exist as separate opt-in primitives. A general automatic cross-protocol H1/H2/H3 HTTP connection pool is **not** implemented; do not interpret the primitives as a unified high-level session manager.
+Bounded connection pooling, CONNECT/SOCKS5 tunnels, and H1 redirect/retry policies exist as separate opt-in primitives. A general automatic cross-protocol H1/H2 HTTP connection pool is **not** implemented; do not interpret the primitives as a unified high-level session manager.
 
 Filesystem threats include symlink traversal, TOCTOU, directory
 permissions, cross-device rename, partial writes and false fsync
@@ -79,7 +79,7 @@ QA provenance
 
 Tests and measured results should identify the source revision and
 runtime environment. Syntax checks do not replace real protocol tests. Use the appropriate real hosted, native, Swoole,
-portable, independent HTTP/3 and PHPForge matrices and preserve
+portable, independent HTTP/2 and PHPForge matrices and preserve
 all failure logs and resource measurements.
 
 Traceable benchmark and security gates
@@ -114,7 +114,7 @@ that every deployment has achieved them.
      - ``src/Network/PoolIsolationKey.php`` and
        ``tests/PoolIsolationKeyTest.php``
 
-Run the retained benchmark scripts and independent TLS, QUIC, host and
+Run the retained benchmark scripts and independent TLS, H2, host and
 security tests. A green Sphinx build or profile does not substitute for
 matched protocol comparisons or a sustained mixed-load resource soak.
 

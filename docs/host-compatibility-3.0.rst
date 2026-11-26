@@ -21,9 +21,6 @@ Host deployment and resource ownership
    * - Optional ext-event loop
      - ext-event accelerated acceptance and HTTP/1 worker byte-budget tests on PHP 8.4, 8.5 and 8.6
      - ext-event is optional and not required for install. Accelerated CI passing does not certify every protocol/host combination with ext-event.
-   * - Optional native QUIC
-     - TLS 1.3 and ALPN verified with independent QUIC peers when ext-quic and the supported crypto stack are present
-     - Without ext-quic, QUIC/H3 must fail as unavailable. Native RFC 9221 datagrams, path migration and 0-RTT application dispatch explicitly remain unsupported by the current backend.
    * - PHP-FPM
      - Actual FastCGI requests through host-owned PHP 8.4, 8.5 and 8.6 processes, verified on the exact source SHA
      - Request scopes end with the request; no assumption of inherited persistent application connections or background I/O.
@@ -50,15 +47,15 @@ Transport and workload features
    * - Feature
      - Available capability
      - Limits and prerequisites
-   * - HTTP/1.1, HTTP/2 and HTTP/3 servers
-     - Existing request contracts and server regressions; native H3 interoperates with an independent peer where QUIC is available
+   * - HTTP/1.1 and HTTP/2 servers
+     - Existing request contracts and server regressions; independent H2 reference
      - Release throughput, full hostility matrix and cross-protocol churn remain gated
    * - HTTP clients
-     - Verified H1/H2 clients and native QUIC-dependent H3 outbound implementation with independent protocol acceptance
+     - Verified H1/H2 clients with independent protocol acceptance
      - Exact-source H2/WS paired comparison and full 1800s resource certification accepted; unified HTTP pooling remains separate
    * - WebSocket
      - Inbound HTTP/1.1 upgrade and experimental outbound ws/wss TLS upgrade with shared masking, fragmentation and close
-     - Outbound ws/wss client tests pass on supported paths; H2/H3 extended CONNECT remains unavailable
+     - Outbound ws/wss client tests pass on supported paths; H2 extended CONNECT remains unavailable
    * - Asynchronous file I/O
      - Bounded off-loop subprocess read/write/stat/rename/unlink, development-scoped Fiber adapter and file-to-network bridge
      - No persistent file handles, symlink-safe sandbox, crash-atomic fsync, platform native AIO or final throughput certification
@@ -108,16 +105,18 @@ Worker-owned pools may survive requests **only** after explicit ownership
 handoff, with cleanup performed by the surviving host/worker owner.
 
 Native supervision tests cover crash restart, bounded backoff, generation
-rotation, mixed real H1/H2/H3/TCP/UDP stop-during-traffic, actual native
+rotation, mixed real H1/H2/TCP/UDP stop-during-traffic, actual native
 autoscale and process-tree cleanup. Use the native supervisor smoke tests and sustained resource benchmarks
 to validate scaling and process-tree cleanup in your environment.
 
 Proof boundary and operator guidance
 ------------------------------------
 
-The GitHub Actions workflows document each tested source SHA. The PHP 8.4, 8.5 and 8.6 matrix defines verification targets; a version is certified only after its exact-source jobs succeed. For Runwire PR #16 head ``f1c99ba``, the native, host and QUIC matrices passed on all three PHP versions; this does not imply optional extension support beyond tested combinations:
+The GitHub Actions workflows document each tested source SHA. PHP 8.4,
+8.5 and 8.6 are verification targets. Final 4.0 certification requires
+successful exact-source jobs; historical runs cannot certify the new major.
 
-* Security & Standards: PHPForge Pest, code-style, analyzers, independent native QUIC and HTTP/3 tests.
+* Security & Standards: PHPForge Pest, code-style, analyzers and benchmarks.
 * Portable Native: PHP 8.4/8.5/8.6 CI coverage without PCNTL, optional OpenSSL negative cases, and ext-event accelerated checks on each version.
 * Real Hosted Runtime Acceptance: actual FPM, FrankenPHP worker and RoadRunner request sequences on the supported PHP version matrix.
 * Swoole/OpenSwoole Coroutine: live host reactor and outbound socket verification.
@@ -211,7 +210,6 @@ owner; attaching a competing loop or closing an external reactor
 from a Runwire callback violates ownership. Run the dedicated
 Swoole/OpenSwoole interoperability workflow.
 
-**Limitations:** host compatibility is not proof of native QUIC
-capability or background-process permissions. Compare actual extension
+**Limitations:** host compatibility is not proof of background-process permissions. Compare actual extension
 availability, response semantics and worker ownership per host
 rather than copying a native deployment recipe into FPM.

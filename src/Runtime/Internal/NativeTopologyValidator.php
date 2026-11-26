@@ -25,8 +25,6 @@ final class NativeTopologyValidator
         RuntimeSelection $selection,
         RuntimeOptions $options,
     ): void {
-        self::assertHttp3($servers, $selection);
-
         if ($selection->capabilities->ownsWorkerPool) {
             return;
         }
@@ -37,36 +35,6 @@ final class NativeTopologyValidator
             throw new RuntimeUnavailableException(
                 'Worker recycle thresholds require native prefork worker-pool capability and are unavailable in portable single-process mode.',
             );
-        }
-    }
-
-    /**
-     * @param array<string, Server|StreamServer|DatagramServer> $servers
-     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
-     */
-    private static function assertHttp3(array $servers, RuntimeSelection $selection): void
-    {
-        foreach ($servers as $server) {
-            if (!$server instanceof Server || $server->http3 === null) {
-                continue;
-            }
-
-            if (!$selection->capabilities->supportsQuic) {
-                throw new RuntimeUnavailableException(sprintf(
-                    'Native HTTP/3 was configured for server "%s", but QUIC capability is unavailable.',
-                    $server->name,
-                ));
-            }
-
-            if (
-                $selection->capabilities->ownsWorkerPool
-                && $selection->capabilities->resources->resolveWorkerCount($server->workers) > 1
-                && !$server->listener->reusePort
-            ) {
-                throw new RuntimeUnavailableException(
-                    'Native HTTP/3 with multiple workers requires explicit ListenerOptions::reusePort support.',
-                );
-            }
         }
     }
 

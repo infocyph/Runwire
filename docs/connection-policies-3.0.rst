@@ -20,7 +20,7 @@ An experimental ``BoundedConnectionPool`` now adds finite active lease
 slots, FIFO waiter admission, explicit waiter timeouts/cancellation, and
 caller-owned release of successful or failed dials. A null connection
 with no error grants a reserved dial slot; it is NOT a dial itself.
-There is still no automatic connection dialing; H2/H3 admission and GOAWAY
+There is still no automatic connection dialing; H2 admission and GOAWAY
 handling exist but are not automatically integrated into pooled dialing.
 An experimental ``IdleConnectionPool`` can retain a finite number of
 already verified, fully quiescent streams for a finite TTL, in separate
@@ -116,7 +116,7 @@ Runnable focused regressions
    vendor/bin/pest tests/PoolIsolationKeyTest.php tests/OutboundAddressPolicyTest.php
    vendor/bin/pest tests/TlsClientDialerTest.php tests/ExtendedConnectRejectionTest.php
 
-HTTP/2 and HTTP/3 extended CONNECT are not advertised; the shared
+HTTP/2 extended CONNECT are not advertised; the shared
 request-header validator rejects unsupported ``:protocol`` values
 rather than silently advertising unimplemented protocol variants. Ordinary CONNECT
 parsing does not constitute successful proxy negotiation.
@@ -148,7 +148,7 @@ require an explicit hop ceiling, cross-origin targets require an explicit
 policy, and supplied TLS trust policies are never carried to an unrelated
 origin. Intermediate response bodies are consumed but hidden from the
 application. The runner uses independent verified H1 connections and
-closes intermediate sockets; it does not implement H2/H3, automatic cookie
+closes intermediate sockets; it does not implement H2, automatic cookie
 management, a generalized proxy connector or safe retry of visible replies.
 
 .. code-block:: console
@@ -156,7 +156,7 @@ management, a generalized proxy connector or safe retry of visible replies.
    vendor/bin/pest tests/ClientRedirectRetryPolicyTest.php tests/Http1PolicyClientTest.php
 
 The focused tests cover bounded H1 redirect and retry decisions, including
-proxy-secret isolation. These tests do not establish transparent H2/H3
+proxy-secret isolation. These tests do not establish transparent H2
 redirects, authenticated proxy connectors or a shared cookie jar.
 
 Direct origin proxy-secret boundary

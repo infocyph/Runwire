@@ -88,7 +88,6 @@ $assert(! \Infocyph\Runwire\Tests\Support\functionAvailable('pcntl_fork'), 'PCNT
 $capabilities = (new RuntimeCapabilityResolver)->resolve(RuntimeDriver::NATIVE, $environment);
 $assert($capabilities->supportsHttp1, 'Portable native must retain HTTP/1.1 support.');
 $assert($capabilities->supportsHttp2, 'Portable native must retain HTTP/2 support.');
-$assert($capabilities->supportsHttp3 === $environment->supportsQuic, 'Portable HTTP/3 capability must follow QUIC availability.');
 $assert($capabilities->supportsTlsAlpn === $environment->supportsOpenSsl, 'Portable TLS capability must follow usable OpenSSL support.');
 
 $certificatePath = tempnam(sys_get_temp_dir(), 'runwire-portable-cert-');

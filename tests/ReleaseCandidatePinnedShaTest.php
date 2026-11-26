@@ -10,7 +10,7 @@ it('never certifies the default branch instead of a pinned release candidate', f
         ->toContain('github.event.pull_request.head.sha')
         ->not->toContain('github.event.pull_request.head.sha || github.sha')
         ->not->toContain('2.2-candidate')
-        ->toContain('RUNWIRE_RUNTIME_VERSION="3.1.x-candidate"');
+        ->toContain('RUNWIRE_RUNTIME_VERSION="4.0.x-candidate"');
     $selected = '$' . '{{ inputs.candidate_sha || github.event.pull_request.head.sha }}';
     expect(substr_count($workflow, $selected))->toBeGreaterThanOrEqual(10)
         ->and(substr_count($workflow, '^[0-9a-fA-F]{40}$'))->toBeGreaterThanOrEqual(3)

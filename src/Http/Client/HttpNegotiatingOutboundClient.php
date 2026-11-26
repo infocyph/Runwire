@@ -44,10 +44,6 @@ final readonly class HttpNegotiatingOutboundClient
         ?DialOptions $dialOptions = null,
     ): int {
         $policy = $request->protocol;
-        if ($policy->preferred === ProtocolVersion::HTTP_3
-            || in_array(ProtocolVersion::HTTP_3, $policy->allowedVersions, true)) {
-            throw new RuntimeUnavailableException('HTTP/3 is unsupported; explicitly select HTTP/1.1 or HTTP/2.');
-        }
         $parts = parse_url($request->uriForSend());
         $originHost = $parts['host'] ?? null;
         if (!is_array($parts) || !is_string($originHost)) {
@@ -169,7 +165,6 @@ final readonly class HttpNegotiatingOutboundClient
                 $onBody,
                 $completion,
             ),
-            default => throw new RuntimeUnavailableException('Unsupported HTTP client version after ALPN.'),
         };
         $exchange->start();
     }

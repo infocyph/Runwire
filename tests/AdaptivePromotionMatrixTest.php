@@ -91,17 +91,15 @@ function adaptivePromotionFixtureRecord(array $case, string $mode, int $trial): 
 it('defines the full J10 case manifest once for all benchmark clients', function (): void {
     $h1 = adaptivePromotionCases('http1');
     $h2 = adaptivePromotionCases('h2');
-    $h3 = adaptivePromotionCases('h3');
 
-    expect([$h1, $h2, $h3])->each->toBeArray()
-        ->and([count($h1), count($h2), count($h3)])->toBe([16, 28, 42])
+    expect([$h1, $h2])->each->toBeArray()
+        ->and([count($h1), count($h2)])->toBe([16, 28])
         ->and(array_values(array_unique(array_column($h1, 'tls'))))->toHaveCount(2)
         ->and(array_values(array_unique(array_column($h1, 'keepalive'))))->toEqualCanonicalizing([8, 800])
         ->and(array_values(array_unique(array_column($h2, 'high'))))->toEqualCanonicalizing([1, 8, 32, 100])
-        ->and(array_values(array_unique(array_column($h2, 'scenario'))))->toEqualCanonicalizing(['steady', 'mixed', 'flow', 'pressure'])
-        ->and(array_values(array_unique(array_column($h3, 'scenario'))))->toEqualCanonicalizing(['inbound', 'outbound', 'balanced', 'qpack', 'churn']);
+        ->and(array_values(array_unique(array_column($h2, 'scenario'))))->toEqualCanonicalizing(['steady', 'mixed', 'flow', 'pressure']);
 
-    foreach ([$h1, $h2, $h3] as $manifest) {
+    foreach ([$h1, $h2] as $manifest) {
         expect(count($manifest))->toBe(count(array_unique(array_column($manifest, 'id'))))
             ->and(array_values(array_unique(array_column($manifest, 'payload_bytes'))))
             ->toEqualCanonicalizing([2, 1024, 16384, 65536]);
@@ -109,7 +107,7 @@ it('defines the full J10 case manifest once for all benchmark clients', function
 });
 
 it('requires complete qualified evidence and a material gain before J10 can pass', function (): void {
-    foreach (['http1', 'h2', 'h3'] as $protocol) {
+    foreach (['http1', 'h2'] as $protocol) {
         $valid = adaptivePromotionValidResults($protocol);
         $result = adaptivePromotionEvaluateProtocol($valid, $protocol);
 
@@ -151,20 +149,20 @@ it('rejects transition regressions and noisy apparent gains', function (): void 
     expect(adaptivePromotionEvaluateProtocol($evidence, 'h2')['performance_gate_passed'])->toBeFalse();
 });
 
-it('validates declared H3 work instead of trusting scenario names', function (): void {
+it('validates declared H2 flow work instead of trusting scenario names', function (): void {
     $case = array_values(array_filter(
-        adaptivePromotionCases('h3'),
-        static fn(array $value): bool => $value['scenario'] === 'qpack',
+        adaptivePromotionCases('h2'),
+        static fn(array $value): bool => $value['scenario'] === 'flow',
     ))[0];
     $record = adaptivePromotionFixtureRecord($case, 'auto', 1);
     foreach ($record['phases'] as &$phase) {
-        $phase['observed']['qpack_delayed_headers'] = 1;
+        $phase['observed']['constrained_flow_bytes'] = 1;
     }
     unset($phase);
     $identity = ['build' => 'synthetic', 'environment_id' => 'test'];
 
     adaptivePromotionValidateRecord($record, $case, 'auto', 1, $identity);
-    $record['phases']['high']['observed']['qpack_delayed_headers'] = 0;
+    $record['phases']['high']['observed']['constrained_flow_bytes'] = 0;
 
     expect(fn() => adaptivePromotionValidateRecord($record, $case, 'auto', 1, $identity))
         ->toThrow(RuntimeException::class)
@@ -240,4 +238,8 @@ it('preserves literal benchmark arguments without shell expansion', function ():
     $arguments = ['space separated', '$(printf injected)', "single'quote", '; echo injected', ''];
     $command = [PHP_BINARY, '-r', 'echo json_encode(array_slice($argv, 1), JSON_THROW_ON_ERROR);', '--', ...$arguments];
     expect(adaptivePromotionCommandOutput($command))->toBe(json_encode($arguments, JSON_THROW_ON_ERROR));
+});
+
+it('rejects the retired protocol rather than accepting empty qualification evidence', function (): void {
+    expect(fn() => adaptivePromotionCases('h3'))->toThrow(InvalidArgumentException::class);
 });

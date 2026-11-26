@@ -67,10 +67,8 @@ it('keeps fpm request-bound application state non-persistent', function (): void
         ->and($capabilities->persistentApplication)->toBeFalse()
         ->and($capabilities->ownsListener)->toBeFalse()
         ->and($capabilities->ownsWorkerPool)->toBeFalse()
-        ->and($capabilities->supportsHttp2)->toBeFalse()
-        ->and($capabilities->supportsQuic)->toBeFalse();
+        ->and($capabilities->supportsHttp2)->toBeFalse();
 });
-
 
 it('reports only enabled host protocol and lifecycle capabilities', function (): void {
     $environment = new RuntimeEnvironment(
@@ -99,9 +97,7 @@ it('reports only enabled host protocol and lifecycle capabilities', function ():
     foreach ([$frankenPhp, $roadRunner] as $capabilities) {
         expect($capabilities->supportsHttp1)->toBeTrue()
             ->and($capabilities->supportsHttp2)->toBeFalse()
-            ->and($capabilities->supportsHttp3)->toBeFalse()
             ->and($capabilities->supportsTlsAlpn)->toBeFalse()
-            ->and($capabilities->supportsQuic)->toBeFalse()
             ->and($capabilities->supportsWebsocket)->toBeFalse()
             ->and($capabilities->supportsGracefulReload)->toBeFalse();
     }
@@ -110,7 +106,6 @@ it('reports only enabled host protocol and lifecycle capabilities', function ():
         ->and($roadRunner->supportsWorkerRecycle)->toBeTrue()
         ->and($swooleHttp1->supportsHttp1)->toBeTrue()
         ->and($swooleHttp1->supportsHttp2)->toBeFalse()
-        ->and($swooleHttp1->supportsHttp3)->toBeFalse()
         ->and($swooleHttp1->supportsGracefulReload)->toBeFalse()
         ->and($swooleHttp2->supportsHttp2)->toBeTrue();
 });

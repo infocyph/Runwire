@@ -4,7 +4,7 @@ Operations exercises: worker failures, rolling reload and rollback
 Audience and prerequisites
 --------------------------
 
-These exercises cover Runwire 3.0 worker faults, rolling reload and
+These exercises cover Runwire 4.0 worker faults, rolling reload and
 rollback. Exercise them on a controlled host before changing production.
 
 Read :doc:`production-operations-3.0`,
@@ -26,8 +26,7 @@ Record the checkout SHA, effective php.ini, loaded extensions,
 chosen runtime driver, privileges, TCP/UDP port permissions,
 certificate renewal, log destination and temporary directory.
 PCNTL/POSIX and permitted fork are prerequisites for native worker
-supervision, not optional performance hints. QUIC/H3 requires its
-actual native backend; cPanel and shared hosting may forbid it.
+supervision, not optional performance hints. Public HTTP/3 must terminate at an independent edge.
 
 Exercise 1: readiness is not liveness
 -------------------------------------
@@ -94,8 +93,8 @@ Exercise 4: resource-retirement inventory
 ------------------------------------------
 
 Keep an ownership ledger covering parent listener, child event loop,
-accepted stream, TLS/H2/H3 session, pending DNS/dial, Happy Eyeballs
-race, pool lease, QUIC stream, process executor child, background
+accepted stream, TLS/H2 session, pending DNS/dial, Happy Eyeballs
+race, pool lease, process executor child, background
 coroutine, periodic timer and IPC wake watcher.
 
 .. code-block:: console

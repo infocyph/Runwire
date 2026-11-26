@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/adaptive_matrix_compare.php';
 
 const ADAPTIVE_PROMOTION_MODES = ['fixed', 'latency', 'throughput', 'auto'];
-const ADAPTIVE_PROMOTION_PROTOCOLS = ['http1', 'h2', 'h3'];
+const ADAPTIVE_PROMOTION_PROTOCOLS = ['http1', 'h2'];
 const ADAPTIVE_PROMOTION_PHASES = ['low_before', 'medium', 'transition_up', 'high', 'transition_down', 'low_after'];
 
 /**
@@ -19,7 +19,7 @@ const ADAPTIVE_PROMOTION_PHASES = ['low_before', 'medium', 'transition_up', 'hig
 function adaptivePromotionCheckedProtocol(string $protocol): string
 {
     if (!in_array($protocol, ADAPTIVE_PROMOTION_PROTOCOLS, true)) {
-        throw new InvalidArgumentException('--protocol must be http1, h2 or h3.');
+        throw new InvalidArgumentException('--protocol must be http1 or h2.');
     }
 
     return $protocol;
@@ -268,13 +268,12 @@ function adaptivePromotionPython(string $protocol): string
     $variable = match ($protocol) {
         'http1' => 'RUNWIRE_H1_PYTHON',
         'h2' => 'RUNWIRE_H2_PYTHON',
-        'h3' => 'RUNWIRE_AIOQUIC_PYTHON',
         default => throw new InvalidArgumentException('Unknown adaptive promotion protocol.'),
     };
     $fallback = match ($protocol) {
         'http1' => '/usr/bin/python3',
         'h2' => '/tmp/runwire-h2/bin/python',
-        default => '/tmp/runwire-aioquic/bin/python',
+        default => throw new InvalidArgumentException('Unknown adaptive promotion protocol.'),
     };
     $configured = getenv($variable);
 
@@ -284,12 +283,9 @@ function adaptivePromotionPython(string $protocol): string
 /**
  * @throws RuntimeException
  */
-function adaptivePromotionAssertEnvironment(string $protocol): void
+function adaptivePromotionAssertEnvironment(): void
 {
     $required = ['event', 'pcntl', 'posix', 'openssl'];
-    if ($protocol === 'h3') {
-        $required[] = 'quic';
-    }
     foreach ($required as $extension) {
         if (!extension_loaded($extension)) {
             throw new RuntimeException('Prepared environment is missing extension: ' . $extension);
@@ -335,7 +331,6 @@ function adaptivePromotionClientIdentity(string $protocol): array
     ];
     $package = match ($protocol) {
         'h2' => ['h2', '4.3.0'],
-        'h3' => ['aioquic', '1.3.0'],
         default => null,
     };
     if ($package !== null) {
@@ -379,7 +374,7 @@ function adaptivePromotionCpuIdentity(): array
  */
 function adaptivePromotionEnvironment(string $protocol): array
 {
-    adaptivePromotionAssertEnvironment($protocol);
+    adaptivePromotionAssertEnvironment();
     $extensions = adaptivePromotionExtensions();
     $client = adaptivePromotionClientIdentity($protocol);
     $cpu = adaptivePromotionCpuIdentity();
@@ -417,7 +412,6 @@ function adaptivePromotionValidateIdentity(array $record, array $case, string $m
     $protocol = match ($case['protocol']) {
         'http1' => 'http/1.1',
         'h2' => 'h2',
-        'h3' => 'h3',
         default => throw new InvalidArgumentException('Unknown promotion protocol.'),
     };
     $expected = [
@@ -485,7 +479,6 @@ function adaptivePromotionValidateObserved(array $phase, array $case): void
     $required = match ($case['scenario']) {
         'pressure' => 'delayed_reads',
         'flow' => 'constrained_flow_bytes',
-        'qpack' => 'qpack_delayed_headers',
         default => null,
     };
     if ($required !== null && adaptivePromotionCaseInt($observed, $required) <= 0) {
@@ -714,13 +707,13 @@ function adaptivePromotionCanConnect(int $port): bool
 /**
  * @throws \RuntimeException
  */
-function adaptivePromotionPickPort(bool $udp): int
+function adaptivePromotionPickPort(): int
 {
     $server = stream_socket_server(
-        ($udp ? 'udp' : 'tcp') . '://127.0.0.1:0',
+        'tcp://127.0.0.1:0',
         $errno,
         $error,
-        $udp ? STREAM_SERVER_BIND : STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
+        STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
     );
     if (!is_resource($server)) {
         throw new RuntimeException($error ?: 'Unable to allocate ephemeral benchmark port.');
@@ -817,33 +810,20 @@ function adaptivePromotionWait($process, float $timeoutSeconds, string $errorLog
 /** @param array{id:string,protocol:string,payload_bytes:int,scenario:string,low:int,medium:int,high:int,tls?:bool,keepalive?:int,upload_bytes?:int,...<array-key,mixed>} $case
  * @return list<string>
  */
-function adaptivePromotionServerCommand(array $case, string $mode, int $port, string $certificate, string $privateKey, string $ready): array
+function adaptivePromotionServerCommand(array $case, string $mode, int $port, string $certificate, string $privateKey): array
 {
     $protocol = $case['protocol'];
     $server = [PHP_BINARY, '-d', 'opcache.enable_cli=1'];
-    if ($protocol === 'h3') {
-        array_push(
-            $server,
-            'benchmarks/adaptive_http3_server.php',
-            (string) $port,
-            $certificate,
-            $privateKey,
-            $ready,
-            $mode,
-            (string) $case['payload_bytes'],
-        );
-    } else {
-        array_push(
-            $server,
-            'benchmarks/adaptive_http_server.php',
-            $protocol,
-            (string) $port,
-            $mode,
-            (string) $case['payload_bytes'],
-        );
-        if ($protocol === 'h2' || ($case['tls'] ?? false) === true) {
-            array_push($server, $certificate, $privateKey);
-        }
+    array_push(
+        $server,
+        'benchmarks/adaptive_http_server.php',
+        $protocol,
+        (string) $port,
+        $mode,
+        (string) $case['payload_bytes'],
+    );
+    if ($protocol === 'h2' || ($case['tls'] ?? false) === true) {
+        array_push($server, $certificate, $privateKey);
     }
 
     return $server;
@@ -853,7 +833,7 @@ function adaptivePromotionServerCommand(array $case, string $mode, int $port, st
  * @param resource $process
  * @throws RuntimeException
  */
-function adaptivePromotionWaitReady($process, string $protocol, int $port, string $ready): void
+function adaptivePromotionWaitReady($process, int $port): void
 {
     $deadline = microtime(true) + 10.0;
     while (true) {
@@ -861,7 +841,7 @@ function adaptivePromotionWaitReady($process, string $protocol, int $port, strin
         if (!$status['running']) {
             throw new RuntimeException('Benchmark server exited before readiness.');
         }
-        $readyNow = $protocol === 'h3' ? is_file($ready) : adaptivePromotionCanConnect($port);
+        $readyNow = adaptivePromotionCanConnect($port);
         if ($readyNow) {
             break;
         }
@@ -883,7 +863,6 @@ function adaptivePromotionClientCommand(string $protocol, int $port, int $pid, s
     return match ($protocol) {
         'http1' => [adaptivePromotionPython('http1'), 'benchmarks/http1_adaptive_matrix.py', (string) $port, (string) $pid, $mode, (string) $seconds],
         'h2' => [adaptivePromotionPython('h2'), 'benchmarks/h2_adaptive_matrix.py', (string) $port, (string) $pid, $mode, (string) $seconds, (string) $payloadBytes],
-        'h3' => [adaptivePromotionPython('h3'), 'benchmarks/http3_adaptive_matrix.py', (string) $port, (string) $pid, $mode, (string) $seconds, (string) $payloadBytes],
         default => throw new InvalidArgumentException('Unknown adaptive protocol.'),
     };
 }
@@ -909,18 +888,14 @@ function adaptivePromotionRunTrial(
     if (!is_dir($directory) && !mkdir($directory, 0o777, true) && !is_dir($directory)) {
         throw new RuntimeException('Unable to create adaptive trial directory.');
     }
-    $port = adaptivePromotionPickPort($protocol === 'h3');
-    $ready = $temporary . '/ready';
-    if (is_file($ready)) {
-        unlink($ready);
-    }
+    $port = adaptivePromotionPickPort();
     $certificate = $temporary . '/cert.pem';
     $privateKey = $temporary . '/key.pem';
     $serverLog = sprintf('%s/%s-%d-server.log', $directory, $mode, $trial);
     $clientLog = sprintf('%s/%s-%d-client.log', $directory, $mode, $trial);
     $resultPath = sprintf('%s/%s-%d.json', $directory, $mode, $trial);
 
-    $server = adaptivePromotionServerCommand($case, $mode, $port, $certificate, $privateKey, $ready);
+    $server = adaptivePromotionServerCommand($case, $mode, $port, $certificate, $privateKey);
 
     $environment = [
         'RUNWIRE_ADAPTIVE_CASE' => json_encode($case, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
@@ -932,7 +907,7 @@ function adaptivePromotionRunTrial(
     $started = adaptivePromotionStart($server, $serverLog, $serverLog, $environment);
 
     try {
-        adaptivePromotionWaitReady($started['process'], $protocol, $port, $ready);
+        adaptivePromotionWaitReady($started['process'], $port);
         $client = adaptivePromotionClientCommand($protocol, $port, $started['pid'], $mode, $seconds, $case['payload_bytes']);
         $clientRun = adaptivePromotionStart($client, $resultPath . '.raw', $clientLog, $environment);
         $timeout = $warmup + (4.0 * $seconds) + 90.0;
@@ -966,7 +941,7 @@ function adaptivePromotionArguments(array $argv): array
 {
     $action = $argv[1] ?? '';
     if (!in_array($action, ['list', 'run', 'evaluate'], true)) {
-        throw new InvalidArgumentException('Usage: php adaptive_promotion_matrix.php <list|run|evaluate> --protocol <http1|h2|h3> [options]');
+        throw new InvalidArgumentException('Usage: php adaptive_promotion_matrix.php <list|run|evaluate> --protocol <http1|h2> [options]');
     }
 
     $options = [

@@ -14,7 +14,7 @@ Network, protocols and worker capabilities
    :widths: 25 36 19 20
 
    * - Capability
-     - 3.0 source status
+     - 4.0 source status
      - Host and transport
      - Prerequisites and limits
    * - TCP and Unix server
@@ -33,22 +33,14 @@ Network, protocols and worker capabilities
      - Single stream scheduler and flow owner
      - Accepted TCP/TLS
      - HPACK / GOAWAY / frame caps
-   * - HTTP/3 server
-     - Real independent H3/QUIC peer tests
-     - Native QUIC host only
-     - ext-quic / compatible OpenSSL
    * - HTTP/1.1 outbound
      - Verified H1 exchange, bounded upload and opt-in safe redirect/retry
      - Outgoing TCP/TLS
-     - No general-purpose H2/H3 fallback
+     - No general-purpose H2 fallback
    * - HTTP/2 outbound
      - Verified H2 request/response, bounded multiplex, flow control and peer GOAWAY; independent peer testing
      - Outgoing TLS with ALPN
      - Independent TLS/ALPN hyper-h2 peer QA passed; no H2 extended CONNECT
-   * - HTTP/3 outbound
-     - Verified H3 client control streams, bounded QPACK, sibling requests and cancellation; validated with focused tests
-     - Outgoing QUIC
-     - Native ext-quic and independent aioquic/ngtcp2 QA; scoped independent protocol QA
    * - WebSocket server
      - H1 upgrade/close verified
      - Accepted H1 connection
@@ -56,19 +48,15 @@ Network, protocols and worker capabilities
    * - WebSocket client
      - Verified outbound ws/wss HTTP/1.1 handshake, subprotocols and masked framing; validated with focused tests
      - Outbound TCP/TLS, Select loop
-     - Independent WSS/close/cancellation/multi-peer QA passed; no H2/H3 extended CONNECT
-   * - H2/H3 extended CONNECT
+     - Independent WSS/close/cancellation/multi-peer QA passed; no H2 extended CONNECT
+   * - H2 extended CONNECT
      - Not qualified
-     - HTTP/2 or HTTP/3
+     - HTTP/2
      - No support claim
    * - Inbound and outbound UDP
      - Connected/unconnected endpoint budgets
      - Native UDP
      - OS socket support
-   * - Native QUIC outbound
-     - Verified TLS 1.3/ALPN peer connection
-     - Optional native worker
-     - No native migration/0-RTT/datagrams
    * - TCP/TLS/Unix dialer
      - Nonblocking verified outgoing streams
      - Portable and host-loop adapters
@@ -134,18 +122,12 @@ Capabilities and limitations
 ----------------------------
 
 The feature column describes supported capabilities and their constraints.
-Unsupported native QUIC datagrams, connection migration and 0-RTT dispatch
-fail closed; they are not emulated.
+Native HTTP/3 and QUIC are removed in Runwire 4.0. Use independent
+edge termination and forward HTTP/1.1 or HTTP/2. Ordinary UDP remains
+available and is not a QUIC substitute.
 
-**WebTransport is not included in Runwire 3.0.** At release planning time,
-the available PHP native QUIC backend (``ext-quic`` with OpenSSL) did not
-expose the RFC 9221 QUIC DATAGRAM send/receive capability needed for full
-WebTransport over HTTP/3. Therefore Runwire does not ship or advertise a
-WebTransport client, server, session API or datagram fallback in 3.0.
-This is a limitation of the selected PHP native backend at this release,
-not a limitation of QUIC itself. Ordinary HTTP/3, QUIC streams, UDP
-datagrams and WebSocket remain in scope and are not WebTransport substitutes.
-No promise of support in a future release is implied.
+**WebTransport is not included in Runwire 4.0.** No WebTransport client,
+server, session API or datagram fallback is provided.
 
 **Nested TLS over an HTTPS proxy is not yet supported.** A cleartext
 HTTP CONNECT tunnel can be upgraded to TLS independently verified for the
@@ -193,9 +175,6 @@ validate the actual behavior. Start with
    * - HTTP/2 multiplex and drain
      - :doc:`protocols-3.0` and :doc:`protocol-failure-atlas-3.0`
      - ``tests/Http2ConnectionTest.php``
-   * - Native HTTP/3/QUIC
-     - :doc:`protocols-3.0` and :doc:`transport-guide-3.0`
-     - ``tests/Http3ConnectionStateTest.php``
    * - WebSocket upgrade and backpressure
      - :doc:`inbound-handbook-3.0`
      - ``tests/WebSocketIntegrationTest.php``
@@ -208,7 +187,7 @@ validate the actual behavior. Start with
    * - DNS/dial/TLS/SSRF
      - :doc:`outbound-handbook-3.0` and :doc:`security-handbook-3.0`
      - ``tests/OutboundAddressPolicyTest.php``
-   * - H1 pool / H2-H3 sessions
+   * - H1 pool / H2 sessions
      - :doc:`connection-policies-3.0` and :doc:`outbound-handbook-3.0`
      - ``tests/HttpOutboundDispatcherTest.php``
    * - Proxies and stream relay
@@ -235,6 +214,6 @@ validate the actual behavior. Start with
 
 The focused tests are **examples of actual checked-in evidence**, not
 permission to skip independent protocol, native-extension or
-performance certification. Unsupported WebTransport, automatic H2/H3
+performance certification. Unsupported WebTransport, automatic H2
 session discovery, nested TLS through HTTPS proxies and kernel-native
 AIO remain excluded or separately qualified future work.

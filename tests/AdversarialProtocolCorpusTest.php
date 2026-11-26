@@ -12,17 +12,7 @@ use Infocyph\Runwire\Http\Http2\FrameWriter as H2Writer;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder as HpackDecoder;
 use Infocyph\Runwire\Http\Http2\Hpack\HpackException;
 use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
-use Infocyph\Runwire\Http\Http3\Enum\FrameType as H3FrameType;
-use Infocyph\Runwire\Http\Http3\Frame as H3Frame;
-use Infocyph\Runwire\Http\Http3\FrameParser as H3Parser;
-use Infocyph\Runwire\Http\Http3\Http3Exception;
-use Infocyph\Runwire\Http\Http3\Qpack\DynamicTable as QpackTable;
-use Infocyph\Runwire\Http\Http3\Qpack\FieldSectionDecoder;
-use Infocyph\Runwire\Http\Http3\VarIntCodec;
-use Infocyph\Runwire\Network\Internal\QuicWorkerCommand;
-use InvalidArgumentException;
 use RuntimeException;
-
 
 /**
  * Reproducible bounds corpus; each hostile decoder has a fully independent
@@ -54,32 +44,6 @@ function runwireOwnedAdversarialProtocolCorpusTestCase01(): void
         expect($frames)->toHaveCount(1)
             ->and($frames[0]->payload)->toBe('survivor')
             ->and($frames[0]->streamId)->toBe(3)
-            ->and($healthy->bufferedBytes())->toBe(0);
-    }
-}
-
-it('rejects 128 oversized H3 frame declarations before bodies and preserves sibling decoding', function (): void {
-    runwireOwnedAdversarialProtocolCorpusTestCase02();
-});
-
-/**
- * @throws \Throwable
- */
-function runwireOwnedAdversarialProtocolCorpusTestCase02(): void
-{
-    for ($index = 0; $index < 128; ++$index) {
-        $hostile = new H3Parser(32);
-        $wire = VarIntCodec::encode(H3FrameType::DATA->value) . VarIntCodec::encode(33 + $index);
-        expect(fn() => $hostile->push($wire))->toThrow(Http3Exception::class)
-            ->and($hostile->bufferedBytes())->toBeLessThanOrEqual(16);
-
-        $healthy = new H3Parser(32);
-        $frames = [];
-        foreach (str_split((new H3Frame(H3FrameType::DATA->value, 'survivor'))->encode(), 2) as $chunk) {
-            array_push($frames, ...$healthy->push($chunk));
-        }
-        expect($frames)->toHaveCount(1)
-            ->and($frames[0]->payload)->toBe('survivor')
             ->and($healthy->bufferedBytes())->toBe(0);
     }
 }
@@ -136,43 +100,5 @@ function runwireOwnedAdversarialProtocolCorpusTestCase04(): void
         expect($healthy->done())->toBeTrue()
             ->and($headers)->toBe(1)
             ->and(strlen($body))->toBe(1);
-    }
-}
-
-it('rejects 64 oversized QPACK field sections without affecting another peer decoder', function (): void {
-    runwireOwnedAdversarialProtocolCorpusTestCase05();
-});
-
-/**
- * @throws \Throwable
- */
-function runwireOwnedAdversarialProtocolCorpusTestCase05(): void
-{
-    for ($index = 0; $index < 64; ++$index) {
-        $malicious = new FieldSectionDecoder(new QpackTable(0), 64);
-        expect(fn() => $malicious->decode(str_repeat('x', 65 + $index)))
-            ->toThrow(Http3Exception::class);
-        $healthy = new FieldSectionDecoder(new QpackTable(0), 64);
-        expect($healthy->decode("\x00\x00")->fields)->toBe([]);
-    }
-}
-
-it('keeps 64 bounded QUIC worker command decoders independent of invalid IPC frames', function (): void {
-    runwireOwnedAdversarialProtocolCorpusTestCase06();
-});
-
-/**
- * @throws \Throwable
- */
-function runwireOwnedAdversarialProtocolCorpusTestCase06(): void
-{
-    for ($index = 0; $index < 64; ++$index) {
-        $invalid = str_repeat('!', 90_001 + $index) . "\n";
-        expect(fn() => QuicWorkerCommand::decode($invalid))->toThrow(InvalidArgumentException::class);
-        $wire = QuicWorkerCommand::encode($index + 1, 'write', 4, "\x00binary", false);
-        $decoded = QuicWorkerCommand::decode($wire);
-        expect($decoded['id'])->toBe($index + 1)
-            ->and($decoded['data'])->toBe("\x00binary")
-            ->and($decoded['stream'])->toBe(4);
     }
 }

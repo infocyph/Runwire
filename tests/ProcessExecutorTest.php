@@ -16,7 +16,6 @@ use ReflectionProperty;
 use RuntimeException;
 use Throwable;
 
-
 it('runs blocking worker jobs outside the event loop and returns correct values', function (): void {
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 2, 2);
@@ -218,7 +217,6 @@ it('honors the earliest inherited token deadline instead of extending the operat
     $source->dispose();
 });
 
-
 it('cancels a queued filesystem read at the inherited token deadline before its worker starts', function (): void {
     $file = tempnam(sys_get_temp_dir(), 'runwire-scoped-file-');
     if (!is_string($file)) {
@@ -262,7 +260,6 @@ it('cancels a queued filesystem read at the inherited token deadline before its 
     }
 });
 
-
 it('keeps a saturated executor queue bounded while accepted off-loop filesystem work completes', function (): void {
     $file = tempnam(sys_get_temp_dir(), 'runwire-quota-');
     if (!is_string($file)) {
@@ -305,7 +302,6 @@ it('keeps a saturated executor queue bounded while accepted off-loop filesystem 
         unlink($file);
     }
 });
-
 
 it('compacts cancelled queue tombstones under repeated bounded admission', function (): void {
     $loop = new SelectLoop();
@@ -477,6 +473,20 @@ it('does not allocate a subprocess for a fully canceled queue', function (): voi
             ->and($loop->diagnostics()->writeWatchers)->toBe(0)
             ->and($loop->diagnostics()->timersActive)->toBe(0);
         \PHPUnit\Framework\Assert::assertInstanceOf(CancelledException::class, $completions[0]);
+    } finally {
+        $executor->close();
+    }
+});
+
+it('rejects removed native transport operations before allocating executor jobs', function (): void {
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    try {
+        foreach (['quic_probe', 'quic_session'] as $operation) {
+            expect(fn() => $executor->submit($operation, [], static function (): void {}))
+                ->toThrow(InvalidArgumentException::class, 'Unsupported executor operation');
+        }
+        expect($executor->diagnostics()['submitted'])->toBe(0);
     } finally {
         $executor->close();
     }

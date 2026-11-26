@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Executor\ProcessExecutor;
 use Infocyph\Runwire\Http\Client\ClientDestinationPolicy;
 use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
@@ -17,31 +16,14 @@ use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Nyholm\Psr7\Request;
 
-it('rejects strict and mixed HTTP/3 dispatch before allocating DNS or sockets', function (): void {
+it('rejects unapproved outbound dispatch before allocating DNS or sockets', function (): void {
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 1);
     $numeric = new Dialer($loop);
     $dialer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
     $dispatcher = new HttpOutboundDispatcher($loop, $dialer);
     $unapproved = PsrMessageBridge::outboundRequest(new Request('GET', 'https://example.test/'));
-    $h3 = new ClientProtocolPolicy(ProtocolVersion::HTTP_3, [ProtocolVersion::HTTP_3]);
-    $mixed = new ClientProtocolPolicy(ProtocolVersion::HTTP_2, [ProtocolVersion::HTTP_2, ProtocolVersion::HTTP_3], allowFallback: true);
-
     try {
-        expect(fn() => $dispatcher->send(
-            new ClientRequest('GET', 'https://example.test/', protocol: $h3),
-            static function (): void {},
-            static function (): void {},
-            static function (): void {},
-        ))
-            ->toThrow(RuntimeUnavailableException::class, 'HTTP/3 dispatch is unsupported');
-        expect(fn() => $dispatcher->send(
-            new ClientRequest('GET', 'https://example.test/', protocol: $mixed),
-            static function (): void {},
-            static function (): void {},
-            static function (): void {},
-        ))
-            ->toThrow(RuntimeUnavailableException::class, 'HTTP/3 dispatch is unsupported');
         expect(fn() => $dispatcher->send(
             $unapproved,
             static function (): void {},

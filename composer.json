@@ -46,7 +46,6 @@
         "ext-openswoole": "Enables the OpenSwoole host runtime and coroutine/event-loop integration.",
         "ext-pcntl": "Enables native prefork workers, signal handling, reloads and process supervision.",
         "ext-posix": "Enables native process signaling, identity handling and privilege dropping.",
-        "ext-quic": "Enables native QUIC transport and HTTP/3 serving.",
         "ext-sockets": "Enables optional low-level socket capabilities and transport tuning.",
         "ext-swoole": "Enables the Swoole host runtime and coroutine/event-loop integration.",
         "ext-zend-opcache": "Enables persistent bytecode caching for lower startup and runtime overhead.",
@@ -164,7 +163,7 @@
                         "reason": "Reviewed allowlisted benchmark protocol and authorized local artifact directory with symlink-resistant atomic publication.",
                         "security": {
                             "sanitizer": "benchmarks/adaptive_promotion_matrix.php",
-                            "sha256": "207e882fd9a09204800725c98b9e7e3cfdea721c97e86ef5c6ee1268db55dffc",
+                            "sha256": "e4e763f78588c151b6acd29a69573afde8a089292d544fac4b0682868db8c40f",
                             "tests": [
                                 "tests/AdaptivePromotionAtomicWriteTest.php"
                             ]
@@ -179,7 +178,7 @@
                         "reason": "Reviewed allowlisted benchmark protocol and authorized local artifact directory with symlink-resistant atomic publication.",
                         "security": {
                             "sanitizer": "benchmarks/adaptive_promotion_matrix.php",
-                            "sha256": "207e882fd9a09204800725c98b9e7e3cfdea721c97e86ef5c6ee1268db55dffc",
+                            "sha256": "e4e763f78588c151b6acd29a69573afde8a089292d544fac4b0682868db8c40f",
                             "tests": [
                                 "tests/AdaptivePromotionAtomicWriteTest.php"
                             ]
@@ -194,7 +193,7 @@
                         "reason": "Reviewed allowlisted benchmark protocol and authorized local artifact directory with symlink-resistant atomic publication.",
                         "security": {
                             "sanitizer": "benchmarks/adaptive_promotion_matrix.php",
-                            "sha256": "207e882fd9a09204800725c98b9e7e3cfdea721c97e86ef5c6ee1268db55dffc",
+                            "sha256": "e4e763f78588c151b6acd29a69573afde8a089292d544fac4b0682868db8c40f",
                             "tests": [
                                 "tests/AdaptivePromotionAtomicWriteTest.php"
                             ]
@@ -219,27 +218,12 @@
                     {
                         "directive": "@psalm-taint-escape",
                         "paths": [
-                            "benchmarks/u08_qpack_source_profile.php"
-                        ],
-                        "reason": "Reviewed canonical checkout class-name and source-file containment before explicit QPACK profile loading.",
-                        "security": {
-                            "sanitizer": "benchmarks/u08_qpack_source_profile.php",
-                            "sha256": "533fc34888d490aa424b31369e60da217443f195481a144b9a3e7e499fb3ce20",
-                            "tests": [
-                                "tests/SourceProfileClassFileTest.php"
-                            ]
-                        },
-                        "taint": "include"
-                    },
-                    {
-                        "directive": "@psalm-taint-escape",
-                        "paths": [
                             "runtime/executor-worker.php"
                         ],
                         "reason": "Reviewed authenticated operational worker filesystem boundary and restricted-root/special-file regression coverage; unrestricted-root paths retain caller-owned authority.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "49e3fedbdde5977636ff59fe1ec476821f1c1fde71d85582fd40a4ec4d8a6985",
+                            "sha256": "73e02b51fccde19b3c8e07f92a945907e522752cce748262d977d9f76464aa67",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -255,7 +239,7 @@
                         "reason": "PHP filesystem APIs can dereference network URL wrappers; the HMAC-authorized worker's guard rejects :// wrappers, NUL bytes, and off-root/symlink paths before opening. Bounded filesystem security regressions enforce this contract.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "49e3fedbdde5977636ff59fe1ec476821f1c1fde71d85582fd40a4ec4d8a6985",
+                            "sha256": "73e02b51fccde19b3c8e07f92a945907e522752cce748262d977d9f76464aa67",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -271,7 +255,7 @@
                         "reason": "PHP file_get_contents() and fopen() interpret wrapper-capable path strings as URL components. Authenticated executor guardFilePath validates local path shape, rejects stream-wrapper syntax, and enforces restricted-root and file-kind checks; security tests cover the boundary.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "49e3fedbdde5977636ff59fe1ec476821f1c1fde71d85582fd40a4ec4d8a6985",
+                            "sha256": "73e02b51fccde19b3c8e07f92a945907e522752cce748262d977d9f76464aa67",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -287,7 +271,7 @@
                         "reason": "The worker's HMAC-authenticated and stream-wrapper-rejecting path guard feeds PHP fopen/file_get_contents, which Psalm models as URL-path sinks (TaintedUrlPath). Strict wrapper, null-byte, restricted-root/symlink and file-kind security regressions enforce the sanitized boundary.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "49e3fedbdde5977636ff59fe1ec476821f1c1fde71d85582fd40a4ec4d8a6985",
+                            "sha256": "73e02b51fccde19b3c8e07f92a945907e522752cce748262d977d9f76464aa67",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"

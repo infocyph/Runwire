@@ -8,7 +8,6 @@ use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Datagram;
 use Infocyph\Runwire\Network\DatagramListener;
-use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\Protocol\FramedConnection;
 use Infocyph\Runwire\Protocol\LineCodec;
 use Infocyph\Runwire\Runtime\Enum\RuntimeDriver;
@@ -21,14 +20,13 @@ use Infocyph\Runwire\Server;
 use Infocyph\Runwire\StreamServer;
 use Infocyph\Runwire\Supervisor\WorkerRecyclePolicy;
 
-$nativeSelection = static function (bool $prefork = false, bool $quic = false): RuntimeSelection {
+$nativeSelection = static function (bool $prefork = false): RuntimeSelection {
     $environment = new RuntimeEnvironment(
         sapi: 'cli',
         availableDrivers: [RuntimeDriver::NATIVE],
         supportsFork: $prefork,
         supportsSignals: $prefork,
         supportsPosix: $prefork,
-        supportsQuic: $quic,
     );
 
     return new RuntimeSelection(
@@ -131,77 +129,4 @@ it('rejects enabled worker recycle policy in portable native mode', function () 
         RuntimeUnavailableException::class,
         'Worker recycle thresholds require native prefork worker-pool capability',
     );
-});
-
-it('requires QUIC when native HTTP/3 is explicitly configured', function () use ($nativeSelection): void {
-    $certificate = tempnam(sys_get_temp_dir(), 'runwire-cert-');
-    $privateKey = tempnam(sys_get_temp_dir(), 'runwire-key-');
-    if ($certificate === false || $privateKey === false) {
-        throw new RuntimeException('Unable to create temporary TLS files for native topology test.');
-    }
-    file_put_contents($certificate, 'certificate');
-    file_put_contents($privateKey, 'private-key');
-
-    try {
-        $server = Server::http(
-            '127.0.0.1:8443',
-            static function (HttpRequest $request, ResponseWriterInterface $writer): void {
-                unset($request, $writer);
-            },
-        )
-            ->withTls(new TlsOptions($certificate, $privateKey))
-            ->withHttp3();
-
-        expect(static fn() => NativeTopologyValidator::assertSupported(
-            [$server->name => $server],
-            $nativeSelection(prefork: true),
-            new RuntimeOptions(),
-        ))->toThrow(
-            RuntimeUnavailableException::class,
-            'QUIC capability is unavailable',
-        );
-
-        NativeTopologyValidator::assertSupported(
-            [$server->name => $server],
-            $nativeSelection(quic: true),
-            new RuntimeOptions(),
-        );
-    } finally {
-        unlink($certificate);
-        unlink($privateKey);
-    }
-});
-
-it('keeps the prefork HTTP/3 reuse-port requirement', function () use ($nativeSelection): void {
-    $certificate = tempnam(sys_get_temp_dir(), 'runwire-cert-');
-    $privateKey = tempnam(sys_get_temp_dir(), 'runwire-key-');
-    if ($certificate === false || $privateKey === false) {
-        throw new RuntimeException('Unable to create temporary TLS files for native topology test.');
-    }
-    file_put_contents($certificate, 'certificate');
-    file_put_contents($privateKey, 'private-key');
-
-    try {
-        $server = Server::http(
-            '127.0.0.1:8443',
-            static function (HttpRequest $request, ResponseWriterInterface $writer): void {
-                unset($request, $writer);
-            },
-        )
-            ->withTls(new TlsOptions($certificate, $privateKey))
-            ->withHttp3()
-            ->withWorkers(2);
-
-        expect(static fn() => NativeTopologyValidator::assertSupported(
-            [$server->name => $server],
-            $nativeSelection(prefork: true, quic: true),
-            new RuntimeOptions(),
-        ))->toThrow(
-            RuntimeUnavailableException::class,
-            'Native HTTP/3 with multiple workers requires explicit ListenerOptions::reusePort support.',
-        );
-    } finally {
-        unlink($certificate);
-        unlink($privateKey);
-    }
 });

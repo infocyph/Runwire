@@ -1,7 +1,7 @@
 HTTP and WebSocket protocols
 ============================
 
-This guide describes HTTP/1.1, HTTP/2, HTTP/3 and WebSocket protocol
+This guide describes HTTP/1.1, HTTP/2 and WebSocket protocol
 contracts, with host requirements and unsupported modes.
 
 Incoming H1 and outgoing H1 wire components
@@ -12,7 +12,7 @@ body size, parser budgets and connection idle timeout. The
 Http1ClientRequestWriter and Http1ClientResponseParser handle
 incremental bodies, chunked responses, trailers and malformed
 messages. Runwire also provides experimental ``Http1ConnectedExchange`` which streams one request and one response over an already verified established TCP/TLS connection; it offers no DNS dialing, redirecting or active pooling. It releases a fully framed, empty keep-alive socket only after response completion. The experimental ``Http1OutboundClient`` now connects via the shared off-loop DNS and verified Happy Eyeballs dialer, enforcing exact origin TLS identity and HTTP/1.1 ALPN; independent numeric TCP response tests are present. The opt-in ``Http1PolicyClient`` enforces bodyless GET/HEAD redirects, bounded retries, and cross-origin secret stripping. ``BoundedConnectionPool`` supports isolated lease admission and idle reuse but is not automatically wired into the client. The H2 client now has one-shot and live shared-connection paths;
-Native H3 request clients are implemented and independently tested; an automatic unified H1/H2/H3 session pool or transparent H3 downgrade is not advertised.
+A unified automatic H1/H2 session pool is not advertised.
 
 .. code-block:: console
 
@@ -42,7 +42,7 @@ against upstream Python ``hyper-h2`` under pinned 8.4/8.5 PHP matrices,
 including verified CA/SAN/TLS, ALPN, HPACK HEADERS and streamed body.
 The single-request H2 client deliberately does not multiplex, while the
 separate verified shared-session transport does. H2 server push, extended
-CONNECT and H3 extended CONNECT remain outside these client contracts.
+CONNECT remain outside these client contracts.
 An independent negotiated H1/H2 client supports **explicit** TLS fallback.
 
 .. code-block:: console
@@ -53,18 +53,11 @@ An independent negotiated H1/H2 client supports **explicit** TLS fallback.
    vendor/bin/pest tests/Http2OutboundClientTest.php tests/Http2ConnectedExchangeCancellationTest.php
    vendor/bin/pest --configuration=pest.xml qa/reference/Http2IndependentReferenceTest.php
 
-HTTP/3 and QUIC server
+Native HTTP/3 and QUIC
 ----------------------
 
-Incoming H3 uses optional native QUIC TLS 1.3, control streams and
-bounded QPACK blocked-field queues. Independent aioquic peer tests
-are in the Security and Standards workflow. Outbound QUIC worker
-streams alone do not constitute an H3 request client. Native
-datagrams, path migration and application early 0-RTT are unsupported.
-
-.. code-block:: console
-
-   vendor/bin/pest tests/Http3SessionTest.php tests/Http3AbuseFaultAcceptanceTest.php
+Removed in 4.0. Terminate public HTTP/3 at a dedicated edge; forward
+HTTP/1.1 or HTTP/2 to Runwire. There is no WebTransport implementation.
 
 WebSocket status
 ----------------
@@ -78,8 +71,8 @@ subprotocol, preserves coalesced frames, and uses the same WebSocket
 session lifecycle with client masking. Real independent WSS/close and 128 concurrent-peer fragmentation and
 heartbeat regression suites have passed the branch PHPForge matrices;
 host support and safe usage depend on the configured runtime and TLS policy.
-HTTP/2 and HTTP/3 extended CONNECT are not implemented.
-For excluded protocols and native QUIC constraints, see the limitations
+HTTP/2 extended CONNECT are not implemented.
+For excluded protocols and retired protocol scope, see the limitations
 in :doc:`features`.
 
 .. code-block:: console
@@ -93,7 +86,7 @@ Budgets, cancellation and safety
 --------------------------------
 
 One established connection has one active read/cancellation owner.
-Enforce headers, HPACK/QPACK, blocked streams, body and write-queue
+Enforce headers, HPACK, body and write-queue
 budgets. Session-fatal protocol violations terminate the session;
 stream-local errors must not corrupt siblings. Never silently
 replay unsafe methods or forward credentials across origins.
@@ -132,7 +125,7 @@ pretending the fixture performs TLS verification. The independent
 ``hyper-h2`` TLS suite separately verifies the real shared-connection
 multiplexer with reversed responses, large flow windows, authenticated
 cancellation and slow sibling completion. HTTP/2 interoperability tests
-is covered; full automatic pooling, H3 and frozen-release performance
+is covered; full automatic pooling and frozen-release performance
 certification remain separate gates. The specified API and protocol limits apply.
 
 .. code-block:: console
@@ -163,7 +156,7 @@ sibling fairness rather than merely testing short responses. A separate
 64-generation protocol regression exercises stream-local RST, pending peer
 acknowledgments, exactly-once completion and the fixed retired-stream budget.
 These development tests satisfy the development flow/cancel acceptance,
-not production benchmarking, H3 availability or full release certification.
+not production benchmarking, full release certification.
 
 
 Explicit outbound H1/H2 ALPN selection
@@ -173,11 +166,9 @@ The experimental ``HttpNegotiatingOutboundClient`` uses one existing outbound
 verified TLS connection and selects an H1 or H2 exchange only after actual
 ALPN negotiation. It advertises only the caller-approved HTTP/1.1/H2 versions,
 preserves the original certificate peer identity, and requires explicit
-fallback permission before H2 can become HTTP/1.1. HTTP/3 is deliberately
-rejected rather than treating an absent outbound QUIC client as permission to
-downgrade. Plain HTTP remains a separate, explicit H1-only opt-in. Independent
+fallback permission before H2 can become HTTP/1.1. Unsupported ALPN identifiers, including h3, are deliberately rejected rather than downgraded. Plain HTTP remains a separate, explicit H1-only opt-in. Independent
 TLS reference fixtures offer H2 and H1 individually to exercise selection,
-not mock negotiation. Exact-source negotiated TLS H1/H2 QA is accepted. Native HTTP/3 is a separately qualified QUIC client; no unified H3/H2/H1 automatic fallback is promised.
+not mock negotiation. Exact-source negotiated TLS H1/H2 QA is accepted.
 
 The independent TLS reference also probes a strict H2 client against a
 peer advertising only HTTP/1.1: no HTTP request may be emitted during a

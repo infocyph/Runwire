@@ -20,7 +20,6 @@ final readonly class HostProtocolVersion
         return match (strtoupper(trim($protocol))) {
             'HTTP/1.1' => ProtocolVersion::HTTP_1_1,
             'HTTP/2', 'HTTP/2.0' => ProtocolVersion::HTTP_2,
-            'HTTP/3', 'HTTP/3.0' => ProtocolVersion::HTTP_3,
             default => throw new InvalidArgumentException(sprintf(
                 'Unsupported host HTTP protocol version "%s".',
                 $protocol,

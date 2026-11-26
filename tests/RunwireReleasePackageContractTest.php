@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-it('installs a 3.1 candidate as 3.1 in both independent Composer consumers', function (): void {
+it('installs a 4.0 candidate as 4.0 in both independent Composer consumers', function (): void {
     $root = dirname(__DIR__) . '/.github/workflows/';
     $files = [
         $root . 'release-candidate.yml',
@@ -12,8 +12,8 @@ it('installs a 3.1 candidate as 3.1 in both independent Composer consumers', fun
         $workflow = file_get_contents($path);
         expect($workflow)->toBeString()
             ->not->toContain('2.2.x-dev')
-            ->toContain('"infocyph/runwire": "3.1.x-dev"')
-            ->toContain('index("3.1.x-dev") != null')
+            ->toContain('"infocyph/runwire": "4.0.x-dev"')
+            ->toContain('index("4.0.x-dev") != null')
             ->toContain('composer check-platform-reqs');
     }
 });
@@ -39,6 +39,7 @@ it('keeps portable package runtime requirements free of hard optional extensions
         ->and($package['require'])->not->toHaveKey('ext-event')
         ->and($package['require'])->not->toHaveKey('ext-pcntl')
         ->and($package['require'])->not->toHaveKey('ext-quic')
+        ->and($package['suggest'])->not->toHaveKey('ext-quic')
         ->and($package['autoload']['psr-4'])->toHaveKey('Infocyph\\Runwire\\')
         ->and($package)->not->toHaveKey('archive');
 });

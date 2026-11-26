@@ -10,7 +10,7 @@ use InvalidArgumentException;
 use OverflowException;
 
 /**
- * Validates HTTP/2 and HTTP/3 request field sections into normalized request metadata.
+ * Validates HTTP/2 request field sections into normalized request metadata.
  */
 final readonly class RequestHeaderValidator
 {

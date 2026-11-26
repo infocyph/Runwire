@@ -8,7 +8,7 @@
 
 A high-performance, framework-agnostic process and network runtime for PHP.
 
-Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1/2/3, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
+Runwire provides the low-level runtime boundary for process supervision, event loops, native network servers, HTTP/1.1 and HTTP/2, host-runtime adaptation, structured coroutines, bounded lifecycle management, and production diagnostics. It is designed to be embedded by frameworks and applications rather than becoming an application framework itself.
 
 Explore the [Runwire documentation](https://docs.infocyph.com/projects/Runwire) for complete
 feature walkthroughs, examples, protocol and worker lifecycle guides,
@@ -34,7 +34,6 @@ Optional runtime capabilities:
 | `ext-pcntl` + `ext-posix` | native prefork supervision, reload, worker replacement/recycle, signals, control operations, privilege reduction |
 | `ext-event` | scalable native HTTP event-loop backend for prefork workers; SelectLoop remains the fallback |
 | `ext-openssl` | native TLS and HTTP/2 ALPN |
-| `ext-quic` | native QUIC / HTTP/3 |
 | `ext-swoole` / `ext-openswoole` | Swoole/OpenSwoole host runtime integration; select `RuntimeDriver::SWOOLE` explicitly when using this host adapter |
 | `ext-sockets` | optional low-level socket features |
 | OPcache | persistent bytecode caching |
@@ -141,17 +140,15 @@ Portable native is intentionally not a substitute supervisor:
 | Development watcher configured | Startup error. |
 | Supervisor lifecycle listener configured | Startup error. |
 | Worker privilege-drop policy configured | Startup error. |
-| HTTP/3 configured without QUIC | Startup error. |
 
 HTTP/1.1, framed TCP/Unix, and UDP remain available when their platform capabilities are present. External supervision owns process restart/replacement.
 
 ## Native protocols
 
-Runwire 3.0 provides:
+Runwire 4.0 provides:
 
 - HTTP/1.1 over TCP/TLS;
 - HTTP/2 over TLS ALPN with HTTP/1.1 fallback;
-- HTTP/3 over QUIC when the supported QUIC capability is available;
 - RFC 6455 WebSocket upgrade over native HTTP/1.1;
 - framed TCP and Unix-domain stream servers;
 - UDP datagram servers.
@@ -174,28 +171,22 @@ $server = Server::http('0.0.0.0:8443', $handler)
 
 Default ALPN is `h2,http/1.1`. Explicit TLS configuration fails when OpenSSL capability is unavailable; it never becomes plaintext silently.
 
-### HTTP/3
+### Public HTTP/3 at the edge
 
-```php
-$server = Server::http('0.0.0.0:8443', $handler)
-    ->withTls($tls)
-    ->withHttp3();
-```
-
-HTTP/3 requires TLS plus the supported QUIC capability. Explicit HTTP/3 without QUIC fails startup; it is never silently ignored. 0-RTT application dispatch is disabled in Runwire 3.0.
+Runwire 4.0 removes native HTTP/3 and QUIC. Terminate public HTTP/3 at a dedicated edge proxy and forward HTTP/1.1 or HTTP/2 to Runwire. Ordinary UDP is not QUIC, and WebTransport is not implemented. See the [4.0 upgrade guide](docs/upgrade-4.0.rst).
 
 ### Protocol scheduling policy
 
 Runwire can tune a small set of **protocol-internal scheduling decisions** without changing the application-facing HTTP contract. The policy is useful when the same server must favor deterministic behavior, lower interactive latency, sustained transfer efficiency, or automatic crossover under changing load.
 
-HTTP/1.1, HTTP/2, and HTTP/3 all default to `AdaptivePolicyMode::FIXED` in Runwire 3.0. The other modes are explicit opt-ins because a scheduling profile that helps one workload can hurt another, especially during load transitions or at tail latency.
+HTTP/1.1 and HTTP/2 both default to `AdaptivePolicyMode::FIXED` in Runwire 4.0. The other modes are explicit opt-ins because a scheduling profile that helps one workload can hurt another, especially during load transitions or at tail latency.
 
-| Mode | Why it exists | Use it when | HTTP/1.1 effect | HTTP/2 effect | HTTP/3 effect |
-| --- | --- | --- | --- | --- | --- |
-| `FIXED` | Predictable, release-certified behavior with no load-state transitions. | **Default choice**; use when you want deterministic behavior, have not benchmarked another profile, or operate a mixed/unknown workload. | Keeps the protocol default TCP_NODELAY behavior enabled unless the listener explicitly overrides it. | Uses the full bounded initial-response fast-path budget; otherwise normal multiplexed scheduling applies. | Uses configured read/write maxima and the configured base poll timing. |
-| `LATENCY` | Pins the latency-biased state instead of adapting at runtime. | Small interactive responses, RPC-style traffic, or latency-sensitive workloads where repeated measurement shows this profile helps. | Keeps TCP_NODELAY enabled. | Keeps the larger latency-biased one-shot initial-response budget. | Reduces adaptive read/write work per turn to favor shorter scheduling turns; idle polling is not stretched by the throughput profile. |
-| `THROUGHPUT` | Pins the throughput-biased state for sustained/bulk work. | Large or sustained transfers where batching/fewer scheduling interruptions improve measured throughput without unacceptable tail latency. | Disables TCP_NODELAY by default so TCP may coalesce small writes; an explicit listener socket setting still wins. | Uses the smaller throughput-profile one-shot budget so larger responses fall back to normal multiplexed scheduling sooner. | Uses the configured maximum read/write work budgets and may use a longer idle poll interval when appropriate. |
-| `AUTO` | Dynamically moves between latency, balanced, and throughput states as protocol-local pressure changes. | Variable workloads **only after** steady-state and transition benchmarks show it is safe for your deployment. | Samples a bounded set of recent live connections and chooses the NODELAY default for newly attached connections. | Adjusts only the bounded initial-response fast-path budget from queue/stream pressure. | Adapts inbound read/poll effort and outbound response-write effort independently. |
+| Mode | Why it exists | Use it when | HTTP/1.1 effect | HTTP/2 effect |
+| --- | --- | --- | --- | --- |
+| `FIXED` | Predictable, release-certified behavior with no load-state transitions. | **Default choice**; use when you want deterministic behavior, have not benchmarked another profile, or operate a mixed/unknown workload. | Keeps the protocol default TCP_NODELAY behavior enabled unless the listener explicitly overrides it. | Uses the full bounded initial-response fast-path budget; otherwise normal multiplexed scheduling applies. |
+| `LATENCY` | Pins the latency-biased state instead of adapting at runtime. | Small interactive responses, RPC-style traffic, or latency-sensitive workloads where repeated measurement shows this profile helps. | Keeps TCP_NODELAY enabled. | Keeps the larger latency-biased one-shot initial-response budget. |
+| `THROUGHPUT` | Pins the throughput-biased state for sustained/bulk work. | Large or sustained transfers where batching/fewer scheduling interruptions improve measured throughput without unacceptable tail latency. | Disables TCP_NODELAY by default so TCP may coalesce small writes; an explicit listener socket setting still wins. | Uses the smaller throughput-profile one-shot budget so larger responses fall back to normal multiplexed scheduling sooner. |
+| `AUTO` | Dynamically moves between latency, balanced, and throughput states as protocol-local pressure changes. | Variable workloads **only after** steady-state and transition benchmarks show it is safe for your deployment. | Samples a bounded set of recent live connections and chooses the NODELAY default for newly attached connections. | Adjusts only the bounded initial-response fast-path budget from queue/stream pressure. |
 
 `AUTO` uses integer EWMA smoothing, low/high watermarks, and sustained-sample dwell to avoid rapid state flapping. The internal `BALANCED` state is not a separate public mode; it is one state AUTO may select.
 
@@ -203,12 +194,11 @@ Important boundaries:
 
 | Area | Contract |
 | --- | --- |
-| Hard limits | Scheduling policy **never raises** body, header, frame, stream, connection, queue, flow-control, HPACK/QPACK, WebSocket, or lifecycle limits. |
+| Hard limits | Scheduling policy **never raises** body, header, frame, stream, connection, queue, flow-control, HPACK, WebSocket, or lifecycle limits. |
 | H1 application point | NODELAY policy is chosen when a connection is attached; existing connections are not retroactively retuned. |
 | H1 precedence | Explicit listener `tcp_nodelay` configuration overrides the protocol policy. |
 | H2 scope | Policy affects only the bounded initial-response optimization; normal flow control, multiplexing, fairness, and backpressure remain unchanged. |
-| H3 scope | `inboundAdaptive` and `outboundAdaptive` are independent; one direction can remain FIXED while the other is tuned. |
-| Constructor default | Standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO`; protocol option objects intentionally supply Runwire 3.0 `FIXED` defaults. |
+| Constructor default | Standalone `new AdaptiveProtocolPolicy()` defaults to `AUTO`; protocol option objects intentionally supply Runwire 4.0 `FIXED` defaults. |
 
 Use non-default modes only with representative repeated measurements that include throughput, p95/p99 latency, CPU/RSS, backpressure, fairness, and load transitions. See [configuration reference](docs/configuration-reference-3.0.rst) and [production operations](docs/production-operations-3.0.rst) for configuration and deployment guidance.
 
@@ -249,7 +239,7 @@ $server = Server::http(
 );
 ```
 
-Native WebSocket serving is intentionally HTTP/1.1-only in 3.0. Compression and HTTP/2/HTTP/3 extended CONNECT are not advertised. Browser requests carrying `Origin` require an explicit application origin policy; that policy complements authentication rather than replacing it.
+Native WebSocket serving is intentionally HTTP/1.1-only in 3.0. Compression and HTTP/2 extended CONNECT are not advertised. Browser requests carrying `Origin` require an explicit application origin policy; that policy complements authentication rather than replacing it.
 
 ## Framed TCP example
 
@@ -384,9 +374,9 @@ Runwire is designed around bounded state:
 - admission limits;
 - listener/connection limits;
 - request-body/header limits;
-- HTTP/2/HTTP/3 stream limits;
+- HTTP/2 stream limits;
 - response buffering and backpressure;
-- HPACK/QPACK limits;
+- HPACK limits;
 - event-loop work budgets;
 - coroutine tasks/backlogs/waiters;
 - diagnostics/status payloads;
@@ -452,7 +442,7 @@ Run the automated formatting/refactor processing pipeline:
 composer ic:process
 ```
 
-The CI matrix covers supported PHP versions/dependency modes, static analysis, clean production installation, genuine no-PCNTL portable-native acceptance, benchmarks, Swoole/OpenSwoole acceptance, and dedicated QUIC/HTTP/3 interoperability/soak lanes.
+The CI matrix covers supported PHP versions/dependency modes, static analysis, clean production installation, genuine no-PCNTL portable-native acceptance, benchmarks, Swoole/OpenSwoole acceptance, and independent H1/H2 interoperability and retained-protocol lifecycle lanes.
 
 ## License
 

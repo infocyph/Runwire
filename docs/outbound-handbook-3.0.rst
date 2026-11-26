@@ -166,7 +166,7 @@ Verifiable test commands
    vendor/bin/pest tests/TlsClientDialerTest.php tests/Http2OutboundClientTest.php
    vendor/bin/pest tests/StreamRelayTest.php
 
-For independent H2 and H3 interop, use the corresponding workflows
+For independent H2 interop, use the corresponding workflows
 rather than assuming a local unit test covers external peers. See
 :doc:`connection-policies-3.0`, :doc:`protocols-3.0` and
 :doc:`security-handbook-3.0`.
@@ -249,15 +249,12 @@ URI was selected.
   redirect requires a configured policy match for the new URI.
 
 Use this field for diagnostics. Configure the allowlist independently
-from the request and authorize the exact routes the application may access.
-Use `DialOptions::addressPolicy` when TCP candidate-IP and connected-peer
-restrictions are also needed. Keep TLS hostname verification enabled.
-Connected H1/H2 exchanges and multiplex admission reject a mismatch with
+from the request and authorize exact application routes. Use
+`DialOptions::addressPolicy` when TCP candidate-IP and connected-peer
+restrictions are needed. Keep TLS hostname verification enabled.
+Connected H1/H2 exchanges and multiplex admission reject mismatch with
 Runwire-recorded authenticated TLS peer identity before request publication.
-Externally adopted sockets remain explicitly caller-verified. Native H3
-cannot provide the same numeric-peer guard; the dispatcher rejects TCP
-options on H3. Select guarded H1/H2 for untrusted destinations that require
-candidate-to-connected-peer verification.
+Externally adopted sockets remain explicitly caller-verified.
 
 
 Explicit cross-protocol outbound dispatch
@@ -267,8 +264,7 @@ Explicit cross-protocol outbound dispatch
 `send()` entry point for verified H1/H2 TLS-ALPN exchanges. Every request
 receives an `OutboundHttpHandle` that owns a linked cancellation source
 through final settlement. H1 reusable sockets are aborted on completion
-unless retained by an independently qualified owning pool. Explicit H3
-or mixed H3 policies are rejected before DNS or socket allocation; no
+unless retained by an independently qualified owning pool. Only the HTTP/1.1 and HTTP/2 enum values are accepted; no
 implicit downgrade, plaintext fallback or cross-origin reuse is introduced.
 
 
@@ -279,7 +275,7 @@ An opt-in `Http\\Client\\PooledHttp1Session` combines the existing verified
 `HappyEyeballsDialer`, `BoundedConnectionPool` and `Http1ConnectedExchange`
 for a fixed HTTP origin and worker/tenant scope. The constructor requires an
 explicit revisioned TLS trust identity when using HTTPS. TLS ALPN is fixed to
-`http/1.1`; no H2/H3 reuse or implicit downgrade is advertised. Each request
+`http/1.1`; no H2 reuse or implicit downgrade is advertised. Each request
 uses an H1-only protocol policy, owns cancellation and deadlines independently,
 and can return a completely drained, keep-alive-eligible socket to the bounded
 idle store. The pool rejects stale, buffered or foreign-identity connections,
@@ -288,9 +284,9 @@ Caller must reconstruct a new session after TLS trust policy, proxy route or
 tenant changes. A live two-request same-socket regression with exact accepted
 connection count is in `tests/PooledHttp1SessionTest.php`.
 
-This is **H1 connection pooling only**, not a general H1/H2/H3 automatic
+This is **H1 connection pooling only**, not a general H1/H2 automatic
 pooled session manager. Keep the `HttpOutboundDispatcher` policy separate;
-H2 multiplex and native H3 session siblings retain their own explicit lifecycle.
+H2 multiplex sessions retain their own explicit lifecycle.
 
 
 Unified explicit transport and reusable session routing
@@ -361,25 +357,16 @@ independent-cancellation and negative-cache tests run
 numeric peer even if a cached DNS answer was previously permitted.
 
 
-Selecting H1, H2 or H3 without accidental downgrade
----------------------------------------------------
+Selecting H1 or H2 without accidental downgrade
+-------------------------------------------------
 
-H1 works on one request/response exchange per active session; the
-optional ``PooledHttp1Session`` can reuse fully drained same-origin
-keep-alive connections. H2 provides multiplexed streams on an
-established TLS/ALPN session, while H3 uses a separate QUIC transport.
-
-**Decision:** select H3 only with the native QUIC backend; a TCP
-dialer cannot establish H3. If policy says H3-only and the backend is
-missing, return the error rather than silently trying H2 or HTTP.
-For H2, verify negotiated ``h2`` ALPN and use caller-established
-``Http2MultiplexConnection`` only within its origin/TLS/tenant scope.
+Choose the preferred protocol and allow fallback explicitly. A verified
+TLS connection must negotiate an approved ALPN value. Unsupported H3
+ALPN and host protocol metadata are rejected, never relabeled as H2 or H1.
 
 .. code-block:: php
 
    <?php
-
-   declare(strict_types=1);
 
    use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
    use Infocyph\Runwire\Http\Enum\ProtocolVersion;
@@ -389,14 +376,7 @@ For H2, verify negotiated ``h2`` ALPN and use caller-established
        [ProtocolVersion::HTTP_2],
        allowFallback: false,
    );
-   $h3 = new ClientProtocolPolicy(
-       ProtocolVersion::HTTP_3,
-       [ProtocolVersion::HTTP_3],
-       allowFallback: false,
-   );
 
-Do not interpret these policy objects as opened sockets.
-``tests/HttpOutboundDispatcherTest.php`` verifies strict transport
-routing and rejection of unsupported H3 policies. Probe real H2
-with the independent hyper-h2 acceptance and H3 with native QUIC
-interoperability checks.
+Do not interpret policy objects as opened sockets.
+``tests/HttpOutboundDispatcherTest.php`` and the independent hyper-h2
+reference verify retained routing, peer and settlement contracts.

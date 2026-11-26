@@ -15,17 +15,12 @@ use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Infocyph\Runwire\Network\TlsClientOptions;
 
-it('rejects unsupported H3 and unsafe H1/H2 fallback before any socket or DNS work', function (): void {
+it('rejects unsafe H1/H2 fallback before any socket or DNS work', function (): void {
     $loop = new SelectLoop();
     $executor = new ProcessExecutor($loop, 1, 2);
     $numeric = new Dialer($loop);
     $dialer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
     $callback = static function (): void {};
-    $h3 = new ClientProtocolPolicy(
-        ProtocolVersion::HTTP_3,
-        [ProtocolVersion::HTTP_3, ProtocolVersion::HTTP_2],
-        allowFallback: true,
-    );
     $h2Plain = new ClientProtocolPolicy(
         ProtocolVersion::HTTP_2,
         [ProtocolVersion::HTTP_2, ProtocolVersion::HTTP_1_1],
@@ -33,14 +28,6 @@ it('rejects unsupported H3 and unsafe H1/H2 fallback before any socket or DNS wo
         allowPlaintext: true,
     );
     try {
-        expect(fn() => HttpNegotiatingOutboundClient::connect(
-            $loop,
-            $dialer,
-            new ClientRequest('GET', 'https://localhost/remote', protocol: $h3),
-            $callback,
-            $callback,
-            $callback,
-        ))->toThrow(RuntimeUnavailableException::class, 'HTTP/3 is unsupported');
         expect(fn() => HttpNegotiatingOutboundClient::connect(
             $loop,
             $dialer,

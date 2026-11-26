@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Client;
 
 use Infocyph\Runwire\CancellationSource;
-use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
@@ -46,10 +45,6 @@ final readonly class HttpOutboundDispatcher
         callable $completion,
         ?DialOptions $options = null,
     ): OutboundHttpHandle {
-        if (in_array(ProtocolVersion::HTTP_3, $request->protocol->allowedVersions, true)) {
-            throw new RuntimeUnavailableException('HTTP/3 dispatch is unsupported; explicitly select HTTP/1.1 or HTTP/2.');
-        }
-
         $source = $request->cancellation === null
             ? new CancellationSource($request->deadline)
             : CancellationSource::linked($request->cancellation, $request->deadline);

@@ -19,7 +19,7 @@ concerns on distinct value objects and immutable policies.
      - Driver, OPcache mode, recycle, diagnostics, admission, host adapters
      - Capability and process model
    * - `Server`
-     - HTTP bind, workers, connection limits, TLS, H3 listener
+     - HTTP bind, workers, connection limits, TLS
      - Listener protocol security
    * - `StreamServer` / `DatagramServer`
      - TCP/Unix framing and datagram bindings
@@ -66,7 +66,7 @@ installed version.
 
 A driver selected automatically must only expose capabilities supported by
 the actual PHP process and host. Choosing the native driver does not create
-ext-quic, sockets, POSIX signals or an alternate Swoole reactor.
+sockets, POSIX signals or an alternate Swoole reactor.
 
 Inbound server limits
 ---------------------
@@ -75,7 +75,7 @@ The `Server` model includes a server `name`, network `address`,
 `workers`, `workerConnectionLimit`, `listener`, `connection`,
 optional `tls` and readied-worker/shutdown timeouts. Protocol-specific
 options are separate; an HTTP/1.1 parser budget is not the same thing
-as a QUIC flow-control budget.
+as a protocol flow-control budget.
 
 Size budgets should account for at least:
 
@@ -83,7 +83,6 @@ Size budgets should account for at least:
 * maximum pending TLS handshakes and handshake time;
 * received header bytes, body bytes, chunk/decompression limits;
 * H2 SETTINGS, HPACK dynamic table, active streams and connection credit;
-* H3/QPACK blocked streams, stream deadlines and transport limits;
 * WebSocket frame/message length and connection lifetime;
 * file job count, subprocess IPC size and queued work;
 * producer write-buffer and consumer read-buffer upper bounds.
@@ -144,7 +143,7 @@ Host configuration and portability
 A prefork supervisor and a host worker are different capabilities.
 RoadRunner/FrankenPHP and FPM have host-specific lifecycle policies;
 Swoole and OpenSwoole own their reactors. In hosting environments where
-forking or ext-quic is unavailable, use only the supported portable or
+forking is unavailable, use only the supported portable or
 host-owned features. See :doc:`production-operations-3.0` and
 :doc:`host-compatibility-3.0`.
 

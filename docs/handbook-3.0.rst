@@ -73,8 +73,6 @@ Runwire has three distinct execution ownership domains.
        |
        +--> H1 / H2 server --> bounded request admission --> application
        |                                                   |
-       +--> H3 / QUIC server --> stream and flow control ---+
-       |                                                   |
        +--> TCP / Unix listener --> framed stream owner ----+
        |
        +--> UDP listener --> datagram admission --> handler
@@ -133,14 +131,11 @@ Capability truthfulness
    * - HTTP/1.1, HTTP/2
      - Inbound protocol support; distinct outbound client APIs
      - One magical client covering all protocol versions
-   * - HTTP/3 / QUIC
-     - Native QUIC-dependent H3 support and independent peer testing
-     - Universal availability on stock PHP/cPanel
    * - WebSocket
      - H1 upgrade and opt-in outbound ws/wss client
-     - H2/H3 extended-CONNECT WebSocket compatibility
+     - H2 extended-CONNECT WebSocket compatibility
    * - WebTransport
-     - Explicitly excluded from 3.0
+     - Explicitly excluded from 4.0
      - Any hidden compatibility shim or fake QUIC DATAGRAM mapping
    * - Filesystem
      - Bounded off-reactor process executor

@@ -8,18 +8,10 @@ use Infocyph\Runwire\Http\Http2\Enum\FrameType as Http2FrameType;
 use Infocyph\Runwire\Http\Http2\Frame as Http2Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter as Http2FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder as HpackEncoder;
-use Infocyph\Runwire\Http\Http3\Enum\FrameType as Http3FrameType;
-use Infocyph\Runwire\Http\Http3\Frame as Http3Frame;
-use Infocyph\Runwire\Http\Http3\Http3ResponseWriter;
-use Infocyph\Runwire\Http\Http3\Http3Session;
-use Infocyph\Runwire\Http\Http3\Internal\ConnectionState as Http3ConnectionState;
-use Infocyph\Runwire\Http\Http3\Qpack\Encoder as QpackEncoder;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
-use Infocyph\Runwire\Network\Enum\WriteState;
-use Infocyph\Runwire\Network\WriteResult;
 
 require_once __DIR__ . '/Support/Http2TestSupport.php';
 
@@ -114,69 +106,16 @@ function semanticParityHttp2(array &$snapshot): void
     runwireH2Exchange($wire, semanticParityHandler($snapshot));
 }
 
-/**
- * @throws \InvalidArgumentException
- */
-function semanticParityHttp3Writer(int $streamId, string $method): ResponseWriterInterface
-{
-    if ($streamId < 0 || $method === '') {
-        throw new InvalidArgumentException('Invalid HTTP/3 semantic-parity writer arguments.');
-    }
-
-    return new Http3ResponseWriter(
-        $method,
-        static fn(): WriteResult => new WriteResult(WriteState::ACCEPTED, 0),
-        static fn(): WriteResult => new WriteResult(WriteState::ACCEPTED, 0),
-        static function (): void {},
-        static function (): void {},
-    );
-}
-
-/**
- * @param array<string, mixed> $snapshot
- * @throws \InvalidArgumentException
- * @throws \LogicException
- * @throws \Throwable
- * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
- */
-function semanticParityHttp3(array &$snapshot): void
-{
-    $session = new Http3Session(
-        new Http3ConnectionState(),
-        semanticParityHandler($snapshot),
-        semanticParityHttp3Writer(...),
-    );
-    $encoder = new QpackEncoder(0, 0);
-    $initial = $encoder->encode([
-        [':method', 'POST'],
-        [':scheme', 'https'],
-        [':authority', 'example.test'],
-        [':path', '/parity?x=1'],
-        ['x-shared', 'same'],
-    ], 0)->block;
-    $trailers = $encoder->encode([
-        ['x-trailer', 'done'],
-    ], 0)->block;
-
-    $session->pushRequestStream(0, new Http3Frame(Http3FrameType::HEADERS->value, $initial)->encode());
-    $session->pushRequestStream(0, new Http3Frame(Http3FrameType::DATA->value, 'hello world')->encode());
-    $session->pushRequestStream(0, new Http3Frame(Http3FrameType::HEADERS->value, $trailers)->encode());
-    $session->finishRequestStream(0);
-}
-
-it('preserves the application-visible request contract across HTTP/1.1, HTTP/2 and HTTP/3', function (): void {
+it('preserves the application-visible request contract across HTTP/1.1 and HTTP/2', function (): void {
     $http1 = [];
     $http2 = [];
-    $http3 = [];
 
     semanticParityHttp1($http1);
     semanticParityHttp2($http2);
-    semanticParityHttp3($http3);
 
     $applicationKeys = ['method', 'target', 'host', 'x-shared', 'body', 'trailer'];
     $http1Contract = array_intersect_key($http1, array_flip($applicationKeys));
     $http2Contract = array_intersect_key($http2, array_flip($applicationKeys));
-    $http3Contract = array_intersect_key($http3, array_flip($applicationKeys));
 
     expect($http1Contract)->toBe([
         'method' => 'POST',
@@ -186,11 +125,8 @@ it('preserves the application-visible request contract across HTTP/1.1, HTTP/2 a
         'body' => 'hello world',
         'trailer' => 'done',
     ])->and($http2Contract)->toBe($http1Contract)
-        ->and($http3Contract)->toBe($http1Contract)
         ->and($http1['version'])->toBe('1.1')
         ->and($http2['version'])->toBe('2')
-        ->and($http3['version'])->toBe('3')
         ->and($http1['encrypted'])->toBeFalse()
-        ->and($http2['encrypted'])->toBeFalse()
-        ->and($http3['encrypted'])->toBeTrue();
+        ->and($http2['encrypted'])->toBeFalse();
 });
