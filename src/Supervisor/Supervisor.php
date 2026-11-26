@@ -564,9 +564,7 @@ final class Supervisor
         );
 
         unset($this->children[$pid]);
-        if (($this->currentSlots[$record->group->name][$record->slot] ?? null) === $pid) {
-            unset($this->currentSlots[$record->group->name][$record->slot]);
-        }
+        ChildSet::removeCurrentSlot($record, $this->currentSlots);
         $replacement = $this->replacementFor($pid);
         if ($replacement !== null && $replacement->replacesPid === $pid) {
             $replacement->replacesPid = null;
@@ -694,31 +692,32 @@ final class Supervisor
      */
     private function reapChildren(): void
     {
-        ChildReaper::reap(
+        ChildReaper::reapOwned(
+            array_keys($this->children),
             $this->handleChildExit(...),
-            $this->reconcileNoChildren(...),
+            $this->reconcileMissingChild(...),
         );
     }
 
-    private function reconcileNoChildren(): void
+    private function reconcileMissingChild(int $pid): void
     {
+        $record = $this->children[$pid] ?? null;
+        if ($record === null) {
+            return;
+        }
+
+        unset($this->children[$pid]);
+        ChildSet::removeCurrentSlot($record, $this->currentSlots);
+        $this->closeChildWatchers($record);
+        if (!$this->stopping) {
+            // Keep remaining worker ownership so the fatal drain can retire it safely.
+            $this->fail(new SupervisorException('Kernel child state diverged from the supervisor child table.'));
+
+            return;
+        }
         if ($this->children === []) {
-            return;
-        }
-
-        $orphans = $this->children;
-        $this->children = [];
-        $this->currentSlots = [];
-        foreach ($orphans as $record) {
-            $this->closeChildWatchers($record);
-        }
-        if ($this->stopping) {
             $this->loop->stop();
-
-            return;
         }
-
-        $this->fail(new SupervisorException('Kernel child state diverged from the supervisor child table.'));
     }
 
     private function replacementFor(int $pid): ?ChildRecord
@@ -854,7 +853,6 @@ final class Supervisor
             return;
         }
 
-        /** @var DevelopmentWatchPolicy $policy */
         $this->developmentWatcher = new DevelopmentWatcher(
             $this->loop,
             $policy,

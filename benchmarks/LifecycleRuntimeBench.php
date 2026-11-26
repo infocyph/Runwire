@@ -64,7 +64,6 @@ final class LifecycleRuntimeBench
                 supportsWorkerRecycle: true,
                 supportsHttp1: true,
                 supportsHttp2: true,
-                supportsHttp3: true,
             ),
             mode: 'benchmark',
             workerSlot: 0,

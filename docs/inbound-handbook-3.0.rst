@@ -5,11 +5,9 @@ Overview and supported transport boundary
 -----------------------------------------
 
 Runwire accepts TCP byte streams, Unix-domain byte streams and UDP
-datagrams, and can serve HTTP/1.1, HTTP/2, optional HTTP/3 over native
-QUIC and HTTP/1.1 WebSocket upgrades. Each transport has distinct
-message boundaries, admission costs and shutdown behavior. WebTransport
-is **excluded** from 3.0 and is not implemented by relabeling QUIC
-streams or ordinary UDP datagrams.
+datagrams, and can serve HTTP/1.1, HTTP/2 and HTTP/1.1 WebSocket upgrades.
+Each transport has distinct message boundaries, admission costs and shutdown
+behavior. Native HTTP/3, QUIC and WebTransport are removed or excluded in 4.0.
 
 The common developer entry is `Runtime::create()->listen()->run()`,
 with `Server` for HTTP, `StreamServer` for framed TCP/Unix services,
@@ -85,23 +83,12 @@ real hyper-h2 behavior rather than relying only on self-generated frames.
 
    vendor/bin/pest tests/Http2ConnectionTest.php tests/Http2AbuseTest.php
 
-HTTP/3 and QUIC listeners
--------------------------
+Public HTTP/3
+--------------
 
-HTTP/3 runs on encrypted QUIC streams, not on raw TCP or unencrypted
-UDP echo sockets. It needs an installed and capable native QUIC stack
-with appropriate TLS/ALPN. H3 control streams, QPACK encoder/decoder
-instructions, request-stream creation, flow credit, cancellation,
-GOAWAY and connection retirement have independent lifetimes.
-
-The same UDP port can serve QUIC packets, but ordinary
-`DatagramServer` does not turn UDP payloads into an H3 connection.
-Do not enable H3 by declaring a desired protocol string if the backend
-cannot provide authenticated native QUIC sessions.
-
-Run the native interoperability and hostile sibling-stream test matrix
-in `.github/workflows/security-standards.yml`. Consult
-:doc:`protocols-3.0` for QPACK and loss/reorder details.
+Native HTTP/3 is removed in 4.0. Use an independent edge proxy with
+HTTP/1.1 or HTTP/2 upstream. DatagramServer is unchanged; ordinary UDP
+is not QUIC.
 
 WebSocket upgrades
 ------------------
@@ -114,7 +101,7 @@ message-size bounds. Backpressure applies to the WebSocket message
 queue, not just the TCP write buffer.
 
 The outbound WebSocket client is separate from the inbound upgrade.
-H2/H3 extended CONNECT WebSocket is not promised by the 3.0
+H2 extended CONNECT WebSocket is not promised by the 4.0
 implementation; it must not be silently activated or documented as
 passing based on HTTP/1.1 upgrade tests alone.
 
@@ -173,8 +160,6 @@ Common inbound failures
      - Server certificates, ALPN, trust configuration, handshake timeout
    * - Accepted H2 sibling lost
      - GOAWAY state, per-stream reset, output queue, drain timeout
-   * - H3 unavailable
-     - ext-quic/OpenSSL runtime capability and independent QUIC peer
    * - WebSocket closes after upgrade
      - Framing, direction mask, ping/pong, configured message ceiling
    * - High RSS during slow clients
@@ -193,7 +178,7 @@ Full WebSocket echo server with an explicit Origin allowlist
 session with an independent message and close lifecycle. **Why:** the
 application must authorize the handshake before switching protocols.
 **When:** choose this for an interactive H1 browser/client connection,
-not as an HTTP/2 or HTTP/3 extended-CONNECT implementation.
+not as an HTTP/2 extended-CONNECT implementation.
 
 Save as ``websocket.php`` in the repository root:
 
@@ -252,7 +237,7 @@ message ceilings and closing are exercised by:
    vendor/bin/pest tests/WebSocketIntegrationTest.php
    vendor/bin/pest tests/WebSocketBackpressureAcceptanceTest.php
 
-Do not infer support for WebTransport or H2/H3 WebSocket from this
+Do not infer support for WebTransport or H2 WebSocket from this
 HTTP/1.1 upgrade example.
 
 

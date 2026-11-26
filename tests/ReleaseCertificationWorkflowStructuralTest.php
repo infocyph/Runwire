@@ -25,3 +25,14 @@ it('requires a clean source tree and a pinned candidate checkout', function (): 
         ->and($matched)->toContain('actual="$(git -C candidate rev-parse HEAD)"')
         ->toContain('test "$(git -C candidate rev-parse HEAD)" = "$EXPECTED_CANDIDATE"');
 });
+
+it('warms both revisions before every full measured trial and reports failed comparisons without bypassing the gate', function (): void {
+    $script = file_get_contents(dirname(__DIR__) . '/benchmarks/matched_release_certification.sh');
+    \PHPUnit\Framework\Assert::assertIsString($script);
+
+    expect($script)->toContain('for trial in 1 2 3 4 5; do')
+        ->and(substr_count($script, '"$baseline_build" 30 180'))->toBe(2)
+        ->and(substr_count($script, '"$candidate_build" 30 180'))->toBe(2)
+        ->and($script)->toContain('4.0.x-candidate', 'comparison_status=$?', 'exit "$comparison_status"')
+        ->toContain('cat "$output_dir/comparison.json"', '.budget_enforced == true and .passed == true');
+});

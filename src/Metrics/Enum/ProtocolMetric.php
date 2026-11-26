@@ -26,18 +26,4 @@ enum ProtocolMetric: string
     case HTTP2_STREAMS_ACTIVE = 'http2_streams_active';
 
     case HTTP2_STREAMS_TOTAL = 'http2_streams_total';
-
-    case HTTP3_CONNECTIONS_ACTIVE = 'http3_connections_active';
-
-    case HTTP3_CONNECTIONS_TOTAL = 'http3_connections_total';
-
-    case HTTP3_RESETS_TOTAL = 'http3_resets_total';
-
-    case HTTP3_STREAMS_ACTIVE = 'http3_streams_active';
-
-    case HTTP3_STREAMS_TOTAL = 'http3_streams_total';
-
-    case QPACK_BLOCKED_STREAMS = 'qpack_blocked_streams';
-
-    case QPACK_TABLE_BYTES = 'qpack_table_bytes';
 }

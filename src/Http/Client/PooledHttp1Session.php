@@ -23,7 +23,7 @@ use Throwable;
 
 /**
  * Explicit tenant/origin-scoped H1 keep-alive session, backed by a bounded
- * pool. Never pools H2/H3 streams or silently downgrades QUIC/ALPN.
+ * pool. Never pools H2 streams or silently downgrades ALPN.
  */
 final class PooledHttp1Session
 {

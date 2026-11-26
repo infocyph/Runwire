@@ -40,7 +40,6 @@ function batchERuntimeContext(?RuntimeMetrics $metrics = null): RuntimeContext
             ownsWorkerPool: true,
             supportsHttp1: true,
             supportsHttp2: true,
-            supportsHttp3: true,
         ),
         mode: 'native',
         workerSlot: 0,

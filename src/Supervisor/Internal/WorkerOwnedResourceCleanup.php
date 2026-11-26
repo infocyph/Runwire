@@ -9,7 +9,6 @@ use Infocyph\Runwire\Network\BoundedConnectionPool;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
-use Infocyph\Runwire\Network\QuicClientSession;
 use Throwable;
 
 /**
@@ -35,20 +34,17 @@ final class WorkerOwnedResourceCleanup
      * @param array<int, Dialer> $dialers
      * @param array<int, Connection> $connections
      * @param array<int, BoundedConnectionPool> $pools
-     * @param array<int, QuicClientSession> $sessions
      */
     public static function network(
         array $happyDialers,
         array $dialers,
         array $connections,
         array $pools,
-        array $sessions,
     ): void {
         self::happyDialers($happyDialers);
         self::dialers($dialers);
         self::connections($connections);
         self::pools($pools);
-        self::sessions($sessions);
     }
 
     /** @param array<int, Connection> $items */
@@ -95,18 +91,6 @@ final class WorkerOwnedResourceCleanup
                 $pool->close();
             } catch (Throwable) {
                 // A user completion observer must not stop sibling pool teardown.
-            }
-        }
-    }
-
-    /** @param array<int, QuicClientSession> $items */
-    private static function sessions(array $items): void
-    {
-        foreach ($items as $session) {
-            try {
-                $session->dispose();
-            } catch (Throwable) {
-                // Continue retiring other owned QUIC sessions.
             }
         }
     }

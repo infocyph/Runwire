@@ -15,6 +15,7 @@ use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Network\Connection;
+use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use InvalidArgumentException;
 use Throwable;
 
@@ -124,4 +125,32 @@ it('rejects H2 on an unencrypted socket without publishing any unverified reques
         fclose($server);
     }
     expect($loop->diagnostics()->readWatchers)->toBe(0);
+});
+
+it('rejects a different origin on a recorded authenticated H2 peer before request ownership', function (): void {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
+    \PHPUnit\Framework\Assert::assertIsArray($pair);
+    \PHPUnit\Framework\Assert::assertCount(2, $pair);
+    [$socket, $server] = $pair;
+    $loop = new SelectLoop();
+    $connection = new Connection($loop, $socket, negotiatedProtocol: 'h2', encrypted: true);
+    VerifiedOutboundTlsPeers::register($connection, 'verified.example.test');
+    $request = new ClientRequest('GET', 'https://other.example.test/private');
+    try {
+        expect(fn() => new Http2ConnectedExchange(
+            $loop,
+            $connection,
+            $request,
+            static function (): void {},
+            static function (): void {},
+            static function (): void {},
+        ))->toThrow(InvalidArgumentException::class, 'authenticated TLS peer');
+        expect($connection->isPoolIdleSafe())->toBeTrue();
+    } finally {
+        $connection->abort();
+        fclose($server);
+    }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
 });

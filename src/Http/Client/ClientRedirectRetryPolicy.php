@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Infocyph\Runwire\Http\Client;
 
+use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Headers;
 use InvalidArgumentException;
 use RuntimeException;
@@ -97,6 +98,7 @@ final readonly class ClientRedirectRetryPolicy
     ): bool {
         return !$responseStarted
             && $error instanceof RuntimeException
+            && !$error instanceof CancelledException
             && $retriesUsed >= 0
             && $retriesUsed < $this->maxRetries
             && in_array(strtoupper($request->method), ['GET', 'HEAD'], true)

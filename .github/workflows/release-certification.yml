@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: "Exact 40-character Runwire 3.1 release candidate SHA (never default to main)"
+        description: "Exact 40-character Runwire 4.0 release candidate SHA (never default to main)"
         required: true
         type: string
   pull_request:
@@ -23,8 +23,7 @@ permissions:
   contents: read
 
 env:
-  BASELINE_SHA: 054737bc6a8d4025a8d05fabb8ad390f66ee47ae
-  STRUCTURAL_BASELINE_SHA: f1c99ba83140bf9829406c600296ebe1a78be491
+  BASELINE_TAG: '3.1'
   CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha }}
 
 jobs:
@@ -33,7 +32,18 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'release-certification'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      baseline_sha: ${{ steps.baseline.outputs.sha }}
     steps:
+      - name: Resolve published baseline identity
+        id: baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          revision="$(git ls-remote --exit-code https://github.com/infocyph/Runwire "refs/tags/${BASELINE_TAG}^{}" | cut -f1)"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ && "$revision" != "${CANDIDATE_SHA,,}" ]]
+          printf 'sha=%s\n' "$revision" >> "$GITHUB_OUTPUT"
+          printf 'Published %s baseline: %s\n' "$BASELINE_TAG" "$revision" >> "$GITHUB_STEP_SUMMARY"
       - name: Checkout immutable candidate
         uses: actions/checkout@v7
         with:
@@ -68,6 +78,8 @@ jobs:
     needs: release-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 55
+    env:
+      BASELINE_SHA: ${{ needs.release-preflight.outputs.baseline_sha }}
 
     steps:
       - name: Checkout candidate exact head
@@ -88,19 +100,13 @@ jobs:
             echo "::error::Checkout revision does not match frozen candidate SHA."
             exit 1
           }
-          printf 'Frozen 3.1 candidate: %s\n' "$actual"
+          printf 'Frozen 4.0 candidate: %s\n' "$actual"
 
-      - name: Checkout published 3.0 baseline at immutable SHA
+      - name: Checkout published 3.1 baseline
         uses: actions/checkout@v7
         with:
-          ref: ${{ env.BASELINE_SHA }}
+          ref: refs/tags/${{ env.BASELINE_TAG }}
           path: baseline
-
-      - name: Checkout verified pre-optimization structural baseline
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ env.STRUCTURAL_BASELINE_SHA }}
-          path: structural-baseline
 
       - name: Validate explicit candidate SHA before immutable comparison
         shell: bash
@@ -144,7 +150,6 @@ jobs:
         run: |
           composer install --working-dir=candidate --no-interaction --prefer-dist --no-progress
           composer install --working-dir=baseline --no-interaction --prefer-dist --no-progress
-          composer install --working-dir=structural-baseline --no-interaction --prefer-dist --no-progress
 
       - name: Test sustained benchmark accounting
         working-directory: candidate
@@ -162,7 +167,7 @@ jobs:
           mkdir -p "$output"
           # Two immutable checkouts on this exact runner and PHP/OPcache configuration.
           # Each mode is a separate cold CLI process, not a persistent-worker RPM result.
-          for revision in structural-baseline candidate; do
+          for revision in baseline candidate; do
             for mode in bootstrap lifecycle coroutine; do
               evidence="$output/footprint-$revision-$mode.json"
               (
@@ -182,7 +187,7 @@ jobs:
             done
           done
           jq -s \
-            --arg baseline_sha "$STRUCTURAL_BASELINE_SHA" \
+            --arg baseline_sha "$BASELINE_SHA" \
             --arg candidate_sha "$CANDIDATE_SHA" '
             def counts: {
               source_php_files,
@@ -206,7 +211,7 @@ jobs:
                     }
                 ]
               }' \
-            "$output"/footprint-structural-baseline-{bootstrap,lifecycle,coroutine}.json \
+            "$output"/footprint-baseline-{bootstrap,lifecycle,coroutine}.json \
             "$output"/footprint-candidate-{bootstrap,lifecycle,coroutine}.json \
             > "$output/structural-footprint-comparison.json"
           jq -e '.modes | length == 3' "$output/structural-footprint-comparison.json" >/dev/null
@@ -214,7 +219,7 @@ jobs:
       - name: Run matched sustained comparison
         shell: bash
         env:
-          RUNWIRE_BASELINE_BUILD: ${{ env.BASELINE_SHA }}
+          RUNWIRE_BASELINE_BUILD: ${{ needs.release-preflight.outputs.baseline_sha }}
           RUNWIRE_CANDIDATE_BUILD: ${{ inputs.candidate_sha || github.event.pull_request.head.sha }}
         run: |
           bash candidate/benchmarks/matched_release_certification.sh             baseline candidate release-certification/matched
@@ -252,7 +257,7 @@ jobs:
             echo "::error::Checkout revision does not match frozen candidate SHA."
             exit 1
           }
-          printf 'Frozen 3.1 candidate: %s\n' "$actual"
+          printf 'Frozen 4.0 candidate: %s\n' "$actual"
 
 
       - name: Setup release PHP runtime
@@ -322,7 +327,7 @@ jobs:
             sleep 0.02
           done
 
-          export RUNWIRE_RUNTIME_VERSION="3.1.x-candidate"
+          export RUNWIRE_RUNTIME_VERSION="4.0.x-candidate"
           export RUNWIRE_RUNTIME_BUILD="$RUNWIRE_CANDIDATE_BUILD"
           export RUNWIRE_PHP_VERSION="$(php -r 'echo PHP_VERSION;')"
           export RUNWIRE_INSTRUMENTATION="release-certification-soak"
@@ -452,16 +457,16 @@ jobs:
             "name": "runwire/standalone-release-smoke",
             "type": "project",
             "repositories": [
-              {"type": "path", "url": "../package", "options": {"symlink": false, "versions": {"infocyph/runwire": "3.1.x-dev"}}}
+              {"type": "path", "url": "../package", "options": {"symlink": false, "versions": {"infocyph/runwire": "4.0.x-dev"}}}
             ],
-            "require": {"infocyph/runwire": "3.1.x-dev"},
+            "require": {"infocyph/runwire": "4.0.x-dev"},
             "minimum-stability": "dev",
             "prefer-stable": true
           }
           JSON
           composer install --working-dir="$workspace/consumer" --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
           composer show --working-dir="$workspace/consumer" --format=json infocyph/runwire \
-            | jq -e '.versions | index("3.1.x-dev") != null' >/dev/null
+            | jq -e '.versions | index("4.0.x-dev") != null' >/dev/null
           composer check-platform-reqs --working-dir="$workspace/consumer" --no-dev
           cmp runwire/src/RuntimeOptions.php "$workspace/consumer/vendor/infocyph/runwire/src/RuntimeOptions.php"
           cmp runwire/composer.json "$workspace/consumer/vendor/infocyph/runwire/composer.json"
@@ -587,7 +592,7 @@ jobs:
             echo "::error::Checkout revision does not match frozen candidate SHA."
             exit 1
           }
-          printf 'Frozen 3.1 candidate: %s\n' "$actual"
+          printf 'Frozen 4.0 candidate: %s\n' "$actual"
 
 
       - name: Setup release-analysis runtime

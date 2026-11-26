@@ -9,7 +9,6 @@ use Infocyph\Runwire\CancellationSubscription;
 use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Executor\Internal\ExecutorIpcTrait;
-use Infocyph\Runwire\Executor\Internal\ExecutorPendingQueueTrait;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\RequestDeadline;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
@@ -30,7 +29,6 @@ use Throwable;
 final class ProcessExecutor
 {
     use ExecutorIpcTrait;
-    use ExecutorPendingQueueTrait;
 
     private const int IO_CHUNK_BYTES = 8192;
 
@@ -219,7 +217,7 @@ final class ProcessExecutor
         if ($this->closed) {
             throw new LogicException('Executor is closed.');
         }
-        if (!in_array($operation, ['dns', 'quic_probe', 'quic_session', 'read', 'write', 'stat', 'rename', 'unlink', 'sleep'], true)) {
+        if (!in_array($operation, ['dns', 'read', 'write', 'stat', 'rename', 'unlink', 'sleep'], true)) {
             throw new InvalidArgumentException('Unsupported executor operation.');
         }
         if (count($this->jobs) >= $this->maxWorkers + $this->maxQueue) {
@@ -324,6 +322,30 @@ final class ProcessExecutor
         return $this->startWorker();
     }
 
+    /**
+     * Canceled queued jobs can leave stale IDs in the FIFO while its one
+     * worker is busy. Compact only at a bounded threshold, preserving
+     * submission order of active jobs without an unbounded tombstone list.
+     */
+    private function compactPendingQueue(): void
+    {
+        $capacity = $this->maxWorkers + $this->maxQueue;
+        if ($this->pending->count() <= $capacity * 2 + 32) {
+            return;
+        }
+
+        $active = [];
+        while (!$this->pending->isEmpty()) {
+            $id = $this->pending->dequeue();
+            if (isset($this->jobs[$id]) && $this->jobs[$id]['worker'] === null) {
+                $active[] = $id;
+            }
+        }
+        foreach ($active as $id) {
+            $this->pending->enqueue($id);
+        }
+    }
+
     private function expire(int $id): void
     {
         if (!array_key_exists($id, $this->jobs)) {
@@ -364,44 +386,53 @@ final class ProcessExecutor
         }
     }
 
+    /** @throws \LogicException */
     private function pump(): void
     {
         if ($this->closed) {
             return;
         }
-        while (!$this->pending->isEmpty()) {
+        while (($jobId = $this->nextQueuedJob()) !== null) {
             try {
                 $available = $this->availableWorker();
             } catch (Throwable $error) {
-                $jobId = $this->nextQueuedJob();
-                if ($jobId !== null) {
-                    $this->settle($jobId, null, $error);
-                }
+                $this->settle($jobId, null, $error);
 
                 return;
             }
             if ($available === null) {
-                return;
-            }
-            $jobId = $this->nextQueuedJob();
-            if ($jobId === null) {
+                // Preserve FIFO order when all workers are occupied.
+                $this->pending->unshift($jobId);
+
                 return;
             }
 
-            $job = $this->jobs[$jobId];
+            $job = $this->jobs[$jobId] ?? null;
+            $worker = $this->workers[$available] ?? null;
+            if ($job === null || $worker === null) {
+                throw new LogicException('Executor admission lost its job or worker ownership.');
+            }
             $job['worker'] = $available;
             $this->jobs[$jobId] = $job;
-            $worker = $this->workers[$available];
             $worker['job'] = $jobId;
             $worker['inputBuffer'] = $job['packet'];
             $worker['outputBuffer'] = '';
-            $worker['writeWatcher'] = $this->loop->onWritable(
-                $worker['input'],
-                function () use ($available): void {
-                    $this->writeWorker($available);
-                },
-            );
             $this->workers[$available] = $worker;
+
+            try {
+                $worker['writeWatcher'] = $this->loop->onWritable(
+                    $worker['input'],
+                    function () use ($available): void {
+                        $this->writeWorker($available);
+                    },
+                );
+                $this->workers[$available] = $worker;
+            } catch (Throwable $error) {
+                // The worker owns the job before registration; retirement settles both.
+                $this->retire($available, $error);
+
+                return;
+            }
         }
     }
 

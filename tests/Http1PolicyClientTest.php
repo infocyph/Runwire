@@ -171,3 +171,88 @@ it('follows one bounded independent H1 redirect without forwarding cross-origin 
         ->and($loop->diagnostics()->writeWatchers)->toBe(0)
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
+
+it('does not replay or lose a published GET response prefix after premature EOF', function (): void {
+    $listener = stream_socket_server('tcp://127.0.0.1:0', $code, $reason);
+    \PHPUnit\Framework\Assert::assertIsResource($listener);
+    stream_set_blocking($listener, false);
+    $address = stream_socket_get_name($listener, false);
+    \PHPUnit\Framework\Assert::assertIsString($address);
+    $loop = new SelectLoop();
+    $executor = new ProcessExecutor($loop, 1, 1);
+    $numeric = new Dialer($loop);
+    $dialer = new HappyEyeballsDialer($loop, $numeric, new AsyncDnsResolver($executor));
+    $peers = [];
+    $watchers = [];
+    $attempts = 0;
+    $statuses = [];
+    $body = '';
+    $completed = 0;
+    $failure = null;
+    $accept = $loop->onReadable($listener, static function ($stream) use ($loop, &$peers, &$watchers, &$attempts): void {
+        $peer = stream_socket_accept($stream, 0);
+        if (!is_resource($peer)) {
+            return;
+        }
+        ++$attempts;
+        $peers[] = $peer;
+        stream_set_blocking($peer, false);
+        $request = '';
+        $watchers[] = $loop->onReadable($peer, static function ($socket, int $id) use ($loop, &$request): void {
+            $chunk = fread($socket, 8_192);
+            if (is_string($chunk)) {
+                $request .= $chunk;
+            }
+            if (!str_contains($request, "\r\n\r\n")) {
+                return;
+            }
+            $loop->cancel($id);
+            expect($request)->toStartWith('GET /retry-after-head HTTP/1.1');
+            fwrite($socket, "HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\npart");
+            stream_socket_shutdown($socket, STREAM_SHUT_WR);
+        });
+    });
+    $watchdog = $loop->delay(2.0, static fn() => $loop->stop());
+    $client = new Http1PolicyClient(
+        $loop, $dialer,
+        new ClientRequest('GET', 'http://' . $address . '/retry-after-head', protocol: new ClientProtocolPolicy(
+            ProtocolVersion::HTTP_1_1, [ProtocolVersion::HTTP_1_1], allowPlaintext: true,
+        )),
+        new ClientRedirectRetryPolicy(maxRetries: 1),
+        static function (int $status) use (&$statuses): void { $statuses[] = $status; },
+        static function (string $bytes) use (&$body): void { $body .= $bytes; },
+        static function (?Connection $connection, ?Throwable $error) use (&$completed, &$failure, $loop): void {
+            ++$completed;
+            $failure = $error;
+            $connection?->abort();
+            $loop->stop();
+        },
+    );
+    try {
+        $client->start();
+        $loop->run();
+        expect($attempts)->toBe(1)
+            ->and($completed)->toBe(1)
+            ->and($statuses)->toBe([200])
+            ->and($body)->toBe('part')
+            ->and($failure)->toBeInstanceOf(RuntimeException::class)
+            ->and($dialer->pendingCount())->toBe(0)
+            ->and($numeric->pendingCount())->toBe(0);
+    } finally {
+        $loop->cancel($watchdog);
+        $loop->cancel($accept);
+        foreach ($watchers as $id) {
+            $loop->cancel($id);
+        }
+        foreach ($peers as $peer) {
+            \Infocyph\Runwire\Tests\Support\closeSocket($peer);
+        }
+        $dialer->close();
+        $numeric->close();
+        $executor->close();
+        fclose($listener);
+    }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->writeWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
+});

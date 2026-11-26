@@ -25,6 +25,7 @@ function releaseCompareFixture(string $build, float $successfulRps = 1_000.0, fl
         'median_successful_rps' => $successfulRps,
         'median_successful_rpm' => $successfulRps * 60.0,
         'rps_cv_percent' => $cv,
+        'median_p95_ms' => 1.0,
         'median_p99_ms' => 2.0,
         'peak_rss_bytes' => 120_000_000,
         'correctness_passed' => true,
@@ -139,4 +140,17 @@ it('rejects an excessive throughput regression with stable variance', function (
         ->and($run['report']['budget_enforced'])->toBeTrue()
         ->and($run['report']['throughput_passed'])->toBeFalse()
         ->and($run['report']['certification_status'])->toBe('failed');
+});
+
+it('rejects an excessive p95 regression even when p99 and throughput pass', function (): void {
+    $baseline = releaseCompareFixture('published-3.1');
+    $candidate = releaseCompareFixture('candidate');
+    $candidate['median_p95_ms'] = 1.8;
+    $run = releaseCompareRun($baseline, $candidate);
+
+    expect($run['exit'])->not->toBe(0)
+        ->and($run['report']['p95_passed'])->toBeFalse()
+        ->and($run['report']['p99_passed'])->toBeTrue()
+        ->and($run['report']['throughput_passed'])->toBeTrue()
+        ->and($run['report']['passed'])->toBeFalse();
 });

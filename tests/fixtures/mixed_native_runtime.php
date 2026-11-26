@@ -6,7 +6,6 @@ require_once dirname(__DIR__, 2) . '/benchmarks/cli_local_paths.php';
 
 use Infocyph\Runwire\DatagramServer;
 use Infocyph\Runwire\Http\Headers;
-use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Network\Datagram;
@@ -71,7 +70,6 @@ $http = new Server(
     },
     workers: 1,
     tls: new TlsOptions($certificate, $key),
-    http3: new Http3Options(),
 );
 
 $tcp = StreamServer::tcp(

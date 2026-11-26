@@ -1,0 +1,225 @@
+{
+  "baselineRevision": "970e6f05f1ae5b5082cd3b4a329116d1d7a42325",
+  "removedTypes": [
+    "Infocyph\\Runwire\\Executor\\Internal\\ExecutorPendingQueueTrait",
+    "Infocyph\\Runwire\\Http\\Client\\Http3OutboundClient",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientAdmissionGate",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientControl",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientGoawayState",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientOrigin",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientPeerAuxiliary",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientPeerStreamRegistry",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientPeerStreamType",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientResponseStream",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientSiblingExchange",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientSiblingManager",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http3ClientWireCodec",
+    "Infocyph\\Runwire\\Http\\Http3\\ControlStream",
+    "Infocyph\\Runwire\\Http\\Http3\\Enum\\ErrorCode",
+    "Infocyph\\Runwire\\Http\\Http3\\Enum\\FrameType",
+    "Infocyph\\Runwire\\Http\\Http3\\Enum\\SettingIdentifier",
+    "Infocyph\\Runwire\\Http\\Http3\\Enum\\StreamType",
+    "Infocyph\\Runwire\\Http\\Http3\\Frame",
+    "Infocyph\\Runwire\\Http\\Http3\\FrameParser",
+    "Infocyph\\Runwire\\Http\\Http3\\Http3Exception",
+    "Infocyph\\Runwire\\Http\\Http3\\Http3Limits",
+    "Infocyph\\Runwire\\Http\\Http3\\Http3Options",
+    "Infocyph\\Runwire\\Http\\Http3\\Http3ResponseWriter",
+    "Infocyph\\Runwire\\Http\\Http3\\Http3Session",
+    "Infocyph\\Runwire\\Http\\Http3\\Internal\\AdaptivePollStrategy",
+    "Infocyph\\Runwire\\Http\\Http3\\Internal\\AdaptivePumpStrategy",
+    "Infocyph\\Runwire\\Http\\Http3\\Internal\\AdaptiveResponseStrategy",
+    "Infocyph\\Runwire\\Http\\Http3\\Internal\\ConnectionState",
+    "Infocyph\\Runwire\\Http\\Http3\\Internal\\Http3TransportInterface",
+    "Infocyph\\Runwire\\Http\\Http3\\Internal\\PeerUnidirectionalStream",
+    "Infocyph\\Runwire\\Http\\Http3\\Internal\\RequestStream",
+    "Infocyph\\Runwire\\Http\\Http3\\Internal\\ResponseScheduler",
+    "Infocyph\\Runwire\\Http\\Http3\\Internal\\ResponseStream",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\BlockedFieldSectionException",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\CheckedInteger",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\DecodedFieldSection",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\Decoder",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\DecoderInstruction",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\DecoderStreamDecoder",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\DecoderStreamEncoder",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\DynamicTable",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\EncodedFieldSection",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\Encoder",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\EncoderStreamDecoder",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\EncoderStreamEncoder",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\Enum\\DecoderInstructionType",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\FieldSectionDecoder",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\IntegerCodec",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\ReadyFieldSection",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\SectionReference",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\StaticTable",
+    "Infocyph\\Runwire\\Http\\Http3\\Qpack\\StringCodec",
+    "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicApi",
+    "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicConnection",
+    "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicEventMasks",
+    "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicHttp3Connection",
+    "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicHttp3Poller",
+    "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicHttp3Worker",
+    "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicListener",
+    "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicStream",
+    "Infocyph\\Runwire\\Http\\Http3\\Quic\\PhpQuicTransport",
+    "Infocyph\\Runwire\\Http\\Http3\\Settings",
+    "Infocyph\\Runwire\\Http\\Http3\\SettingsCodec",
+    "Infocyph\\Runwire\\Http\\Http3\\VarIntCodec",
+    "Infocyph\\Runwire\\Network\\Internal\\QuicWorkerCommand",
+    "Infocyph\\Runwire\\Network\\Internal\\QuicWorkerResourceUsage",
+    "Infocyph\\Runwire\\Network\\Internal\\QuicWorkerSession",
+    "Infocyph\\Runwire\\Network\\Internal\\QuicWorkerStreamIdentity",
+    "Infocyph\\Runwire\\Network\\QuicClientOptions",
+    "Infocyph\\Runwire\\Network\\QuicClientSession",
+    "Infocyph\\Runwire\\Network\\QuicHandshakeProbe",
+    "Infocyph\\Runwire\\Runtime\\Internal\\NativeHttp3Attachment",
+    "Infocyph\\Runwire\\Runtime\\Internal\\NativeHttp3Worker"
+  ],
+  "changedTypes": [
+    "Infocyph\\Runwire\\Executor\\ProcessExecutor",
+    "Infocyph\\Runwire\\Http\\Client\\ClientProtocolPolicy",
+    "Infocyph\\Runwire\\Http\\Client\\ClientRedirectRetryPolicy",
+    "Infocyph\\Runwire\\Http\\Client\\Http1ClientResponseHeadParser",
+    "Infocyph\\Runwire\\Http\\Client\\Http1ClientResponseParser",
+    "Infocyph\\Runwire\\Http\\Client\\Http1ConnectedExchange",
+    "Infocyph\\Runwire\\Http\\Client\\Http2ConnectedExchange",
+    "Infocyph\\Runwire\\Http\\Client\\Http2MultiplexConnection",
+    "Infocyph\\Runwire\\Http\\Client\\HttpNegotiatingOutboundClient",
+    "Infocyph\\Runwire\\Http\\Client\\HttpOutboundDispatcher",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http2ClientHandshake",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http2ClientMultiplexSession",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http2ClientResponseParser",
+    "Infocyph\\Runwire\\Http\\Client\\Internal\\Http2ClientSession",
+    "Infocyph\\Runwire\\Http\\Client\\PooledHttp1Session",
+    "Infocyph\\Runwire\\Http\\Enum\\ProtocolVersion",
+    "Infocyph\\Runwire\\Http\\Internal\\RequestHeaderValidator",
+    "Infocyph\\Runwire\\Metrics\\Enum\\ProtocolMetric",
+    "Infocyph\\Runwire\\Metrics\\RuntimeMetrics",
+    "Infocyph\\Runwire\\Network\\Internal\\VerifiedOutboundTlsPeers",
+    "Infocyph\\Runwire\\Network\\OutboundAddressPolicy",
+    "Infocyph\\Runwire\\Runtime",
+    "Infocyph\\Runwire\\RuntimeCapabilities",
+    "Infocyph\\Runwire\\Runtime\\Enum\\RuntimeCapability",
+    "Infocyph\\Runwire\\Runtime\\Host\\HostProtocolVersion",
+    "Infocyph\\Runwire\\Runtime\\Internal\\AdmissionController",
+    "Infocyph\\Runwire\\Runtime\\Internal\\NativeTopologyValidator",
+    "Infocyph\\Runwire\\Runtime\\Internal\\PortableNativeRuntime",
+    "Infocyph\\Runwire\\Runtime\\RuntimeCapabilityResolver",
+    "Infocyph\\Runwire\\Runtime\\RuntimeEnvironment",
+    "Infocyph\\Runwire\\Runtime\\RuntimeEnvironmentProbe",
+    "Infocyph\\Runwire\\Server",
+    "Infocyph\\Runwire\\Supervisor\\Internal\\ChildReaper",
+    "Infocyph\\Runwire\\Supervisor\\Internal\\ChildSet",
+    "Infocyph\\Runwire\\Supervisor\\Internal\\WorkerOwnedResourceCleanup",
+    "Infocyph\\Runwire\\Supervisor\\Supervisor",
+    "Infocyph\\Runwire\\Supervisor\\WorkerContext"
+  ],
+  "declarations": [
+    {
+      "type": "removed_or_changed_enum_case",
+      "symbol": "Infocyph\\Runwire\\Http\\Enum\\ProtocolVersion",
+      "before": "case HTTP_3 = '3';"
+    },
+    {
+      "type": "removed_or_changed_enum_case",
+      "symbol": "Infocyph\\Runwire\\Runtime\\Enum\\RuntimeCapability",
+      "before": "case SUPPORTS_HTTP3 = 'supports_http3';"
+    },
+    {
+      "type": "removed_or_changed_enum_case",
+      "symbol": "Infocyph\\Runwire\\Metrics\\Enum\\ProtocolMetric",
+      "before": "case HTTP3_CONNECTIONS_ACTIVE = 'http3_connections_active';"
+    },
+    {
+      "type": "removed_or_changed_enum_case",
+      "symbol": "Infocyph\\Runwire\\Metrics\\Enum\\ProtocolMetric",
+      "before": "case HTTP3_CONNECTIONS_TOTAL = 'http3_connections_total';"
+    },
+    {
+      "type": "removed_or_changed_enum_case",
+      "symbol": "Infocyph\\Runwire\\Metrics\\Enum\\ProtocolMetric",
+      "before": "case HTTP3_RESETS_TOTAL = 'http3_resets_total';"
+    },
+    {
+      "type": "removed_or_changed_enum_case",
+      "symbol": "Infocyph\\Runwire\\Metrics\\Enum\\ProtocolMetric",
+      "before": "case HTTP3_STREAMS_ACTIVE = 'http3_streams_active';"
+    },
+    {
+      "type": "removed_or_changed_enum_case",
+      "symbol": "Infocyph\\Runwire\\Metrics\\Enum\\ProtocolMetric",
+      "before": "case HTTP3_STREAMS_TOTAL = 'http3_streams_total';"
+    },
+    {
+      "type": "removed_or_changed_enum_case",
+      "symbol": "Infocyph\\Runwire\\Metrics\\Enum\\ProtocolMetric",
+      "before": "case QPACK_BLOCKED_STREAMS = 'qpack_blocked_streams';"
+    },
+    {
+      "type": "removed_or_changed_enum_case",
+      "symbol": "Infocyph\\Runwire\\Metrics\\Enum\\ProtocolMetric",
+      "before": "case QPACK_TABLE_BYTES = 'qpack_table_bytes';"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Server::__construct"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Http\\Client\\HttpOutboundDispatcher::__construct"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Http\\Client\\ClientProtocolPolicy::negotiate"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\RuntimeCapabilities::__construct"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Runtime\\RuntimeEnvironment::__construct"
+    },
+    {
+      "type": "removed_method",
+      "symbol": "Infocyph\\Runwire\\Server::withHttp3"
+    },
+    {
+      "type": "removed_property",
+      "symbol": "Infocyph\\Runwire\\Server::$http3"
+    },
+    {
+      "type": "removed_property",
+      "symbol": "Infocyph\\Runwire\\Runtime\\RuntimeEnvironment::$supportsQuic"
+    },
+    {
+      "type": "removed_property",
+      "symbol": "Infocyph\\Runwire\\RuntimeCapabilities::$supportsHttp3"
+    },
+    {
+      "type": "removed_property",
+      "symbol": "Infocyph\\Runwire\\RuntimeCapabilities::$ownsHttp3Wire"
+    },
+    {
+      "type": "removed_property",
+      "symbol": "Infocyph\\Runwire\\RuntimeCapabilities::$supportsQuic"
+    },
+    {
+      "type": "removed_method",
+      "symbol": "Infocyph\\Runwire\\Supervisor\\WorkerContext::ownQuicSession"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\WorkerOwnedResourceCleanup::network"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Http\\Client\\Http1ClientResponseHeadParser::parse"
+    },
+    {
+      "type": "method_signature",
+      "symbol": "Infocyph\\Runwire\\Http\\Client\\Internal\\Http2ClientMultiplexSession::cancel"
+    }
+  ]
+}

@@ -5,7 +5,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/Support/SocketFixture.php';
 
 use Infocyph\Runwire\Exception\ApplicationStartupException;
-use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\SelectLoop;
@@ -64,8 +63,7 @@ it('exposes capability-first persistent runtime facts', function (): void {
         ->and($context->supports(RuntimeCapability::OWNS_LISTENER))->toBeTrue()
         ->and($context->supports(RuntimeCapability::OWNS_EVENT_LOOP))->toBeTrue()
         ->and($context->supports(RuntimeCapability::SUPPORTS_HTTP2))->toBeTrue()
-        ->and(fn() => $context->requireCapability(RuntimeCapability::SUPPORTS_HTTP3))
-        ->toThrow(RuntimeUnavailableException::class);
+        ->and(array_column(RuntimeCapability::cases(), 'value'))->not->toContain('supports_http3');
 });
 
 it('creates a native application from the resolved runtime context factory', function (): void {

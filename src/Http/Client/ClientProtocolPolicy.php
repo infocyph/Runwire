@@ -23,8 +23,8 @@ final readonly class ClientProtocolPolicy
         public bool $allowPlaintext = false,
         public ?ClientDestinationPolicy $destinationPolicy = null,
     ) {
-        if ($allowedVersions === [] || count($allowedVersions) > 3) {
-            throw new InvalidArgumentException('Allow one to three HTTP protocol versions.');
+        if ($allowedVersions === [] || count($allowedVersions) > 2) {
+            throw new InvalidArgumentException('Allow one or two HTTP protocol versions.');
         }
         if (count(array_unique(array_map(static fn(ProtocolVersion $version): string => $version->value, $allowedVersions))) !== count($allowedVersions)
             || !in_array($preferred, $allowedVersions, true)) {
@@ -36,10 +36,10 @@ final readonly class ClientProtocolPolicy
      * Resolve a peer-negotiated version and reject every unapproved fallback.
      * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
      */
-    public function negotiate(?string $alpn, bool $encrypted, bool $quic = false): ProtocolVersion
+    public function negotiate(?string $alpn, bool $encrypted): ProtocolVersion
     {
         if (!$encrypted) {
-            if ($quic || !$this->allowPlaintext || $alpn !== null || $this->preferred !== ProtocolVersion::HTTP_1_1) {
+            if (!$this->allowPlaintext || $alpn !== null || $this->preferred !== ProtocolVersion::HTTP_1_1) {
                 throw new RuntimeUnavailableException('Plaintext HTTP is disabled by the requested client protocol policy.');
             }
 
@@ -47,14 +47,11 @@ final readonly class ClientProtocolPolicy
         }
 
         $negotiated = match ($alpn) {
-            'h3' => ProtocolVersion::HTTP_3,
             'h2' => ProtocolVersion::HTTP_2,
             'http/1.1', null => ProtocolVersion::HTTP_1_1,
             default => throw new RuntimeUnavailableException('Peer returned an unsupported HTTP ALPN identifier.'),
         };
-        if (($quic && $negotiated !== ProtocolVersion::HTTP_3)
-            || (!$quic && $negotiated === ProtocolVersion::HTTP_3)
-            || !in_array($negotiated, $this->allowedVersions, true)
+        if (!in_array($negotiated, $this->allowedVersions, true)
             || (!$this->allowFallback && $negotiated !== $this->preferred)) {
             throw new RuntimeUnavailableException('HTTP version or transport downgrade violates the client protocol policy.');
         }

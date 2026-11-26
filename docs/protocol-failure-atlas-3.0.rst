@@ -23,9 +23,6 @@ that the peer received the full body.
    * - HTTP/2
      - Accepted stream/header block, sibling response bodies
      - GOAWAY, flow control, stream resets and drain deadlines
-   * - HTTP/3
-     - Native QUIC stream, valid H3/QPACK header state
-     - Stop stream admission, preserve siblings; QUIC backend required
    * - H1 WebSocket
      - Valid Upgrade/101 followed by framed session
      - Masking, close handshake, ping/pong and bounded pending output
@@ -37,9 +34,8 @@ that the peer received the full body.
      - No implicit delivery, retry, deduplication or stream drain
 
 HTTP/1.1 and HTTP/2 are **not** interchangeable retry transports.
-HTTP/3 is QUIC over UDP, not UDP made to look like HTTP.
-WebTransport and H2/H3 extended-CONNECT WebSocket are outside this
-3.0 scope.
+Native HTTP/3, WebTransport and H2 extended-CONNECT WebSocket are
+outside the 4.0 scope.
 
 HTTP/1.1: partial reads and pooling
 ------------------------------------
@@ -79,23 +75,6 @@ Failure triage:
 #. Was flow control replenished or did output stall?
 #. Did a graceful deadline expire into force-stop?
 #. Is the error a reset, premature EOF or true response-body mismatch?
-
-HTTP/3: QUIC, QPACK and stream ownership
------------------------------------------
-
-H3 requests use QUIC streams with independent stream and connection
-limits. QPACK encoder/decoder control streams and blocked header state
-require separately bounded ownership and cleanup. Resetting a request
-cannot implicitly cancel valid sibling streams.
-
-Use an independent aioquic peer and real QUIC capability tests.
-An absent ext-quic/OpenSSL backend is a **capability failure**, not
-proof the H3 application protocol is broken. A successful ordinary
-UDP packet does not establish a QUIC/TLS session.
-
-WebTransport is explicitly excluded. There is no RFC 9221
-DATAGRAM feature being advertised as WebTransport, even if
-ordinary UDP datagrams and QUIC request streams work independently.
 
 WebSocket: handshake versus session lifetime
 ---------------------------------------------
@@ -177,7 +156,7 @@ and cleanup with real peers:
    php tests/smoke/native_concurrent_fault_smoke.php
    php tests/smoke/native_cleanup_fault_smoke.php
 
-For independently validated H3 and H2, use their CI jobs in an
+For independently validated H2, use their CI jobs in an
 eligible native capability environment. Include source SHA, PID,
 worker generation, protocol, stream IDs, server admission evidence
 and actual received response bytes when filing a bug.

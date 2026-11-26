@@ -26,6 +26,7 @@ it('rejects shared special-use documentation and multicast destinations', functi
     '192.0.0.8', '192.0.2.1', '198.51.100.1', '203.0.113.1', '2001:db8::1',
     '224.0.0.1', '239.255.255.250', 'ff02::1', 'ff0e::1',
     '::ffff:100.64.0.1', '::ffff:198.18.0.1', '::ffff:192.0.2.1', '::ffff:224.0.0.1',
+    '64:ff9b::7f00:1', '64:ff9b:1::a00:1', '2002:7f00:1::1', '2001:0:4136:e378:8000:63bf:3fff:fdd2',
 ]);
 
 it('rejects rebinding between approved DNS candidate and actual connected peer', function (): void {

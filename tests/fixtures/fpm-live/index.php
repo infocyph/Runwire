@@ -21,6 +21,7 @@ Runtime::create(new RuntimeOptions(driver: RuntimeDriver::FPM))->serve(
         }
         $file = null;
         $socketPair = null;
+        $socketClosed = false;
 
         try {
             $file = fopen($temp, 'c+b');
@@ -43,20 +44,15 @@ Runtime::create(new RuntimeOptions(driver: RuntimeDriver::FPM))->serve(
                 fclose($file);
             }
             if (is_array($socketPair)) {
-                foreach ($socketPair as $socket) {
-                    if (get_resource_type($socket) !== 'Unknown') {
-                        fclose($socket);
-                    }
-                }
+                $socketClosed = fclose($socketPair[0]);
+                $socketClosed = fclose($socketPair[1]) && $socketClosed;
             }
             if (is_file($temp)) {
                 unlink($temp);
             }
         }
         clearstatcache(true, $temp);
-        $fileClosed = get_resource_type($file) === 'Unknown' && !is_file($temp);
-        $socketClosed = get_resource_type($socketPair[0]) === 'Unknown'
-            && get_resource_type($socketPair[1]) === 'Unknown';
+        $fileClosed = gettype($file) === 'resource (closed)' && !is_file($temp);
 
         $payload = json_encode([
             'method' => $request->method,

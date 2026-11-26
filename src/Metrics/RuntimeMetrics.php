@@ -280,10 +280,6 @@ final class RuntimeMetrics implements MetricsProviderInterface
                 ProtocolMetric::HTTP2_STREAMS_ACTIVE,
                 ProtocolMetric::HTTP2_STREAMS_TOTAL,
             ),
-            ProtocolVersion::HTTP_3 => $this->startStream(
-                ProtocolMetric::HTTP3_STREAMS_ACTIVE,
-                ProtocolMetric::HTTP3_STREAMS_TOTAL,
-            ),
         };
     }
 
@@ -294,7 +290,7 @@ final class RuntimeMetrics implements MetricsProviderInterface
     {
         $value = max(0, $value);
         $this->protocol[$metric->value] = $value;
-        if ($metric === ProtocolMetric::HTTP2_STREAMS_ACTIVE || $metric === ProtocolMetric::HTTP3_STREAMS_ACTIVE) {
+        if ($metric === ProtocolMetric::HTTP2_STREAMS_ACTIVE) {
             $this->streamsPeak = max($this->streamsPeak, $value);
         }
     }
@@ -357,7 +353,6 @@ final class RuntimeMetrics implements MetricsProviderInterface
         return match ($version) {
             ProtocolVersion::HTTP_1_1 => ProtocolMetric::HTTP1_CONNECTIONS_ACTIVE,
             ProtocolVersion::HTTP_2 => ProtocolMetric::HTTP2_CONNECTIONS_ACTIVE,
-            ProtocolVersion::HTTP_3 => ProtocolMetric::HTTP3_CONNECTIONS_ACTIVE,
         };
     }
 
@@ -366,7 +361,6 @@ final class RuntimeMetrics implements MetricsProviderInterface
         return match ($version) {
             ProtocolVersion::HTTP_1_1 => ProtocolMetric::HTTP1_CONNECTIONS_TOTAL,
             ProtocolVersion::HTTP_2 => ProtocolMetric::HTTP2_CONNECTIONS_TOTAL,
-            ProtocolVersion::HTTP_3 => ProtocolMetric::HTTP3_CONNECTIONS_TOTAL,
         };
     }
 
@@ -404,7 +398,6 @@ final class RuntimeMetrics implements MetricsProviderInterface
         $active = match ($version) {
             ProtocolVersion::HTTP_1_1 => null,
             ProtocolVersion::HTTP_2 => ProtocolMetric::HTTP2_STREAMS_ACTIVE,
-            ProtocolVersion::HTTP_3 => ProtocolMetric::HTTP3_STREAMS_ACTIVE,
         };
         if ($active !== null) {
             $this->protocol[$active->value] = max(0, $this->protocol[$active->value] - 1);
@@ -416,7 +409,6 @@ final class RuntimeMetrics implements MetricsProviderInterface
         $reset = match ($version) {
             ProtocolVersion::HTTP_1_1 => null,
             ProtocolVersion::HTTP_2 => ProtocolMetric::HTTP2_RESETS_TOTAL,
-            ProtocolVersion::HTTP_3 => ProtocolMetric::HTTP3_RESETS_TOTAL,
         };
         if ($reset !== null) {
             ++$this->protocol[$reset->value];

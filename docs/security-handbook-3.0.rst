@@ -17,8 +17,7 @@ spawn native worker processes. Review these boundaries independently:
 * instrumentation that can leak request secrets.
 
 All controls must fail closed when a required capability is missing.
-A missing ext-quic implementation cannot be replaced by a fake
-HTTP/3 or WebTransport compatibility mode.
+Native HTTP/3 and WebTransport are unsupported; do not emulate either.
 
 Inbound defense in depth
 ------------------------
@@ -27,7 +26,7 @@ Set maximum request/header/body/frame sizes, connection and stream
 concurrency, and timeouts appropriate to the workload. Use explicit
 admission policies under hostile slow clients rather than letting
 unbounded request objects accumulate. Reject malformed H1 framing,
-H2 HPACK/CONTINUATION abuse, H3 QPACK/header state inconsistencies,
+H2 HPACK/CONTINUATION abuse,
 invalid WebSocket masking and oversized UDP packets.
 
 A syntactically valid request may still be malicious; application
@@ -125,8 +124,8 @@ Adversarial verification
      - Allowed destinations enforced at lookup and socket verification
    * - HTTP parser
      - Malformed framing, oversized content and header budget rejections
-   * - H2/H3
-     - Cancellation/reset storms, sibling isolation and QPACK/HPACK bounds
+   * - H2
+     - Cancellation/reset storms, sibling isolation and HPACK bounds
    * - WebSocket
      - Unexpected subprotocol, mask direction, fragmentation and close control
    * - Proxy
@@ -139,7 +138,7 @@ Adversarial verification
      - PID ownership, SIGKILL/reload recovery, no inherited live loop mutation
 
 Run the PHPForge security matrix, host integration acceptance,
-portable native probes and independent H2/H3 reference tests on the
+portable native probes and independent H2 reference tests on the
 *same immutable source*. A green single unit test is not an assurance
 certificate. Consult :doc:`performance-qa-handbook-3.0` for source
 provenance and :doc:`connection-policies-3.0` for detailed proxy
@@ -201,7 +200,12 @@ Checking only the hostname or a cached DNS answer would be insufficient
 against rebinding and cross-network redirects. The above example is a
 policy-construction check, not an actual network connection or proof of
 the target's legitimacy. Inspect ``tests/OutboundAddressPolicyTest.php``
-for IPv4, IPv6, mapped-IPv6 and hostile proxy failure cases.
+for IPv4, IPv6, mapped-IPv6 and hostile proxy failure cases. Standardized
+IPv6 translation/tunneling prefixes (64:ff9b::/32, 2002::/16 and
+2001:0::/32) are also denied by this conservative public-address guard;
+network-specific translation prefixes require independent egress controls.
+For an untrusted JWKS URL, use strict H1/H2 with the TCP address policy
+and an exact URI allowlist.
 
 Static-analysis trust boundary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

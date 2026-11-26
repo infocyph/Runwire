@@ -1563,7 +1563,7 @@
       "symbol": "Infocyph\\Runwire\\Supervisor\\Internal\\ChildReaper",
       "executableTest": "tests/SupervisorLifecycleTest.php",
       "behavior": "Exit notification and reaped child generation",
-      "migration": "Never treat an exited old-generation worker as a currently accepted or ready worker.",
+      "migration": "Never treat an exited old-generation worker as a currently accepted or ready worker. Supervisor uses explicit owned-PID reaping and preserves unrelated child status; the legacy all-child helper remains available only for callers owning all children.",
       "disposition": "documented_test_backed_contract",
       "requiresReleaseSignoff": true
     },

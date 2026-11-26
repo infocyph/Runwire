@@ -52,3 +52,38 @@ jobs:
           python3 -c 'import h2.connection; print("Independent hyper-h2 available")'
           cp vendor/infocyph/phpforge/resources/pest.xml pest.xml
           vendor/bin/pest --configuration=pest.xml qa/reference/Http2IndependentReferenceTest.php qa/reference/Http2MultiplexIndependentReferenceTest.php
+
+      - name: Verify matched outbound H1/H2 TLS profile
+        shell: bash
+        run: |
+          bash -n tests/interop/independent_outbound_h12.sh
+          RUNWIRE_RUNTIME_BUILD="$(git rev-parse HEAD)" bash tests/interop/independent_outbound_h12.sh benchmark-results/u07-outbound-match.json
+
+      - name: Upload outbound H1/H2 profile
+        uses: actions/upload-artifact@v7
+        with:
+          name: outbound-h12-profile-php-${{ matrix.php }}
+          path: benchmark-results/u07-outbound-match.json
+          retention-days: 90
+
+      - name: Verify strict GOAWAY filtering and post-GOAWAY accepted DATA
+        run: python3 benchmarks/test_mixed_native_goaway.py
+
+      - name: Real simultaneous H1/H2/TCP/UDP native crash and rolling recycle
+        shell: bash
+        run: |
+          mkdir -p benchmark-results
+          python3 benchmarks/mixed_native_lifecycle.py | tee benchmark-results/mixed-native-lifecycle.json
+          jq -e '.correctness_passed == true and .events.reload_completed > 0
+            and .events.manual_recycle_requested > 0 and .simultaneous_h2_streams_per_wave == 8
+            and .cancelled_h2_streams_per_wave == 1 and .slow_receiver_delay_ms == 20
+            and ([.waves[] | select(.http1 != 1 or .http2 != 8 or .tcp != 1 or .udp != 1
+                or .cancelled_h2_streams != 1)] | length) == 0' benchmark-results/mixed-native-lifecycle.json >/dev/null
+
+      - name: Upload mixed native listener lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runwire-mixed-native-lifecycle-php-${{ matrix.php }}
+          path: benchmark-results/mixed-native-lifecycle.json
+          retention-days: 90

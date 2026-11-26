@@ -9,14 +9,6 @@ use Infocyph\Runwire\Http\Http2\Hpack\Decoder as HpackDecoder;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder as HpackEncoder;
 use Infocyph\Runwire\Http\Http2\Hpack\HuffmanCodec;
 use Infocyph\Runwire\Http\Http2\Hpack\IntegerCodec as HpackIntegerCodec;
-use Infocyph\Runwire\Http\Http3\Enum\ErrorCode as Http3ErrorCode;
-use Infocyph\Runwire\Http\Http3\Enum\FrameType;
-use Infocyph\Runwire\Http\Http3\Frame;
-use Infocyph\Runwire\Http\Http3\FrameParser;
-use Infocyph\Runwire\Http\Http3\Qpack\Decoder as QpackDecoder;
-use Infocyph\Runwire\Http\Http3\Qpack\Encoder as QpackEncoder;
-use Infocyph\Runwire\Http\Http3\Qpack\IntegerCodec as QpackIntegerCodec;
-use Infocyph\Runwire\Http\Http3\VarIntCodec;
 use Infocyph\Runwire\Http\Internal\RequestHeaderValidator;
 use PhpBench\Attributes\BeforeMethods;
 use PhpBench\Attributes\Iterations;
@@ -44,22 +36,9 @@ final class ProtocolCoreBench
     /** @var list<array{0: string, 1: string}> */
     private array $http2Headers;
 
-    private Frame $http3Frame;
-
-    /** @var list<array{0: string, 1: string}> */
-    private array $http3Headers;
-
-    private string $http3Wire;
-
     private HuffmanCodec $huffmanCodec;
 
     private string $huffmanWire;
-
-    private QpackDecoder $qpackDecoder;
-
-    private QpackEncoder $qpackEncoder;
-
-    private string $qpackWire;
 
     /**
      * Initialize fixtures before PHPBench's per-iteration setup refresh.
@@ -100,20 +79,6 @@ final class ProtocolCoreBench
         $this->huffmanWire = $this->huffmanCodec->encode('https://example.test/benchmark');
         $this->http2FrameWire = "\x00\x04\x00\x00\x00" . pack('N', 1) . str_repeat('x', 1_024);
 
-        $this->http3Headers = [
-            [':method', 'GET'],
-            [':scheme', 'https'],
-            [':authority', 'example.test'],
-            [':path', '/benchmark?transport=h3'],
-            ['accept', 'application/json'],
-            ['user-agent', 'runwire-benchmark/1'],
-            ['x-runwire-bench', 'protocol-core'],
-        ];
-        $this->http3Frame = new Frame(FrameType::DATA->value, str_repeat('x', 1_024));
-        $this->http3Wire = $this->http3Frame->encode();
-        $this->qpackEncoder = new QpackEncoder(0, 0);
-        $this->qpackDecoder = new QpackDecoder(0, 0);
-        $this->qpackWire = (new QpackEncoder(0, 0))->encode($this->http3Headers, 0)->block;
     }
 
     /**
@@ -284,136 +249,5 @@ final class ProtocolCoreBench
         }
 
         return $validated;
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
-     */
-    public function benchHttp3FrameDecode(): int
-    {
-        $frames = (new FrameParser())->push($this->http3Wire);
-
-        return strlen($frames[0]->payload);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     */
-    public function benchHttp3FrameEncode(): int
-    {
-        return strlen($this->http3Frame->encode());
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function benchHttp3QpackBlockedUnblock(): int
-    {
-        $encoder = new QpackEncoder(512, 8, dynamicTableCapacity: 512);
-        $decoder = new QpackDecoder(512, 8, maxBlockedBytes: 8_192);
-        $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
-
-        $fields = [
-            [':method', 'GET'],
-            [':scheme', 'https'],
-            [':authority', 'example.test'],
-            [':path', '/benchmark'],
-            ['x-runwire-dynamic', 'blocked-profile-value'],
-        ];
-        $encoded = $encoder->encode($fields, 0);
-        if (!$encoded->blocking || $decoder->decode($encoded->block, 0) !== null) {
-            throw new RuntimeException('QPACK blocking benchmark did not enter pending state.');
-        }
-
-        $unblocked = $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
-        if (count($unblocked) !== 1 || $unblocked[0]->streamId !== 0) {
-            throw new RuntimeException('QPACK blocking benchmark did not unblock exactly one stream.');
-        }
-
-        $feedback = $decoder->takeDecoderInstructions();
-        if ($feedback !== '') {
-            $encoder->pushDecoderInstructions($feedback);
-        }
-
-        return count($unblocked[0]->section->fields);
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function benchHttp3QpackDynamicRoundTrip(): int
-    {
-        $encoder = new QpackEncoder(512, 8, dynamicTableCapacity: 512);
-        $decoder = new QpackDecoder(512, 8, maxBlockedBytes: 8_192);
-        $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
-
-        $encoded = $encoder->encode($this->http3Headers, 0);
-        $decoded = $decoder->decode($encoded->block, 0);
-        $ready = $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
-        if ($decoded === null) {
-            $decoded = $ready[0]->section ?? throw new RuntimeException('QPACK benchmark section did not unblock.');
-        }
-
-        $instructions = $decoder->takeDecoderInstructions();
-        if ($instructions !== '') {
-            $encoder->pushDecoderInstructions($instructions);
-        }
-
-        return count($decoded->fields);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     * @throws \LogicException
-     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
-     */
-    public function benchHttp3QpackIntegerRoundTrip(): int
-    {
-        $encoded = QpackIntegerCodec::encode(16_384, 5);
-        $offset = 0;
-
-        return QpackIntegerCodec::decode($encoded, $offset, 5, Http3ErrorCode::QPACK_DECOMPRESSION_FAILED);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     * @throws \LogicException
-     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
-     */
-    public function benchHttp3QpackStaticDecode(): int
-    {
-        return count($this->qpackDecoder->decode($this->qpackWire, 0)->fields ?? []);
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function benchHttp3QpackStaticEncode(): int
-    {
-        return strlen($this->qpackEncoder->encode($this->http3Headers, 0)->block);
-    }
-
-    /**
-     * @throws \Infocyph\Runwire\Http\Internal\HeaderValidationException
-     * @throws \InvalidArgumentException
-     */
-    public function benchHttp3RequestHeaderValidation(): int
-    {
-        $head = (new RequestHeaderValidator('HTTP/3'))->request($this->http3Headers);
-
-        return strlen($head->target);
-    }
-
-    /**
-     * @throws \InvalidArgumentException
-     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
-     */
-    public function benchHttp3VarIntRoundTrip(): int
-    {
-        $encoded = VarIntCodec::encode(1_073_741_824);
-        $offset = 0;
-
-        return VarIntCodec::decode($encoded, $offset);
     }
 }

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Client\Internal;
 
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
+use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Http\Http2\PeerSettings;
 use RuntimeException;
 
@@ -95,11 +97,11 @@ final class Http2ClientHandshake
      */
     public function receive(Frame $frame): string
     {
-        if (!$this->started || $this->closed) {
+        if (!$this->started) {
             throw new RuntimeException('HTTP/2 client handshake is not active.');
         }
         if (!$this->receivedSettings && ($frame->knownType() !== FrameType::SETTINGS || $frame->hasFlag(0x1))) {
-            throw new RuntimeException('HTTP/2 server must send SETTINGS as its first frame.');
+            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 server must send SETTINGS as its first frame.');
         }
 
         return match ($frame->knownType()) {
@@ -177,7 +179,11 @@ final class Http2ClientHandshake
         if (!is_int($lastId) || !is_int($errorCode)) {
             throw new RuntimeException('HTTP/2 GOAWAY has invalid stream or error fields.');
         }
-        $this->peerGoAwayLastStreamId = $lastId & 0x7FFF_FFFF;
+        $lastId &= 0x7FFF_FFFF;
+        if ($this->peerGoAwayLastStreamId !== null && $lastId > $this->peerGoAwayLastStreamId) {
+            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 GOAWAY last stream ID cannot increase.');
+        }
+        $this->peerGoAwayLastStreamId = $lastId;
         $this->peerGoAwayErrorCode = $errorCode;
         $this->closed = true;
 
@@ -229,23 +235,29 @@ final class Http2ClientHandshake
      */
     private function settings(Frame $frame): string
     {
-        if ($frame->streamId !== 0 || ($frame->flags & ~0x1) !== 0
-            || ($frame->hasFlag(0x1) && $frame->payload !== '')) {
-            throw new RuntimeException('HTTP/2 SETTINGS ACK must be empty on stream zero.');
+        if ($frame->streamId !== 0) {
+            throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 SETTINGS must use stream zero.');
         }
+        $length = strlen($frame->payload);
         if ($frame->hasFlag(0x1)) {
+            if ($length !== 0) {
+                throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 SETTINGS ACK must be empty.');
+            }
+
             return '';
         }
-        if (strlen($frame->payload) % 6 !== 0) {
-            throw new RuntimeException('HTTP/2 SETTINGS payload is not a multiple of six.');
+        if ($length % 6 !== 0) {
+            throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 SETTINGS payload is not a multiple of six.');
         }
-        for ($offset = 0; $offset < strlen($frame->payload); $offset += 6) {
-            $identifier = unpack('n', substr($frame->payload, $offset, 2));
-            if ($identifier === false) {
-                throw new RuntimeException('Unable to decode HTTP/2 setting identifier.');
+        // RFC 9113 §6.5.2: a server may advertise ENABLE_PUSH=0, never a nonzero value.
+        for ($offset = 0; $offset < $length; $offset += 6) {
+            /** @var array{identifier: int, value: int}|false $setting */
+            $setting = unpack('nidentifier/Nvalue', $frame->payload, $offset);
+            if ($setting === false) {
+                throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'Unable to decode HTTP/2 setting.');
             }
-            if ($identifier[1] === PeerSettings::ENABLE_PUSH) {
-                throw new RuntimeException('HTTP/2 server must not send ENABLE_PUSH.');
+            if ($setting['identifier'] === PeerSettings::ENABLE_PUSH && $setting['value'] !== 0) {
+                throw new ConnectionError(ErrorCode::PROTOCOL_ERROR, 'HTTP/2 server ENABLE_PUSH must be zero.');
             }
         }
         $this->peerSettings->apply($frame->payload);

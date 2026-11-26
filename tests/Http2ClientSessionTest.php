@@ -113,7 +113,7 @@ function runwireOwnedHttp2ClientSessionTestCase02(): void
     $session->receive(FrameWriter::settings());
     expect(fn() => $session->receive(new Frame(FrameType::DATA->value, 0x1, 3, 'foreign')))
         ->toThrow(RuntimeException::class, 'unexpected stream');
-    expect(fn() => $session->receive(FrameWriter::goAway(1, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR)))
+    expect(fn() => $session->receive(FrameWriter::goAway(0, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR)))
         ->toThrow(RuntimeException::class, 'before END_STREAM');
 }
 
@@ -170,3 +170,20 @@ function runwireOwnedHttp2ClientSessionTestCase04(): void
     $session->receive(new Frame(FrameType::HEADERS->value, 0x5, 1, $block));
     expect($session->done())->toBeTrue()->and($headers)->toBe(['123']);
 }
+
+it('drains a one-shot response accepted by a graceful H2 GOAWAY', function (): void {
+    $body = '';
+    $session = new Http2ClientSession(
+        new ClientRequest('GET', 'https://example.test/drain'),
+        static function (): void {},
+        static function (string $bytes) use (&$body): void { $body .= $bytes; },
+    );
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $session->receive(FrameWriter::goAway(1, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR));
+    expect($session->receive(new Frame(FrameType::PING->value, 0, 0, '12345678')))
+        ->toBe(FrameWriter::encode(new Frame(FrameType::PING->value, 1, 0, '12345678')));
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, (new Encoder())->encode([[':status', '200']])));
+    $session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'drained'));
+    expect($session->done())->toBeTrue()->and($body)->toBe('drained');
+});

@@ -24,6 +24,7 @@ If this is your first visit, read :doc:`start` and
    start
    features
    handbook-3.0
+   upgrade-4.0
    quickstart-lab-3.0
    feature-workflows-3.0
    architecture
@@ -74,7 +75,7 @@ If this is your first visit, read :doc:`start` and
 nested TLS for an HTTPS proxy plus HTTPS origin is unsupported,
 and the asynchronous filesystem implementation uses bounded
 process-worker I/O rather than qualified kernel-native AIO.
-HTTP/3 requires a compatible native QUIC implementation.
+Native HTTP/3, QUIC and WebTransport are not supported by Runwire 4.0.
 
 For precise class and method signatures, consult the PHP sources and the
 worked examples in each topic guide.

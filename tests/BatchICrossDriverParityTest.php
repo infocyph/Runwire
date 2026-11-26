@@ -59,7 +59,6 @@ function batchIRuntimeContext(
             supportsWorkerRecycle: $persistent,
             supportsHttp1: true,
             supportsHttp2: true,
-            supportsHttp3: $driver !== RuntimeDriver::SWOOLE && $driver !== RuntimeDriver::FPM,
         ),
         mode: $persistent ? 'worker' : 'request',
         workerSlot: $persistent ? 0 : null,
@@ -526,6 +525,5 @@ it('reports unsupported and concurrent runtime semantics through capabilities in
         ->and($native->supports(RuntimeCapability::PERSISTENT))->toBeTrue()
         ->and($native->supports(RuntimeCapability::OWNS_LISTENER))->toBeTrue()
         ->and($swoole->supports(RuntimeCapability::CONCURRENT))->toBeTrue()
-        ->and($swoole->supports(RuntimeCapability::OWNS_LISTENER))->toBeFalse()
-        ->and($swoole->supports(RuntimeCapability::SUPPORTS_HTTP3))->toBeFalse();
+        ->and($swoole->supports(RuntimeCapability::OWNS_LISTENER))->toBeFalse();
 });

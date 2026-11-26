@@ -5,21 +5,19 @@ declare(strict_types=1);
 namespace Infocyph\Runwire\Http\Client;
 
 use Infocyph\Runwire\CancellationSource;
-use Infocyph\Runwire\Exception\RuntimeUnavailableException;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\DialOptions;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
-use Infocyph\Runwire\Network\QuicClientOptions;
 use InvalidArgumentException;
 use Throwable;
 
 /**
  * Explicit cross-protocol outbound request owner with one cancellation contract.
- * No transparent H3 downgrade or hidden tenant reuse. Optional H1 pooled,
- * H2 multiplexed and H3 sibling sessions must be caller-owned and independently
- * verified. A provided pre-established session never triggers a fallback dial.
+ * No implicit protocol downgrade or hidden tenant reuse. Optional H1 pooled
+ * and H2 multiplexed sessions must be caller-owned and independently verified.
+ * A provided pre-established session never triggers a fallback dial.
  */
 final readonly class HttpOutboundDispatcher
 {
@@ -27,14 +25,12 @@ final readonly class HttpOutboundDispatcher
     public function __construct(
         private LoopInterface $loop,
         private HappyEyeballsDialer $dialer,
-        private ?QuicClientOptions $quic = null,
         private ?PooledHttp1Session $h1Session = null,
         private ?Http2MultiplexConnection $h2Session = null,
-        private ?Http3OutboundClient $h3Session = null,
     ) {}
 
     /**
-     * Begin exactly one H1/H2 ALPN or H3 native exchange; abort unused H1 sockets.
+     * Begin exactly one H1/H2 ALPN exchange; abort unused H1 sockets.
      * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
      * @param callable(string):void $onBody
      * @param callable(?Throwable):void $completion
@@ -49,18 +45,6 @@ final readonly class HttpOutboundDispatcher
         callable $completion,
         ?DialOptions $options = null,
     ): OutboundHttpHandle {
-        $isH3 = $request->protocol->preferred === ProtocolVersion::HTTP_3;
-        if ($isH3 && (($this->quic === null && $this->h3Session === null)
-            || $request->protocol->allowedVersions !== [ProtocolVersion::HTTP_3])) {
-            throw new RuntimeUnavailableException('H3 needs explicit QUIC options and an h3-only protocol policy.');
-        }
-        if (!$isH3 && in_array(ProtocolVersion::HTTP_3, $request->protocol->allowedVersions, true)) {
-            throw new RuntimeUnavailableException('Mixed TCP/QUIC downgrade is not implemented; select explicit H3.');
-        }
-        if ($isH3 && $options !== null) {
-            throw new InvalidArgumentException('H3 uses its own QUIC connection policy, not TCP dial options.');
-        }
-
         $source = $request->cancellation === null
             ? new CancellationSource($request->deadline)
             : CancellationSource::linked($request->cancellation, $request->deadline);
@@ -107,11 +91,6 @@ final readonly class HttpOutboundDispatcher
         callable $completion,
         ?DialOptions $options,
     ): void {
-        if ($request->protocol->preferred === ProtocolVersion::HTTP_3) {
-            $this->sendH3($request, $handle, $onHeaders, $onBody, $completion);
-
-            return;
-        }
         if ($this->h2Session !== null && $request->protocol->preferred === ProtocolVersion::HTTP_2
             && $request->protocol->allowedVersions === [ProtocolVersion::HTTP_2]) {
             if ($options !== null) {
@@ -142,41 +121,6 @@ final readonly class HttpOutboundDispatcher
                 $completion($error);
             },
             $options,
-        );
-    }
-
-    /**
-     * @param callable(int,\Infocyph\Runwire\Http\Headers):void $onHeaders
-     * @param callable(string):void $onBody
-     * @param callable(?Throwable):void $completion
-     * @throws \Infocyph\Runwire\Exception\RuntimeUnavailableException
-     * @throws \RuntimeException
-     * @throws \InvalidArgumentException
-     * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
-     * @throws \Throwable
-     */
-    private function sendH3(
-        ClientRequest $request,
-        OutboundHttpHandle $handle,
-        callable $onHeaders,
-        callable $onBody,
-        callable $completion,
-    ): void {
-        if ($this->h3Session !== null) {
-            $this->h3Session->enqueue($request, $onHeaders, $onBody, self::settle($handle, $completion));
-
-            return;
-        }
-        if ($this->quic === null) {
-            throw new RuntimeUnavailableException('Missing native QUIC client policy.');
-        }
-        Http3OutboundClient::connect(
-            $this->loop,
-            $request,
-            $this->quic,
-            $onHeaders,
-            $onBody,
-            self::settle($handle, $completion),
         );
     }
 }

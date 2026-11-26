@@ -34,14 +34,12 @@ those capabilities. Do not retry by creating another long-lived
 supervisor inside the request. Use a supported host-owned or
 portable mode, or deploy a separate permitted CLI service.
 
-Problem: HTTP/3 or QUIC unavailable
+Problem: Public HTTP/3 unavailable
 -----------------------------------
 
-Check ext-quic/OpenSSL version and actual native QUIC capabilities,
-TLS certificate and ALPN, UDP port binding, and firewall path.
-Test with an independent QUIC peer. Do not silently replace
-mandatory H3 with HTTP/1.1 or pretend ordinary UDP is QUIC.
-WebTransport is not included in Runwire 3.0.
+Runwire 4.0 does not implement native HTTP/3. Check the edge proxy's
+HTTP/3 support and its H1/H2 upstream configuration.
+WebTransport is not included in Runwire 4.0.
 
 Problem: TLS works directly but fails behind a proxy
 ----------------------------------------------------
@@ -93,7 +91,7 @@ Problem: memory rises despite low PHP heap
 ------------------------------------------
 
 Report *process-tree RSS*, not only `memory_get_usage()`. Include
-native extension buffers, QUIC/session state, child executor
+native extension buffers, session state, child executor
 processes, pending queues and idle sockets. Distinguish retained
 capacity from unbounded growth by comparing measurements over
 long soak intervals.
@@ -117,7 +115,7 @@ correctness and sustained diagnostics are distinct failures.
 If a strict PHPCS rule now covers internal native test fixtures,
 repair the fixtures without changing what the test proves. Test
 runners must not return into inherited forked child execution
-paths. Maintain independent H2/H3 peer evidence and do not
+paths. Maintain independent H2 peer evidence and do not
 mark tests green based on skipped or cancelled jobs.
 
 Debugging flow
@@ -154,6 +152,6 @@ Quick reference commands
    php tests/smoke/native_cleanup_fault_smoke.php
 
 Only run native fork-specific probes where PCNTL/POSIX are available.
-For automated H2/H3, use independent reference and native security
+For automated H2, use independent reference and native security
 workflows. See :doc:`observability-handbook-3.0` and
 :doc:`performance-qa-handbook-3.0`.

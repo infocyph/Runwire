@@ -24,7 +24,6 @@ use Infocyph\Runwire\Runtime\Internal\BoundDatagramServer;
 use Infocyph\Runwire\Runtime\Internal\BoundServer;
 use Infocyph\Runwire\Runtime\Internal\BoundStreamServer;
 use Infocyph\Runwire\Runtime\Internal\NativeDatagramWorker;
-use Infocyph\Runwire\Runtime\Internal\NativeHttp3Worker;
 use Infocyph\Runwire\Runtime\Internal\NativeHttpWorker;
 use Infocyph\Runwire\Runtime\Internal\NativeStreamWorker;
 use Infocyph\Runwire\Runtime\Internal\NativeTopologyValidator;
@@ -141,7 +140,7 @@ final class Runtime
     }
 
     /**
-     * Requests recycling of a server worker slot and its HTTP/3 peer when configured.
+     * Requests recycling of a server worker slot.
      * @throws \LogicException
      * @throws \Infocyph\Runwire\Exception\SupervisorException
      */
@@ -155,18 +154,7 @@ final class Runtime
             return false;
         }
 
-        $recycled = $this->supervisor->recycle(self::serverGroupName($server), $slot);
-        if (
-            !$server instanceof Server
-            || $server->http3 === null
-            || $this->selection?->capabilities->supportsQuic !== true
-        ) {
-            return $recycled;
-        }
-
-        $http3Recycled = $this->supervisor->recycle(self::http3GroupName($server), $slot);
-
-        return $recycled && $http3Recycled;
+        return $this->supervisor->recycle(self::serverGroupName($server), $slot);
     }
 
     /**
@@ -336,11 +324,6 @@ final class Runtime
         };
     }
 
-    private static function http3GroupName(Server $server): string
-    {
-        return 'http3:' . $server->name;
-    }
-
     private static function serverGroupName(Server|StreamServer|DatagramServer $server): string
     {
         $prefix = match (true) {
@@ -496,9 +479,6 @@ final class Runtime
                 shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
                 role: $target instanceof BoundServer ? WorkerRole::HTTP : WorkerRole::CUSTOM,
             ));
-            if ($target instanceof BoundServer && $target->definition->http3 !== null) {
-                $this->registerHttp3Group($supervisor, $bound, $target);
-            }
         }
 
         return $supervisor;
@@ -587,42 +567,6 @@ final class Runtime
         }
 
         return $this->hostRuntimeContext();
-    }
-
-    /**
-     * @param array<string, BoundServer|BoundStreamServer|BoundDatagramServer> $bound
-     * @throws \LogicException
-     * @throws \Infocyph\Runwire\Exception\SupervisorException
-     */
-    private function registerHttp3Group(Supervisor $supervisor, array $bound, BoundServer $target): void
-    {
-        $definition = $target->definition;
-        $tcpAddress = $target->listener->address();
-        $supervisor->group(WorkerGroup::callbacks(
-            name: self::http3GroupName($definition),
-            count: $this->resolvedWorkerCount($definition->workers),
-            factory: function (WorkerContext $context) use ($bound, $definition, $tcpAddress): void {
-                foreach ($bound as $candidate) {
-                    self::closeBound($candidate, false);
-                }
-                NativeHttp3Worker::run(
-                    $context,
-                    $definition,
-                    $tcpAddress,
-                    $this->nativeRuntimeContext($context),
-                    $this->options->requestExecution,
-                    $this->options->applicationLifecycle,
-                    $this->options->diagnostics,
-                );
-            },
-            recyclePolicy: $this->options->workerRecycle,
-            admissionPolicy: $this->options->admission,
-            privilegeDropPolicy: $this->options->privilegeDrop,
-            automaticReady: false,
-            readyTimeoutSeconds: $definition->workerReadyTimeoutSeconds,
-            shutdownTimeoutSeconds: $definition->workerShutdownTimeoutSeconds,
-            role: WorkerRole::HTTP,
-        ));
     }
 
     /**

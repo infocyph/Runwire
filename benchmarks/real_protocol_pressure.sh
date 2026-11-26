@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Real independent H2/H3 pressure profiles. Bounded correctness diagnostics,
+# Real independent H2 pressure profiles. Bounded correctness diagnostics,
 # not 5x180s matched release certification.
 set -euo pipefail
 
-protocol="${1:?Usage: real_protocol_pressure.sh <h2|h3> [output-dir]}"
+protocol="${1:?Usage: real_protocol_pressure.sh <h2> [output-dir]}"
 output_dir="${2:-benchmark-results/protocol-pressure}"
 case "$protocol" in
   h2)
@@ -15,16 +15,7 @@ case "$protocol" in
       '{"id":"h2-slow-peer","scenario":"pressure","low":4,"medium":8,"high":16}'
     )
     ;;
-  h3)
-    python_bin="${RUNWIRE_AIOQUIC_PYTHON:-/tmp/runwire-aioquic/bin/python}"
-    payload=16384
-    cases=(
-      '{"id":"h3-qpack-blocking","scenario":"qpack","low":2,"medium":4,"high":8}'
-      '{"id":"h3-upload-pressure","scenario":"upload","upload_bytes":1024,"low":2,"medium":4,"high":8}'
-      '{"id":"h3-connection-churn","scenario":"churn","low":2,"medium":3,"high":4}'
-    )
-    ;;
-  *) echo 'Only h2 or h3 is supported.' >&2; exit 1 ;;
+  *) echo 'Only h2 is supported.' >&2; exit 1 ;;
 esac
 
 test -x "$python_bin" || { echo "Independent client not available: $python_bin" >&2; exit 1; }
@@ -67,8 +58,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=localhost' \
 
 port_for() {
   php -r '
-    $socket = stream_socket_server(($argv[1] === "h3" ? "udp" : "tcp")
-        . "://127.0.0.1:0", $errno, $error, STREAM_SERVER_BIND);
+    $socket = stream_socket_server("tcp://127.0.0.1:0", $errno, $error, STREAM_SERVER_BIND | STREAM_SERVER_LISTEN);
     if (!is_resource($socket)) { throw new RuntimeException($error); }
     $addr = stream_socket_get_name($socket, false);
     fclose($socket);
@@ -76,22 +66,16 @@ port_for() {
         throw new RuntimeException("Could not determine benchmark port.");
     }
     echo substr(strrchr($addr, ":"), 1);
-  ' "$protocol"
+  '
 }
 
 for case_json in "${cases[@]}"; do
   id="$(jq -nr --argjson spec "$case_json" '$spec.id')"
   port="$(port_for)"
-  ready="$workdir/ready-$id"
   case "$protocol" in
     h2)
       php -d opcache.enable_cli=1 benchmarks/adaptive_http_server.php \
         h2 "$port" fixed "$payload" "$workdir/cert.pem" "$workdir/key.pem" \
-        >"$workdir/$id.log" 2>&1 &
-      ;;
-    h3)
-      php -d opcache.enable_cli=1 benchmarks/adaptive_http3_server.php \
-        "$port" "$workdir/cert.pem" "$workdir/key.pem" "$ready" fixed "$payload" \
         >"$workdir/$id.log" 2>&1 &
       ;;
   esac
@@ -103,9 +87,7 @@ for case_json in "${cases[@]}"; do
       cat "$workdir/$id.log" >&2
       exit 1
     fi
-    if [ "$protocol" = h3 ]; then
-      if [ -s "$ready" ]; then started=1; break; fi
-    elif php -r '
+    if php -r '
       $s = @stream_socket_client("tcp://127.0.0.1:" . $argv[1], $errno, $error, 0.05);
       if (!is_resource($s)) { exit(1); }
       fclose($s);
@@ -126,11 +108,7 @@ for case_json in "${cases[@]}"; do
   export RUNWIRE_ADAPTIVE_TRIAL=1
   export RUNWIRE_ADAPTIVE_BUILD="${RUNWIRE_RUNTIME_BUILD:-${GITHUB_SHA:-unrecorded}}"
   export RUNWIRE_ADAPTIVE_ENVIRONMENT="real-protocol-pressure:$(uname -sr):$(php -r 'echo PHP_VERSION;')"
-  if [ "$protocol" = h2 ]; then
-    "$python_bin" benchmarks/h2_adaptive_matrix.py "$port" "$server_pid" fixed 2 "$payload" >"$result"
-  else
-    "$python_bin" benchmarks/http3_adaptive_matrix.py "$port" "$server_pid" fixed 2 "$payload" >"$result"
-  fi
+  "$python_bin" benchmarks/h2_adaptive_matrix.py "$port" "$server_pid" fixed 2 "$payload" >"$result"
   jq -e '
     .correctness_passed == true
     and .mode == "fixed"
@@ -144,12 +122,6 @@ for case_json in "${cases[@]}"; do
     jq -e '[.phases[].observed.delayed_reads] | add > 0' "$result" >/dev/null
   elif [ "$id" = h2-hpack-dynamic ]; then
     jq -e '[.phases[].observed.hpack_dynamic_table_entries] | max > 0' "$result" >/dev/null
-  elif [ "$id" = h3-qpack-blocking ]; then
-    jq -e '[.phases[].observed.qpack_delayed_headers] | add > 0' "$result" >/dev/null
-  elif [ "$id" = h3-upload-pressure ]; then
-    jq -e '[.phases[].observed.upload_bytes] | add > 0' "$result" >/dev/null
-  elif [ "$id" = h3-connection-churn ]; then
-    jq -e '[.phases[].observed.connections] | add > 0' "$result" >/dev/null
   fi
 
   jq -c '{protocol, workload, correctness_passed,

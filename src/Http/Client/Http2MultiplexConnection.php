@@ -6,12 +6,16 @@ namespace Infocyph\Runwire\Http\Client;
 
 use Closure;
 use Infocyph\Runwire\CancellationSubscription;
+use Infocyph\Runwire\CancellationToken;
 use Infocyph\Runwire\Exception\CancelledException;
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientMultiplexSession;
 use Infocyph\Runwire\Http\Http2\FrameParser;
+use Infocyph\Runwire\Http\Http2\FrameWriter;
+use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Loop\LoopInterface;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Enum\ConnectionState;
+use Infocyph\Runwire\Network\Internal\VerifiedOutboundTlsPeers;
 use Infocyph\Runwire\Runtime\Enum\CancellationReason;
 use InvalidArgumentException;
 use RuntimeException;
@@ -112,6 +116,13 @@ final class Http2MultiplexConnection
                 $this->connection->releaseCallbacks($this);
                 $this->ownsCallbacks = false;
             }
+            if ($error instanceof ConnectionError && $this->outgoing === '' && $this->connection->pendingWriteBytes() === 0) {
+                try {
+                    $this->connection->write(FrameWriter::encode(FrameWriter::goAway(0, $error->errorCode)));
+                } catch (Throwable) {
+                    // Best effort only: preserve the protocol error and abort even if the peer is gone.
+                }
+            }
             $this->connection->abort();
         }
     }
@@ -136,6 +147,7 @@ final class Http2MultiplexConnection
             || strlen($this->outgoing) > 240_000) {
             throw new RuntimeException('H2 multiplex connection is not available for request admission.');
         }
+        VerifiedOutboundTlsPeers::assertOrigin($this->connection, $request->uriForSend());
         $seconds = self::requestDeadline($request);
         $token = $request->cancellation;
 
@@ -154,10 +166,10 @@ final class Http2MultiplexConnection
         $this->queue($result['wire']);
 
         $this->requestWatchers[$streamId]['timer'] = $this->loop->delay($seconds, function () use ($streamId): void {
-            $this->cancel($streamId);
+            $this->cancelRequest($streamId, new RuntimeException('HTTP/2 request deadline expired.'));
         });
-        $subscription = $token?->onCancel(function () use ($streamId): void {
-            $this->cancel($streamId);
+        $subscription = $token?->onCancel(function (CancellationToken $cancelled) use ($streamId): void {
+            $this->cancelRequest($streamId, new CancelledException($cancelled->reason() ?? CancellationReason::HOST_CANCELLED));
         });
         if (isset($this->requestWatchers[$streamId])) {
             $this->requestWatchers[$streamId]['subscription'] = $subscription;
@@ -230,6 +242,24 @@ final class Http2MultiplexConnection
         }
 
         return $seconds;
+    }
+
+    /**
+     * Settle a timed-out or token-cancelled stream without abandoning its siblings.
+     * @throws \Throwable
+     */
+    private function cancelRequest(int $streamId, Throwable $error): void
+    {
+        if ($this->settled || !isset($this->requestWatchers[$streamId])) {
+            return;
+        }
+
+        try {
+            $this->queue($this->session->cancel($streamId, $error));
+            $this->pump();
+        } catch (Throwable $failure) {
+            $this->close($failure);
+        }
     }
 
     /**

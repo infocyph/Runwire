@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/Support/ProcessFixture.php';
+
 use Infocyph\Runwire\Exception\SupervisorException;
 use Infocyph\Runwire\Loop\SelectLoop;
 use Infocyph\Runwire\Supervisor\RestartPolicy;
@@ -193,4 +195,93 @@ it('performs a rolling generation reload after replacement readiness', function 
             unlink($generations);
         }
     }
+});
+
+it('preserves an unrelated child exit status while reaping supervisor-owned workers', function (): void {
+    $loop = new SelectLoop();
+    $supervisor = new Supervisor($loop);
+    $supervisor->group(WorkerGroup::callbacks(
+        name: 'owned',
+        count: 1,
+        factory: static function (WorkerContext $context): void {
+            while (!$context->stopping()) {
+                usleep(1_000);
+            }
+        },
+        shutdownTimeoutSeconds: 0.2,
+    ));
+    $foreign = pcntl_fork();
+    if ($foreign < 0) {
+        throw new RuntimeException('Unable to fork unrelated child fixture.');
+    }
+    if ($foreign === 0) {
+        pcntl_exec(PHP_BINARY, ['-r', 'exit(37);']);
+        throw new RuntimeException('Unable to replace unrelated child fixture.');
+    }
+    $stop = $loop->delay(0.25, static function () use ($supervisor): void {
+        $supervisor->stop();
+    });
+
+    try {
+        $supervisor->run();
+        $waited = pcntl_waitpid($foreign, $status);
+        expect($waited)->toBe($foreign);
+        $exitStatus = \Infocyph\Runwire\Tests\Support\waitStatus($status);
+        expect(pcntl_wifexited($exitStatus))->toBeTrue()
+            ->and(pcntl_wexitstatus($exitStatus))->toBe(37)
+            ->and($supervisor->status()->workerCount)->toBe(0)
+            ->and($loop->diagnostics()->readWatchers)->toBe(0)
+            ->and($loop->diagnostics()->timersActive)->toBe(0);
+    } finally {
+        $loop->cancel($stop);
+        if (pcntl_waitpid($foreign, $cleanupStatus, WNOHANG) === 0) {
+            posix_kill($foreign, SIGKILL);
+            pcntl_waitpid($foreign, $cleanupStatus);
+        }
+    }
+});
+
+it('fails closed and drains remaining workers if one registered child was externally reaped', function (): void {
+    $loop = new SelectLoop();
+    $supervisor = new Supervisor($loop);
+    $pids = [];
+    $externallyReaped = false;
+    $supervisor->onEvent(static function (\Infocyph\Runwire\Supervisor\SupervisorEvent $event) use (&$pids, &$externallyReaped): void {
+        if ($event->type !== \Infocyph\Runwire\Supervisor\Enum\SupervisorEventType::WORKER_READY || $event->pid === null) {
+            return;
+        }
+        $pids[] = $event->pid;
+        if (count($pids) === 2) {
+            posix_kill($pids[0], SIGKILL);
+            $externallyReaped = pcntl_waitpid($pids[0], $status) === $pids[0];
+        }
+    });
+    $supervisor->group(WorkerGroup::callbacks(
+        name: 'owned',
+        count: 2,
+        factory: static function (WorkerContext $context): void {
+            while (!$context->stopping()) {
+                usleep(1_000);
+            }
+        },
+        shutdownTimeoutSeconds: 0.2,
+    ));
+    $watchdog = $loop->delay(2.0, static function () use ($supervisor): void {
+        $supervisor->stop(true);
+    });
+
+    try {
+        expect(fn() => $supervisor->run())->toThrow(SupervisorException::class, 'Kernel child state diverged');
+        expect($externallyReaped)->toBeTrue()
+            ->and($pids)->toHaveCount(2)
+            ->and($supervisor->status()->workerCount)->toBe(0);
+        foreach ($pids as $pid) {
+            expect(pcntl_waitpid($pid, $status, WNOHANG))->toBe(-1)
+                ->and(pcntl_get_last_error())->toBe(PCNTL_ECHILD);
+        }
+    } finally {
+        $loop->cancel($watchdog);
+    }
+    expect($loop->diagnostics()->readWatchers)->toBe(0)
+        ->and($loop->diagnostics()->timersActive)->toBe(0);
 });

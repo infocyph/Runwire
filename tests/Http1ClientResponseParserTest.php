@@ -124,3 +124,38 @@ it('honors tokenized Connection close and rejects malformed chunk extension cont
         static function (): void {},
     ))->toThrow(RuntimeException::class, 'chunk extension');
 });
+
+it('does not apply the H1 body budget to HEAD or 304 representation metadata', function (bool $head, int $status): void {
+    $parser = new Http1ClientResponseParser(headRequest: $head, maxBodyBytes: 1);
+    $seen = [];
+    $body = '';
+    $parser->push(
+        "HTTP/1.1 $status Response\r\nContent-Length: 99999999\r\n\r\n",
+        static function (int $code, Headers $headers) use (&$seen): void {
+            $seen = [$code, $headers->first('content-length')];
+        },
+        static function (string $bytes) use (&$body): void { $body .= $bytes; },
+        static function (): void {},
+    );
+    expect($seen)->toBe([$status, '99999999'])
+        ->and($body)->toBe('')
+        ->and($parser->done())->toBeTrue();
+})->with([[true, 200], [false, 304]]);
+
+it('rejects H1 205 content before body callbacks and accepts an empty chunked response', function (): void {
+    $body = '';
+    $head = static function (): void {};
+    $data = static function (string $bytes) use (&$body): void { $body .= $bytes; };
+    $end = static function (): void {};
+    $parser = new Http1ClientResponseParser();
+    expect(fn() => $parser->push("HTTP/1.1 205 Reset Content\r\nContent-Length: 1\r\n\r\nx", $head, $data, $end))
+        ->toThrow(InvalidArgumentException::class, 'zero Content-Length');
+    foreach (["Transfer-Encoding: chunked\r\n\r\n1\r\nx\r\n0\r\n\r\n", "Connection: close\r\n\r\nx"] as $wire) {
+        $parser = new Http1ClientResponseParser();
+        expect(fn() => $parser->push("HTTP/1.1 205 Reset Content\r\n" . $wire, $head, $data, $end))
+            ->toThrow(RuntimeException::class, 'content is forbidden');
+    }
+    $parser = new Http1ClientResponseParser();
+    $parser->push("HTTP/1.1 205 Reset Content\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n", $head, $data, $end);
+    expect($body)->toBe('')->and($parser->done())->toBeTrue();
+});

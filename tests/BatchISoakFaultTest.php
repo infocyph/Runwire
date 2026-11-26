@@ -51,7 +51,6 @@ function batchISoakRuntime(): RuntimeContext
             supportsWorkerRecycle: true,
             supportsHttp1: true,
             supportsHttp2: true,
-            supportsHttp3: true,
         ),
         mode: 'native',
         workerSlot: 0,

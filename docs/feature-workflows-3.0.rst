@@ -30,7 +30,7 @@ What to choose and when
      - DNS, connected IP and TLS identity are separate trust checks
    * - Outbound HTTP requests
      - ``HttpOutboundDispatcher``
-     - Explicit H1/H2/H3 policy; no automatic QUIC downgrade
+     - Explicit H1/H2 policy; no automatic downgrade
    * - Repeated same-origin H1
      - ``PooledHttp1Session``
      - Reuses H1 only; caller owns tenant and trust revision
@@ -113,7 +113,7 @@ Walkthrough 2: complete outbound HTTP/1.1 request
 header, body and terminal callbacks. **Why.** Origin policy, DNS,
 connect, TLS, ALPN and response parsing have different ownership and
 failure phases. **When.** Choose it for callback-driven outbound HTTP;
-it does not provide a process-global cookie jar or automatic H2/H3
+it does not provide a process-global cookie jar or automatic H2
 session discovery.
 
 Keep Walkthrough 1 running on port 8080 and save ``client.php``:
@@ -185,9 +185,8 @@ Expect status 200 and the local server response. ``allowPlaintext`` is
 only appropriate for this trusted loopback exercise. For user-entered
 URLs, enforce an outbound address policy before dialing and recheck the
 actual peer. Set deadlines, handle cancellation, and never downgrade
-HTTPS silently. For HTTPS configure validated trust/ALPN; for HTTP/3
-require explicit native QUIC. An injected H2/H3 session must already
-have been established and independently verified.
+HTTPS silently. For HTTPS configure validated trust/ALPN. An injected H2
+session must already have been established and independently verified.
 
 See :doc:`outbound-handbook-3.0` and
 :doc:`connection-policies-3.0`.
@@ -397,16 +396,15 @@ performs a real UDP round trip.
 masking, bounded fragmentation and proper close handling. Verify real
 frames with ``tests/WebSocketOutboundClientTest.php`` and
 ``tests/WebSocketBackpressureAcceptanceTest.php``; do not infer
-H2/H3 extended-CONNECT support.
+H2 extended-CONNECT support.
 
 **HTTP/2.** Streams share a connection but have independent cancellation
 and flow credit. On GOAWAY stop accepting new streams; drain admitted
 ones within a bounded lifetime. Use the independent hyper-h2 workflow
 and the focused H2 tests for peer proof.
 
-**HTTP/3.** Requires actual QUIC and TLS support. Never fake it with
-plain UDP or silently fall back to H2/H1 after a failed H3 policy.
-WebTransport is not included in Runwire 3.0.
+**HTTP/3.** Native support is removed. Terminate public HTTP/3 at an independent edge and use H1/H2 upstream.
+WebTransport is not included in Runwire 4.0.
 
 See :doc:`protocols-3.0` and
 :doc:`protocol-failure-atlas-3.0` for detailed frame-level decisions.

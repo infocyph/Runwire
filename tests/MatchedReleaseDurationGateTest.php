@@ -24,6 +24,7 @@ it('rejects short diagnostic trials as matched release certification', function 
         'median_successful_rps' => 1000.0,
         'median_successful_rpm' => 60000.0,
         'rps_cv_percent' => 0.5,
+        'median_p95_ms' => 3.0,
         'median_p99_ms' => 5.0,
         'peak_rss_bytes' => 1048576,
         'correctness_passed' => true,

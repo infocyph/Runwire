@@ -7,6 +7,7 @@ namespace Infocyph\Runwire\Http\Client;
 use Infocyph\Runwire\Http\HeaderField;
 use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Internal\ContentLengthParser;
+use Infocyph\Runwire\Http\Internal\ResponseSemantics;
 use RuntimeException;
 
 /**
@@ -24,7 +25,7 @@ final readonly class Http1ClientResponseHeadParser
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
      */
-    public static function parse(string $wireHead, int $maxBodyBytes): array
+    public static function parse(string $wireHead, int $maxBodyBytes, bool $headRequest = false): array
     {
         $lines = explode("\r\n", $wireHead);
         $statusLine = array_shift($lines);
@@ -33,10 +34,16 @@ final readonly class Http1ClientResponseHeadParser
         }
 
         $headers = new Headers(self::fields($lines, false));
-        [$chunked, $length] = self::framing($headers, $maxBodyBytes);
+        [$chunked, $length] = self::framing($headers);
+        $code = (int) $match[2];
+        ResponseSemantics::assertContentLength($code, $length);
+        if ($code >= 200 && !ResponseSemantics::suppressesBody($headRequest, $code)
+            && $length !== null && $length > $maxBodyBytes) {
+            throw new RuntimeException('HTTP/1.1 Content-Length exceeds body budget.');
+        }
 
         return [
-            'code' => (int) $match[2],
+            'code' => $code,
             'headers' => $headers,
             'http11' => $match[1] === '1',
             'close' => self::closes($headers),
@@ -108,7 +115,7 @@ final readonly class Http1ClientResponseHeadParser
      * @return array{bool, ?int}
      * @throws \RuntimeException
      */
-    private static function framing(Headers $headers, int $maxBodyBytes): array
+    private static function framing(Headers $headers): array
     {
         $transfer = $headers->all('transfer-encoding');
         $lengths = $headers->all('content-length');
@@ -120,9 +127,6 @@ final readonly class Http1ClientResponseHeadParser
             throw new RuntimeException('Unsupported HTTP/1.1 Transfer-Encoding.');
         }
         $length = $lengths === [] ? null : ContentLengthParser::parse($lengths[0]);
-        if ($length !== null && $length > $maxBodyBytes) {
-            throw new RuntimeException('HTTP/1.1 Content-Length exceeds body budget.');
-        }
 
         return [$chunked, $length];
     }

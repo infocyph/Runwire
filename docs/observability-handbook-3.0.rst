@@ -34,7 +34,7 @@ Metrics taxonomy
      - Active sockets, pending dials, leased/idle pools
      - Catch capacity and reuse leaks
    * - Protocol
-     - H1 framing failures, H2 stream resets/GOAWAY, H3 QUIC errors
+     - H1 framing failures and H2 stream resets/GOAWAY
      - Isolate protocol-specific regression
    * - Workers
      - Desired/current count, generation, restarts, readiness, pending stops
@@ -113,8 +113,6 @@ Fault taxonomy
      - Original host/SNI/ALPN and trust root verification
    * - H2 sibling resets on stop
      - GOAWAY, accepted header state, drain timer and stream output credit
-   * - H3 stream loss/reorder
-     - QUIC capability, QPACK state, flow control and packet diagnostics
    * - Stable RPS but growing RSS
      - Unbounded body queues, idle pools, leaked request scopes
    * - Worker crash loop
@@ -148,9 +146,9 @@ Incident probes and golden paths
    php tests/smoke/native_listener_fork_smoke.php
    php tests/smoke/native_autoscale_http_traffic.php
 
-For H3 packet loss/reorder and matched H2 reference, prefer the
+For independent H2 reference and matched retained workloads, prefer the
 dedicated automated workflows. File a bug with minimal steps, actual
-and expected wire behavior, PHP/runtime version, ext-quic capability
+and expected wire behavior, PHP/runtime version, extension inventory
 and exact source SHA. See :doc:`performance-qa-handbook-3.0` and
 :doc:`production-operations-3.0`.
 
@@ -158,7 +156,7 @@ and exact source SHA. See :doc:`performance-qa-handbook-3.0` and
 Explicit W3C trace context propagation
 --------------------------------------
 
-Runwire 3.0 provides an opt-in, dependency-free
+Runwire 4.0 provides an opt-in, dependency-free
 `Tracing\\TraceContext` carrier that strictly validates version-00
 `traceparent` and bounded `tracestate`, creates child span IDs and
 injects or extracts sanitized HTTP headers. Bind the carrier to an
@@ -198,7 +196,7 @@ trace context. Completion and cancellation callbacks execute under
 that captured scope, even if another request has since submitted work
 from a different trace. Each callback restores the prior scope in
 `finally`. The executor's worker process still handles only the fixed
-bounded DNS, filesystem and QUIC operations; this callback propagation
+bounded DNS and filesystem operations; this callback propagation
 does not automatically export trace metadata to an external worker
 or telemetry SDK. It never makes unrelated tenant traces process-global.
 

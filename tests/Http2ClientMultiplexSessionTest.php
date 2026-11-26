@@ -8,6 +8,7 @@ use Infocyph\Runwire\Http\Client\ClientProtocolPolicy;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Client\Internal\Http2ClientMultiplexSession;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
+use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
@@ -427,3 +428,110 @@ it('does not reserve a multiplexed HTTP/2 stream for an unapproved PSR destinati
         ->and($session->activeCount())->toBe(1);
     $session->close();
 });
+
+it('continues accepted streams through graceful GOAWAY, PING and decreasing last stream IDs', function (): void {
+    $session = new Http2ClientMultiplexSession(3);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $completed = [];
+    $body = '';
+    foreach ([1, 3, 5] as $id) {
+        $session->request(
+            new ClientRequest('GET', 'https://example.test/' . $id),
+            static function (): void {},
+            static function (string $bytes) use (&$body): void { $body .= $bytes; },
+            static function (?Throwable $error) use ($id, &$completed): void { $completed[$id] = $error; },
+        );
+    }
+    $session->receive(FrameWriter::goAway(5, ErrorCode::NO_ERROR));
+    expect($session->ready())->toBeFalse()->and($session->activeCount())->toBe(3);
+    $ping = new Frame(FrameType::PING->value, 0, 0, '12345678');
+    expect($session->receive($ping))->toBe(FrameWriter::encode(new Frame(FrameType::PING->value, 1, 0, '12345678')));
+    $session->receive(FrameWriter::goAway(1, ErrorCode::NO_ERROR));
+    if (!array_key_exists(3, $completed) || !array_key_exists(5, $completed)) {
+        throw new RuntimeException('Both refused HTTP/2 streams must settle.');
+    }
+    expect($session->activeCount())->toBe(1)
+        ->and($completed[3])->toBeInstanceOf(RuntimeException::class)
+        ->and($completed[5])->toBeInstanceOf(RuntimeException::class);
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, (new Encoder())->encode([[':status', '200']])));
+    $session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'drained'));
+    if (!array_key_exists(1, $completed)) {
+        throw new RuntimeException('The accepted HTTP/2 stream must settle.');
+    }
+    expect($completed[1])->toBeNull()->and($body)->toBe('drained')->and($session->activeCount())->toBe(0);
+    expect(fn() => $session->receive(FrameWriter::goAway(3, ErrorCode::NO_ERROR)))
+        ->toThrow(RuntimeException::class, 'cannot increase');
+});
+
+it('does not restore stream credit when a body callback cancels its own stream', function (): void {
+    $session = new Http2ClientMultiplexSession(2);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $completed = [];
+    $session->request(
+        new ClientRequest('GET', 'https://example.test/cancel-in-body'),
+        static function (): void {},
+        static function () use ($session): void { $session->cancel(1); },
+        static function (?Throwable $error) use (&$completed): void { $completed[] = $error; },
+    );
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x4, 1, (new Encoder())->encode([[':status', '200']])));
+    $wire = $session->receive(new Frame(FrameType::DATA->value, 0, 1, 'chunk'));
+    expect($wire)->toBe(FrameWriter::encode(FrameWriter::windowUpdate(0, 5)))
+        ->and($session->activeCount())->toBe(0)
+        ->and($completed)->toHaveCount(1)
+        ->and($completed[0])->toBeInstanceOf(RuntimeException::class);
+    $session->receive(new Frame(FrameType::DATA->value, 0x1, 1, 'late'));
+    $session->close();
+    expect($completed)->toHaveCount(1);
+});
+
+it('decodes late canceled H2 headers to preserve sibling HPACK state without publishing callbacks', function (bool $partial): void {
+    $session = new Http2ClientMultiplexSession(2);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $canceled = 0;
+    $published = 0;
+    $siblingHeader = '';
+    $siblingDone = false;
+    $session->request(
+        new ClientRequest('GET', 'https://example.test/canceled'),
+        static function () use (&$published): void { ++$published; },
+        static function () use (&$published): void { ++$published; },
+        static function (?Throwable $error) use (&$canceled): void {
+            \PHPUnit\Framework\Assert::assertInstanceOf(RuntimeException::class, $error);
+            ++$canceled;
+        },
+    );
+    $session->request(
+        new ClientRequest('GET', 'https://example.test/sibling'),
+        static function (int $status, Headers $headers) use (&$siblingHeader): void {
+            expect($status)->toBe(200);
+            $siblingHeader = $headers->all('x-shared')[0] ?? '';
+        },
+        static function (): void {},
+        static function (?Throwable $error) use (&$siblingDone): void {
+            expect($error)->toBeNull();
+            $siblingDone = true;
+        },
+    );
+    $encoder = new Encoder();
+    $fields = [[':status', '200'], ['x-shared', 'late-dynamic-entry']];
+    $block = $encoder->encode($fields);
+    if ($partial) {
+        $session->receive(new Frame(FrameType::HEADERS->value, 0x1, 1, substr($block, 0, 1)));
+        $session->cancel(1);
+        $session->receive(new Frame(FrameType::CONTINUATION->value, 0x4, 1, substr($block, 1)));
+    } else {
+        $session->cancel(1);
+        $session->receive(new Frame(FrameType::HEADERS->value, 0x5, 1, $block));
+    }
+    $indexed = $encoder->encode($fields);
+    expect(strlen($indexed))->toBeLessThan(strlen($block));
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x5, 3, $indexed));
+    expect($published)->toBe(0)
+        ->and($canceled)->toBe(1)
+        ->and($siblingHeader)->toBe('late-dynamic-entry')
+        ->and($siblingDone)->toBeTrue()
+        ->and($session->activeCount())->toBe(0);
+})->with([false, true]);

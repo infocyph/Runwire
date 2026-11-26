@@ -25,17 +25,6 @@ it('requires explicit secure HTTP version negotiation without implicit fallback'
         ->and($fallback->negotiate('h2', true))->toBe(ProtocolVersion::HTTP_2);
 });
 
-it('allows HTTP/3 only on encrypted QUIC with approved ALPN', function (): void {
-    $h3 = new ClientProtocolPolicy(
-        preferred: ProtocolVersion::HTTP_3,
-        allowedVersions: [ProtocolVersion::HTTP_3],
-    );
-    expect($h3->negotiate('h3', true, true))->toBe(ProtocolVersion::HTTP_3)
-        ->and(fn() => $h3->negotiate('h3', true, false))->toThrow(RuntimeUnavailableException::class)
-        ->and(fn() => $h3->negotiate('h2', true, true))->toThrow(RuntimeUnavailableException::class)
-        ->and(fn() => $h3->negotiate('h3', false, true))->toThrow(RuntimeUnavailableException::class);
-});
-
 it('requires explicit plaintext H1 opt-in and rejects duplicate version policies', function (): void {
     $plain = new ClientProtocolPolicy(
         preferred: ProtocolVersion::HTTP_1_1,
@@ -45,7 +34,7 @@ it('requires explicit plaintext H1 opt-in and rejects duplicate version policies
     expect($plain->negotiate(null, false))->toBe(ProtocolVersion::HTTP_1_1)
         ->and(fn() => new ClientProtocolPolicy(allowedVersions: [ProtocolVersion::HTTP_2, ProtocolVersion::HTTP_2]))
         ->toThrow(InvalidArgumentException::class)
-        ->and(fn() => new ClientProtocolPolicy(allowedVersions: [ProtocolVersion::HTTP_3]))
+        ->and(fn() => new ClientProtocolPolicy(allowedVersions: [ProtocolVersion::HTTP_1_1]))
         ->toThrow(InvalidArgumentException::class)
         ->and(fn() => new ClientProtocolPolicy(allowedVersions: []))
         ->toThrow(InvalidArgumentException::class);
@@ -105,4 +94,10 @@ it('preserves bounded streaming request body and response contract without a tra
         ->and($request->body?->eof())->toBeTrue()
         ->and(interface_exists(ClientResponseInterface::class))->toBeTrue()
         ->and(interface_exists(ClientExchangeInterface::class))->toBeTrue();
+});
+
+it('rejects removed protocol values and host metadata without reclassifying them', function (): void {
+    expect(ProtocolVersion::cases())->toBe([ProtocolVersion::HTTP_1_1, ProtocolVersion::HTTP_2])
+        ->and(fn() => (new ClientProtocolPolicy(allowFallback: true))->negotiate('h3', true))->toThrow(RuntimeUnavailableException::class)
+        ->and(fn() => \Infocyph\Runwire\Runtime\Host\HostProtocolVersion::from('HTTP/3'))->toThrow(InvalidArgumentException::class);
 });

@@ -34,9 +34,10 @@ require(set(index_pages) == expected and len(index_pages) == len(expected),
 
 capabilities = (docs / "features.rst").read_text()
 required_capabilities = ("TCP and Unix server", "HTTP/1.1 server", "HTTP/2 server",
-                         "HTTP/3 server", "WebSocket server", "Fiber tasks and cancellation",
+                         "WebSocket server", "Fiber tasks and cancellation",
                          "Async disk jobs", "Native process supervision",
                          "Automatic autoscaling", "Swoole/OpenSwoole")
+require("Native HTTP/3 and QUIC are removed" in capabilities, "Removed transport scope missing")
 for capability in required_capabilities:
     require(capability in capabilities, f"Missing feature documentation: {capability}")
 

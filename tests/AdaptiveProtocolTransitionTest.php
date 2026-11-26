@@ -10,18 +10,10 @@ use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http1\Http1Limits;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
 use Infocyph\Runwire\Http\Http2\Internal\AdaptiveResponseStrategy as Http2AdaptiveResponseStrategy;
-use Infocyph\Runwire\Http\Http3\Http3Limits;
-use Infocyph\Runwire\Http\Http3\Http3Options;
-use Infocyph\Runwire\Http\Http3\Internal\AdaptivePumpStrategy;
-use Infocyph\Runwire\Http\Http3\Internal\AdaptiveResponseStrategy as Http3AdaptiveResponseStrategy;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 
 it('holds HTTP2 state through single-sample bursts and switches only after sustained crossover', function (): void {
     runwireAdaptiveProtocolTransitionCase01();
-});
-
-it('adapts HTTP3 pump effort without flapping on isolated high-load samples', function (): void {
-    runwireAdaptiveProtocolTransitionCase02();
 });
 
 it('keeps every adaptive work budget inside configured protocol ceilings', function (): void {
@@ -70,41 +62,6 @@ function runwireAdaptiveProtocolTransitionCase01(): void
 /**
  * @throws \Throwable
  */
-function runwireAdaptiveProtocolTransitionCase02(): void
-{
-    $strategy = new AdaptivePumpStrategy(
-        policy: new AdaptiveProtocolPolicy(
-            lowWatermarkBasisPoints: 2_000,
-            highWatermarkBasisPoints: 6_000,
-            transitionSamples: 2,
-            ewmaNumerator: 1,
-            ewmaDenominator: 1,
-        ),
-    );
-
-    $strategy->observe(0, 0, 100);
-    $strategy->observe(0, 0, 100);
-    expect($strategy->state())->toBe(AdaptiveLoadState::LATENCY)
-        ->and($strategy->acceptLimit(64))->toBe(64)
-        ->and($strategy->readLimit(256))->toBe(64);
-
-    foreach (range(1, 4) as $_) {
-        $strategy->observe(100, 100, 100);
-        expect($strategy->state())->toBe(AdaptiveLoadState::LATENCY);
-        $strategy->observe(0, 0, 100);
-        expect($strategy->state())->toBe(AdaptiveLoadState::LATENCY);
-    }
-
-    $strategy->observe(100, 100, 100);
-    $strategy->observe(100, 100, 100);
-    expect($strategy->state())->toBe(AdaptiveLoadState::THROUGHPUT)
-        ->and($strategy->acceptLimit(64))->toBe(64)
-        ->and($strategy->readLimit(256))->toBe(256);
-}
-
-/**
- * @throws \Throwable
- */
 function runwireAdaptiveProtocolTransitionCase03(): void
 {
     $samples = [
@@ -122,28 +79,11 @@ function runwireAdaptiveProtocolTransitionCase03(): void
             ewmaDenominator: 1,
         );
         $http2 = new Http2AdaptiveResponseStrategy(policy: $policy);
-        $http3Response = new Http3AdaptiveResponseStrategy(policy: $policy);
-        $http3Pump = new AdaptivePumpStrategy(policy: $policy);
 
         foreach ($samples as $sample) {
             $wireLimit = $http2->wireLimit($sample);
-            $writeLimit = $http3Response->writeLimit($sample, 128);
-            $http3Pump->observe(
-                intdiv($sample->backlogBasisPoints, 100),
-                intdiv($sample->activeBasisPoints, 100),
-                100,
-            );
-
             expect($wireLimit)->toBeGreaterThanOrEqual(1)
-                ->and($wireLimit)->toBeLessThanOrEqual(1_024)
-                ->and($writeLimit)->toBeGreaterThanOrEqual(1)
-                ->and($writeLimit)->toBeLessThanOrEqual(128)
-                ->and($http3Pump->acceptLimit(64))->toBeGreaterThanOrEqual(1)
-                ->and($http3Pump->acceptLimit(64))->toBeLessThanOrEqual(64)
-                ->and($http3Pump->readLimit(256))->toBeGreaterThanOrEqual(1)
-                ->and($http3Pump->readLimit(256))->toBeLessThanOrEqual(256)
-                ->and($http3Pump->byteLimit(262_144))->toBeGreaterThanOrEqual(1)
-                ->and($http3Pump->byteLimit(262_144))->toBeLessThanOrEqual(262_144);
+                ->and($wireLimit)->toBeLessThanOrEqual(1_024);
         }
     }
 }
@@ -167,19 +107,8 @@ function runwireAdaptiveProtocolTransitionCase04(): void
         maxStreamsPerConnection: 77,
         adaptive: $throughput,
     );
-    $http3 = new Http3Options(
-        limits: new Http3Limits(
-            maxConcurrentRequestStreams: 9,
-            maxRequestStreamsPerConnection: 99,
-        ),
-        inboundAdaptive: $throughput,
-        outboundAdaptive: $throughput,
-    );
-
     expect($http1->maxBodyBytes)->toBe(12_345)
         ->and($http1->maxPendingBodyBytes)->toBe(8_192)
         ->and($http2->maxConcurrentStreams)->toBe(7)
-        ->and($http2->maxStreamsPerConnection)->toBe(77)
-        ->and($http3->limits->maxConcurrentRequestStreams)->toBe(9)
-        ->and($http3->limits->maxRequestStreamsPerConnection)->toBe(99);
+        ->and($http2->maxStreamsPerConnection)->toBe(77);
 }

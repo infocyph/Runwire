@@ -37,14 +37,14 @@ final class Http2ClientMultiplexSession
 
     private int $lastStreamId = -1;
 
-    /** @var array<int, true> */
+    /** @var array<int, Http2ClientResponseParser> */
     private array $retired = [];
 
     private bool $started = false;
 
     /**
      * @var array<int, array{
-     *   request:ClientRequest, response:Http2ClientResponseParser,
+     *   response:Http2ClientResponseParser,
      *   headers:Closure, body:Closure, complete:Closure
      * }>
      */
@@ -74,7 +74,7 @@ final class Http2ClientMultiplexSession
      * @throws \InvalidArgumentException
      * @throws \RuntimeException
      */
-    public function cancel(int $streamId): string
+    public function cancel(int $streamId, ?Throwable $error = null): string
     {
         if (!isset($this->streams[$streamId])) {
             throw new InvalidArgumentException('Cannot cancel an unknown H2 client stream.');
@@ -83,8 +83,8 @@ final class Http2ClientMultiplexSession
             throw new RuntimeException('H2 canceled-stream tombstone budget exhausted; rotate the connection.');
         }
 
-        $this->retired[$streamId] = true;
-        $this->finish($streamId, new RuntimeException('HTTP/2 client stream canceled.'));
+        $this->retired[$streamId] = $this->streams[$streamId]['response'];
+        $this->finish($streamId, $error ?? new RuntimeException('HTTP/2 client stream canceled.'));
 
         return FrameWriter::encode(FrameWriter::rstStream($streamId, ErrorCode::CANCEL));
     }
@@ -134,11 +134,11 @@ final class Http2ClientMultiplexSession
                 || $frame->streamId !== $this->continuationStreamId)) {
             throw new RuntimeException('HTTP/2 connection interleaved a frame during CONTINUATION.');
         }
-        if ($frame->streamId === 0) {
+        if ($frame->streamId === 0 || $frame->knownType() === FrameType::SETTINGS) {
             return $this->control($frame);
         }
         if (isset($this->retired[$frame->streamId])) {
-            return $this->retiredFrame($frame);
+            return $this->retiredFrame($frame, $this->retired[$frame->streamId]);
         }
 
         return $this->streamFrame($frame);
@@ -198,7 +198,6 @@ final class Http2ClientMultiplexSession
         $this->authority = $authority;
         $this->lastStreamId = $streamId;
         $this->streams[$streamId] = [
-            'request' => $request,
             'response' => new Http2ClientResponseParser(
                 streamId: $streamId,
                 sharedDecoder: $this->decoder,
@@ -231,14 +230,14 @@ final class Http2ClientMultiplexSession
      * Account for receive-window consumption without extending terminated streams.
      * @throws \InvalidArgumentException
      */
-    private static function credit(Frame $frame): string
+    private static function credit(Frame $frame, bool $streamOpen): string
     {
         $bytes = $frame->knownType() === FrameType::DATA ? strlen($frame->payload) : 0;
         if ($bytes === 0) {
             return '';
         }
         $wire = FrameWriter::encode(FrameWriter::windowUpdate(0, $bytes));
-        if (!$frame->hasFlag(0x1)) {
+        if ($streamOpen && !$frame->hasFlag(0x1)) {
             $wire .= FrameWriter::encode(FrameWriter::windowUpdate($frame->streamId, $bytes));
         }
 
@@ -275,10 +274,11 @@ final class Http2ClientMultiplexSession
     }
 
     /**
-     * Drain previously canceled response frames without accepting new headers.
+     * Drain previously canceled response frames without publishing callbacks.
      * @throws \RuntimeException
+     * @throws \InvalidArgumentException
      */
-    private function retiredFrame(Frame $frame): string
+    private function retiredFrame(Frame $frame, Http2ClientResponseParser $response): string
     {
         if ($frame->knownType() === FrameType::RST_STREAM) {
             if ($frame->flags !== 0 || strlen($frame->payload) !== 4) {
@@ -288,17 +288,22 @@ final class Http2ClientMultiplexSession
 
             return '';
         }
+        if ($frame->knownType() === FrameType::HEADERS || $frame->knownType() === FrameType::CONTINUATION) {
+            $this->trackHeaderBlock($frame);
+            if ($response->discardHeaders($frame)) {
+                unset($this->retired[$frame->streamId]);
+            }
+
+            return '';
+        }
         if ($frame->knownType() !== FrameType::DATA || ($frame->flags & ~0x1) !== 0) {
             throw new RuntimeException('H2 retired stream received an unsafe control/header frame.');
         }
         if ($frame->hasFlag(0x1)) {
             unset($this->retired[$frame->streamId]);
         }
-        $bytes = strlen($frame->payload);
 
-        return $bytes > 0
-            ? FrameWriter::encode(FrameWriter::windowUpdate(0, $bytes))
-            : '';
+        return self::credit($frame, false);
     }
 
     /**
@@ -313,10 +318,6 @@ final class Http2ClientMultiplexSession
             throw new RuntimeException('HTTP/2 peer used an unknown client response stream.');
         }
         $this->trackHeaderBlock($frame);
-        if ($slot['request']->method === 'HEAD' && $frame->knownType() === FrameType::DATA
-            && $frame->payload !== '') {
-            throw new RuntimeException('HTTP/2 HEAD response must not contain body bytes.');
-        }
 
         try {
             $slot['response']->push($frame, $slot['headers'], $slot['body']);
@@ -329,10 +330,11 @@ final class Http2ClientMultiplexSession
             return '';
         }
         if ($slot['response']->done()) {
+            unset($this->retired[$frame->streamId]);
             $this->finish($frame->streamId, null);
         }
 
-        return self::credit($frame);
+        return self::credit($frame, isset($this->streams[$frame->streamId]));
     }
 
     /** Never allow sibling frames to interleave an incomplete header block. */

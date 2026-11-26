@@ -8,9 +8,6 @@ use Infocyph\Runwire\Http\AdaptiveProtocolPolicy;
 use Infocyph\Runwire\Http\Enum\AdaptivePolicyMode;
 use Infocyph\Runwire\Http\Http1\Internal\AdaptiveConnectionStrategy;
 use Infocyph\Runwire\Http\Http2\Internal\AdaptiveResponseStrategy as Http2AdaptiveResponseStrategy;
-use Infocyph\Runwire\Http\Http3\Internal\AdaptivePollStrategy;
-use Infocyph\Runwire\Http\Http3\Internal\AdaptivePumpStrategy;
-use Infocyph\Runwire\Http\Http3\Internal\AdaptiveResponseStrategy as Http3AdaptiveResponseStrategy;
 use Infocyph\Runwire\Http\Internal\AdaptiveLoadSample;
 use InvalidArgumentException;
 
@@ -38,18 +35,6 @@ function runwireOwnedAdaptiveProtocolPolicyTestCase02(): void
     runwireAdaptiveProtocolPolicyCase02();
 }
 
-it('keeps HTTP3 fixed policy deterministic and poll timing static', function (): void {
-    runwireOwnedAdaptiveProtocolPolicyTestCase03();
-});
-
-/**
- * @throws \Throwable
- */
-function runwireOwnedAdaptiveProtocolPolicyTestCase03(): void
-{
-    runwireAdaptiveProtocolPolicyCase03();
-}
-
 it('rejects invalid adaptive protocol crossover configuration', function (): void {
     runwireOwnedAdaptiveProtocolPolicyTestCase04();
 });
@@ -63,7 +48,7 @@ function runwireOwnedAdaptiveProtocolPolicyTestCase04(): void
 }
 
 
-it('defaults H1 H2 and H3 to FIXED', function (): void {
+it('defaults H1 and H2 to FIXED', function (): void {
     runwireOwnedAdaptiveProtocolPolicyTestCase05();
 });
 
@@ -73,18 +58,6 @@ it('defaults H1 H2 and H3 to FIXED', function (): void {
 function runwireOwnedAdaptiveProtocolPolicyTestCase05(): void
 {
     runwireAdaptiveProtocolPolicyCase05();
-}
-
-it('rejects impossible negative HTTP3 connection counters without changing valid poll timings', function (): void {
-    runwireOwnedAdaptiveProtocolPolicyTestCase06();
-});
-
-/**
- * @throws \Throwable
- */
-function runwireOwnedAdaptiveProtocolPolicyTestCase06(): void
-{
-    runwireAdaptiveProtocolPolicyCase06();
 }
 
 /**
@@ -111,12 +84,6 @@ function runwireAdaptiveProtocolPolicyCase01(): void
             policy: new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::THROUGHPUT),
         ))->wireLimit($sample))->toBe(256);
 
-    expect((new Http3AdaptiveResponseStrategy(
-        policy: new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED),
-    ))->writeLimit($sample, 128))->toBe(128)
-        ->and((new Http3AdaptiveResponseStrategy(
-            policy: new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::LATENCY),
-        ))->writeLimit($sample, 128))->toBe(32);
 }
 
 /**
@@ -134,21 +101,6 @@ function runwireAdaptiveProtocolPolicyCase02(): void
     $strategy = new Http2AdaptiveResponseStrategy(policy: $policy);
 
     expect($strategy->wireLimit(new AdaptiveLoadSample(false, 10_000, 10_000)))->toBe(256);
-}
-
-/**
- * @throws \Throwable
- */
-function runwireAdaptiveProtocolPolicyCase03(): void
-{
-    $fixed = new AdaptiveProtocolPolicy(mode: AdaptivePolicyMode::FIXED);
-    $pump = new AdaptivePumpStrategy(policy: $fixed);
-
-    $pump->observe(100, 100, 100);
-
-    expect($pump->acceptLimit(64))->toBe(64)
-        ->and($pump->readLimit(256))->toBe(256)
-        ->and(AdaptivePollStrategy::timeout(0.05, true, 0, 1, $fixed))->toBe(0.05);
 }
 
 /**
@@ -177,22 +129,8 @@ function runwireAdaptiveProtocolPolicyCase05(): void
 {
     $http1 = new \Infocyph\Runwire\Http\Http1\Http1Limits();
     $http2 = new \Infocyph\Runwire\Http\Http2\Http2Limits();
-    $http3 = new \Infocyph\Runwire\Http\Http3\Http3Options();
 
     expect($http1->adaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
-        ->and($http2->adaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
-        ->and($http3->inboundAdaptive->mode)->toBe(AdaptivePolicyMode::FIXED)
-        ->and($http3->outboundAdaptive->mode)->toBe(AdaptivePolicyMode::FIXED);
+        ->and($http2->adaptive->mode)->toBe(AdaptivePolicyMode::FIXED);
 }
 
-/**
- * @throws \Throwable
- */
-function runwireAdaptiveProtocolPolicyCase06(): void
-{
-    expect(fn() => AdaptivePollStrategy::timeout(0.01, true, -1, 0))
-        ->toThrow(InvalidArgumentException::class, 'non-negative')
-        ->and(fn() => AdaptivePollStrategy::timeout(0.01, true, 0, -1))
-        ->toThrow(InvalidArgumentException::class, 'non-negative')
-        ->and(AdaptivePollStrategy::timeout(0.01, true, 0, 1))->toBe(0.01);
-}

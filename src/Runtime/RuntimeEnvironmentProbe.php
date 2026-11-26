@@ -43,7 +43,6 @@ final readonly class RuntimeEnvironmentProbe
             supportsSignals: $supportsSignals,
             supportsPosix: $supportsPosix,
             supportsOpenSsl: self::supportsOpenSsl(),
-            supportsQuic: self::supportsQuic(),
             frankenPhpWorkerMode: self::frankenPhpWorkerMode(),
             opcacheAvailable: $opcacheAvailable,
             opcacheEnabled: $opcacheEnabled,
@@ -110,15 +109,6 @@ final readonly class RuntimeEnvironmentProbe
             && function_exists('posix_initgroups')
             && function_exists('posix_setuid')
             && function_exists('posix_setgid');
-    }
-
-    private static function supportsQuic(): bool
-    {
-        return extension_loaded('quic')
-            && class_exists('Quic\\Listener')
-            && class_exists('Quic\\Connection')
-            && class_exists('Quic\\Stream')
-            && function_exists('Quic\\poll');
     }
 
     private static function supportsSignals(): bool

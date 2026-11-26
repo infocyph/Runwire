@@ -12,19 +12,6 @@ use Throwable;
  * Private off-loop worker entry point. No Composer bootstrap, global hooks or
  * caller-provided PHP code is executed in the child.
  */
-/**
- * Fail closed when an optional extension constructor cannot be typed statically.
- * @throws \RuntimeException
- */
-function requireNativeQuicObject(mixed $value): object
-{
-    if (!is_object($value)) {
-        throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
-    }
-
-    return $value;
-}
-
 const MAX_MESSAGE_BYTES = 1_600_000;
 const MAX_FILE_BYTES = 1_048_576;
 
@@ -33,10 +20,6 @@ if (!is_string($ipcKey) || strlen($ipcKey) !== 64 || !ctype_xdigit($ipcKey)) {
     throw new RuntimeException('Executor worker requires a private per-process IPC authorization key.');
 }
 putenv('RUNWIRE_EXECUTOR_IPC_KEY');
-
-// This state belongs to this one long-lived subprocess and can never escape
-// through the host's nonblocking IPC transport.
-$quicSessionWorker = null;
 
 /**
  * Worker-side opt-in path boundary. Rejects lexical traversal, symlinked
@@ -210,66 +193,6 @@ while (($line = fgets(STDIN, MAX_MESSAGE_BYTES + 2)) !== false) {
                 }
 
                 return array_values(array_unique($addresses));
-            })($arguments),
-            'quic_session' => (static function (array $args) use (&$quicSessionWorker): array {
-                if ($quicSessionWorker === null) {
-                    require_once dirname(__DIR__) . '/src/Network/Internal/QuicWorkerCommand.php';
-                    require_once dirname(__DIR__) . '/src/Network/Internal/QuicWorkerResourceUsage.php';
-                    require_once dirname(__DIR__) . '/src/Network/Internal/QuicWorkerStreamIdentity.php';
-                    require_once dirname(__DIR__) . '/src/Network/Internal/QuicWorkerSession.php';
-                    $quicSessionWorker = new \Infocyph\Runwire\Network\Internal\QuicWorkerSession();
-                }
-
-                return $quicSessionWorker->execute($args);
-            })($arguments),
-            'quic_probe' => (static function (array $args): array {
-                $host = $args['host'] ?? null;
-                $port = $args['port'] ?? null;
-                $options = $args['options'] ?? null;
-                if (!is_string($host) || $host === '' || strlen($host) > 253
-                    || preg_match('/[\x00-\x20\x7f]/', $host) === 1
-                    || !is_int($port) || $port < 1 || $port > 65_535
-                    || !is_array($options)
-                    || ($options['verify_peer'] ?? null) !== true
-                    || ($options['verify_peer_name'] ?? null) !== true
-                    || ($options['allow_self_signed'] ?? null) !== false
-                    || ($options['SNI_enabled'] ?? null) !== true
-                    || !is_string($options['peer_name'] ?? null)
-                    || !is_array($options['alpn'] ?? null)
-                    || $options['alpn'] === []) {
-                    throw new InvalidArgumentException('Invalid or unverified outbound QUIC probe.');
-                }
-                // External extension classes are resolved dynamically by the
-                // worker because they are not a mandatory Composer dependency.
-                $quicConnectionClass = 'Quic' . '\\Connection';
-
-                if (!class_exists($quicConnectionClass)) {
-                    throw new RuntimeException('Optional native ext-quic is unavailable for outbound QUIC.');
-                }
-
-                // This constructor performs its full TLS handshake *before*
-                // setBlocking(false) is possible. It may only run here, in
-                // the isolated, deadline-limited executor worker process.
-                $connection = requireNativeQuicObject(new $quicConnectionClass($host, $port, $options));
-                if (!method_exists($connection, 'close')
-                    || !method_exists($connection, 'getNegotiatedAlpn')) {
-                    throw new RuntimeException('Native QUIC backend returned an invalid connection handle.');
-                }
-
-                try {
-                    $negotiatedAlpn = $connection->getNegotiatedAlpn();
-                    if (!is_string($negotiatedAlpn) || !in_array($negotiatedAlpn, $options['alpn'], true)) {
-                        throw new RuntimeException('Verified QUIC peer failed the required ALPN negotiation.');
-                    }
-
-                    return [
-                        'verified' => true,
-                        'backend' => 'ext-quic',
-                        'alpn' => $negotiatedAlpn,
-                    ];
-                } finally {
-                    $connection->close();
-                }
             })($arguments),
             'read' => (static function (array $args): string {
                 $path = guardFilePath($args, 'path');

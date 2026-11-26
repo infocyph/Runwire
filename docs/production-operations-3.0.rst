@@ -4,7 +4,7 @@ Production operations and deployment runbooks
 Deployment prerequisites
 ------------------------
 
-This guide covers Runwire 3.0 deployment, staged rollout, monitoring
+This guide covers Runwire 4.0 deployment, staged rollout, monitoring
 and rollback. Validate host features and application-specific behavior
 before exposing network-facing listeners.
 
@@ -44,8 +44,7 @@ Host selection matrix
      - Probe extension, process, signal, port and daemon permissions
 
 Do not assume an extension can be loaded merely because a protocol
-name is configured. Native HTTP/3 needs an available compatible
-QUIC/OpenSSL stack; many shared hosts lack it. Plain HTTP/1.1,
+name is configured. Native HTTP/3 is no longer provided. Plain HTTP/1.1,
 portable TCP/UDP and host-owned features should be evaluated
 independently.
 
@@ -74,7 +73,7 @@ Preflight checklist
    composer install --no-interaction --prefer-dist --no-progress
 
 The commands inspect the installed environment. A clean Composer
-install does not prove ext-quic or POSIX signal support.
+install does not prove POSIX signal support.
 
 Deployment topology
 -------------------
@@ -98,9 +97,8 @@ carefully. Do not trust arbitrary client-supplied forwarded headers
 as authority to change HTTPS origin identity or logins. Preserve
 client IP/rate-limit semantics when behind a proxy.
 
-For HTTP/3, the QUIC listener may need direct UDP exposure and ALPN
-routing, unlike TCP proxy termination. A generic HTTP reverse proxy
-does not automatically pass an H3 QUIC session through to PHP.
+Public HTTP/3 must terminate at an independent reverse proxy; use
+HTTP/1.1 or HTTP/2 upstream to Runwire.
 
 Environment and filesystem
 --------------------------
@@ -150,7 +148,7 @@ Rolling reload runbook
 2. Record the source SHA and old worker generation/slots.
 3. Start replacement workers and wait for readiness evidence.
 4. Stop old workers from accepting new traffic.
-5. Allow accepted streams (including H2/H3 siblings) to finish
+5. Allow accepted streams (including H2 siblings) to finish
    within explicit graceful deadlines.
 6. Confirm old worker PID reaped, no pending restarts or watcher leaks.
 7. Compare request correctness, error counts and p99 to baseline.
@@ -194,7 +192,7 @@ Deployment example: from preflight to a safe canary
 ---------------------------------------------------
 
 **Preflight:** record the candidate SHA and PHP/extension matrix.
-Choose the host owner and validate any optional TLS, QUIC, process or
+Choose the host owner and validate any optional TLS, process or
 event extension before enabling dependent features.
 
 .. code-block:: console

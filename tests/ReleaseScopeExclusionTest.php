@@ -8,7 +8,7 @@ it('documents unsupported WebTransport without claiming a protocol implementatio
     $index = file_get_contents($root . '/docs/index.rst');
 
     expect($features)->toBeString()
-        ->toContain('WebTransport is not included in Runwire 3.0')
+        ->toContain('WebTransport is not included in Runwire 4.0')
         ->and($index)->toBeString()
         ->not->toContain('webtransport-design-3.0')
         ->and(is_file($root . '/docs/webtransport-design-3.0.rst'))->toBeFalse();

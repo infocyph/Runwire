@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Strict independent mixed-protocol native crash/reload/recycle acceptance.
 
-Tests live TCP+TLS h1/h2, QUIC h3, framed TCP and separate UDP on one Runwire
+Tests live TCP+TLS h1/h2, framed TCP and separate UDP on one Runwire
 native supervisor. This acceptance is not a matched release performance proof.
 """
 
@@ -17,13 +17,9 @@ import sys
 import tempfile
 import time
 
-from aioquic.asyncio.client import connect
-from aioquic.h3.connection import H3_ALPN
-from aioquic.quic.configuration import QuicConfiguration
 from h2.config import H2Configuration
 from h2.connection import H2Connection
 from h2.events import ConnectionTerminated, DataReceived, ResponseReceived, StreamEnded, StreamReset
-from http3_adaptive_matrix import H3BenchClient
 
 
 def available_port(udp=False):
@@ -62,9 +58,22 @@ async def request_http1(port):
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     context.set_alpn_protocols(["http/1.1"])
-    reader, writer = await asyncio.open_connection(
-        "127.0.0.1", port, ssl=context, server_hostname="localhost"
-    )
+    # A reload-completed callback immediately requests manual worker recycle.
+    # A TCP/TLS handshake may therefore be reset before any HTTP bytes are
+    # sent. Retry only that pre-request boundary, never an admitted request.
+    for attempt in range(3):
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(
+                    "127.0.0.1", port, ssl=context, server_hostname="localhost"
+                ),
+                timeout=3,
+            )
+            break
+        except (ConnectionResetError, ConnectionRefusedError):
+            if attempt == 2:
+                raise
+            await asyncio.sleep(0.05)
     try:
         if writer.get_extra_info("ssl_object").selected_alpn_protocol() != "http/1.1":
             raise RuntimeError("H1 ALPN mismatch")
@@ -247,40 +256,6 @@ async def request_http2(port, _server_pid, slow_receiver_seconds=0.02, submitted
     raise RuntimeError("H2 replacement never became ready")
 
 
-async def request_http3(port, submitted=None):
-    config = QuicConfiguration(is_client=True, alpn_protocols=H3_ALPN)
-    config.verify_mode = ssl.CERT_NONE
-    config.server_name = "localhost"
-    async with connect("127.0.0.1", port, configuration=config,
-                       create_protocol=H3BenchClient) as protocol:
-        # Admit eight verified response streams before canceling a ninth.
-        # This preserves native request-stream ID ordering through rollover.
-        siblings = [
-            asyncio.create_task(protocol.request(f"localhost:{port}", 16384, 0))
-            for _ in range(8)
-        ]
-        try:
-            await asyncio.sleep(0.01)
-            if submitted is not None:
-                submitted.set()
-            cancelled_id = protocol._quic.get_next_available_stream_id()
-            protocol.http.send_headers(cancelled_id, [
-                (b":method", b"GET"), (b":scheme", b"https"),
-                (b":authority", f"localhost:{port}".encode()), (b":path", b"/benchmark"),
-            ], end_stream=True)
-            protocol.transmit()
-            await asyncio.sleep(0.01)
-            protocol._quic.reset_stream(cancelled_id, error_code=0x10C)
-            protocol.transmit()
-            await asyncio.wait_for(asyncio.gather(*siblings), timeout=9)
-            return 8
-        finally:
-            for sibling in siblings:
-                if not sibling.done():
-                    sibling.cancel()
-            await asyncio.gather(*siblings, return_exceptions=True)
-
-
 async def request_tcp(port):
     reader, writer = await asyncio.open_connection("127.0.0.1", port)
     try:
@@ -303,19 +278,18 @@ def request_udp(port):
 
 
 async def complete_wave(tls_port, tcp_port, udp_port, server_pid,
-                        h2_slow=0.02, h2_submitted=None, h3_submitted=None):
+                        h2_slow=0.02, h2_submitted=None):
     results = await asyncio.wait_for(
         asyncio.gather(
             request_http1(tls_port),
             request_http2(tls_port, server_pid, h2_slow, h2_submitted),
-            request_http3(tls_port, h3_submitted),
             request_tcp(tcp_port),
             asyncio.to_thread(request_udp, udp_port),
         ),
         timeout=12,
     )
-    return {"http1": 1, "http2": results[1], "http3": results[2], "tcp": 1, "udp": 1,
-            "cancelled_h2_streams": 1, "cancelled_h3_streams": 1,
+    return {"http1": 1, "http2": results[1], "tcp": 1, "udp": 1,
+            "cancelled_h2_streams": 1,
             "slow_h2_receiver_delay_ms": int(h2_slow * 1000)}
 
 
@@ -337,10 +311,10 @@ async def exercise():
         )
         observed = {}
         try:
-            required = {"http:mixed-http", "http3:mixed-http", "tcp:mixed-tcp", "udp:mixed-udp"}
+            required = {"http:mixed-http", "tcp:mixed-tcp", "udp:mixed-udp"}
             await wait_until(
                 lambda ev: required <= {e["group"] for e in ev if e.get("type") == "worker_ready"},
-                process, events_file, "all four genuine native workers", 20,
+                process, events_file, "all three genuine native workers", 20,
             )
             observed["initial"] = await complete_wave(tls_port, tcp_port, udp_port, process.pid)
 
@@ -362,7 +336,7 @@ async def exercise():
                 raise RuntimeError("No native restart/backoff event after SIGKILL")
 
             # A real H2 workload is in flight when the signal bridge starts
-            # the rolling reload; other four protocols run concurrently.
+            # the rolling reload; other three protocols run concurrently.
             during_reload = asyncio.create_task(
                 complete_wave(tls_port, tcp_port, udp_port, process.pid)
             )
@@ -376,47 +350,42 @@ async def exercise():
             observed["after_reload"] = await complete_wave(tls_port, tcp_port, udp_port, process.pid)
             events = await wait_until(
                 lambda ev: any(e.get("type") == "manual_recycle_requested" for e in ev),
-                process, events_file, "manual coordinated H1/H2/H3 recycle", 10,
+                process, events_file, "manual H1/H2 recycle", 10,
             )
             if not any(e.get("type") == "manual_recycle_requested" and e.get("accepted") for e in events):
-                raise RuntimeError("Native HTTP + QUIC manual recycle was not accepted.")
+                raise RuntimeError("Native HTTP manual recycle was not accepted.")
             await wait_until(
                 lambda ev: len([e for e in ev if e.get("type") == "worker_ready"
-                                and e.get("group") == "http:mixed-http"]) >= 4
-                           and len([e for e in ev if e.get("type") == "worker_ready"
-                                    and e.get("group") == "http3:mixed-http"]) >= 3,
+                                and e.get("group") == "http:mixed-http"]) >= 4,
                 process, events_file, "manual recycle replacement generations", 25,
             )
             observed["after_manual_recycle"] = await complete_wave(tls_port, tcp_port, udp_port, process.pid)
 
             # Stop only after the H2 server has sent response headers for all
-            # eight independently admitted streams and H3 siblings have
-            # begun transmission. Client-side submission alone is not proof
+            # eight independently admitted streams. Client-side submission alone is not proof
             # of server admission and would make shutdown acceptance invalid. Do not treat merely opening sockets as
             # evidence that an active request survived native shutdown.
-            h2_submitted, h3_submitted = asyncio.Event(), asyncio.Event()
+            h2_submitted = asyncio.Event()
             during_stop = asyncio.create_task(complete_wave(
                 tls_port, tcp_port, udp_port, process.pid,
-                h2_slow=0.25, h2_submitted=h2_submitted, h3_submitted=h3_submitted,
+                h2_slow=0.25, h2_submitted=h2_submitted,
             ))
             await asyncio.wait_for(
-                asyncio.gather(h2_submitted.wait(), h3_submitted.wait()), timeout=5,
+                h2_submitted.wait(), timeout=5,
             )
             process.send_signal(signal.SIGTERM)
             observed["during_stop"] = await during_stop
             await asyncio.wait_for(asyncio.to_thread(process.wait), timeout=7)
             return {
                 "correctness_passed": True,
-                "independent_live_clients": ["tls-http1", "tls-h2", "quic-h3", "framed-tcp", "udp"],
+                "independent_live_clients": ["tls-http1", "tls-h2", "framed-tcp", "udp"],
                 "events": {event: sum(e.get("type") == event for e in event_log(events_file))
                            for event in ("worker_ready", "worker_restart_scheduled",
                                          "reload_started", "reload_completed",
                                          "worker_recycle_started", "manual_recycle_requested")},
                 "waves": observed,
                 "simultaneous_h2_streams_per_wave": 8,
-                "simultaneous_h3_streams_per_wave": 8,
                 "cancelled_h2_streams_per_wave": 1,
-                "cancelled_h3_streams_per_wave": 1,
                 "slow_receiver_delay_ms": 20,
                 "release_performance_certified": False,
             }

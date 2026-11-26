@@ -25,14 +25,6 @@ it('fails closed before any H1 outbound dial when an ALPN or fallback policy exc
             ProtocolVersion::HTTP_2,
             [ProtocolVersion::HTTP_2, ProtocolVersion::HTTP_1_1],
         )),
-        new ClientRequest('GET', 'https://localhost/', protocol: new ClientProtocolPolicy(
-            ProtocolVersion::HTTP_3,
-            [ProtocolVersion::HTTP_3],
-        )),
-        new ClientRequest('GET', 'HTTPS://localhost/', protocol: new ClientProtocolPolicy(
-            ProtocolVersion::HTTP_3,
-            [ProtocolVersion::HTTP_3, ProtocolVersion::HTTP_1_1],
-        )),
     ];
     try {
         foreach ($requests as $request) {
@@ -98,8 +90,8 @@ it('fails closed before any H1 outbound dial when an ALPN or fallback policy exc
         ->and($loop->diagnostics()->timersActive)->toBe(0);
 });
 
-it('never reclassifies verified TLS as plaintext under 48 explicit H1/H2/H3 permutations', function (): void {
-    $versions = [ProtocolVersion::HTTP_1_1, ProtocolVersion::HTTP_2, ProtocolVersion::HTTP_3];
+it('never reclassifies verified TLS as plaintext under 32 explicit H1/H2 and unsupported ALPN permutations', function (): void {
+    $versions = [ProtocolVersion::HTTP_1_1, ProtocolVersion::HTTP_2];
     $accepted = 0;
     $rejected = 0;
     foreach ($versions as $preferred) {
@@ -108,11 +100,10 @@ it('never reclassifies verified TLS as plaintext under 48 explicit H1/H2/H3 perm
                 foreach (['http/1.1', 'h2', 'h3', 'unexpected'] as $alpn) {
                     $policy = new ClientProtocolPolicy($preferred, $versions, $allowFallback, $allowPlaintext);
                     try {
-                        $result = $policy->negotiate($alpn, true, $alpn === 'h3');
+                        $result = $policy->negotiate($alpn, true);
                         expect($result)->toBe(match ($alpn) {
                             'http/1.1' => ProtocolVersion::HTTP_1_1,
                             'h2' => ProtocolVersion::HTTP_2,
-                            'h3' => ProtocolVersion::HTTP_3,
                             default => throw new \RuntimeException('Unexpected ALPN was negotiated rather than rejected.'),
                         });
                         expect($allowFallback || $preferred === $result)->toBeTrue();
@@ -124,7 +115,7 @@ it('never reclassifies verified TLS as plaintext under 48 explicit H1/H2/H3 perm
             }
         }
     }
-    expect($accepted + $rejected)->toBe(48)
+    expect($accepted + $rejected)->toBe(32)
         ->and($accepted)->toBeGreaterThan(0)
         ->and($rejected)->toBeGreaterThan(0);
     $strict = new ClientProtocolPolicy(
@@ -133,5 +124,5 @@ it('never reclassifies verified TLS as plaintext under 48 explicit H1/H2/H3 perm
         allowPlaintext: true,
     );
     expect(fn() => $strict->negotiate('http/1.1', false))->toThrow(RuntimeUnavailableException::class)
-        ->and(fn() => $strict->negotiate(null, false, true))->toThrow(RuntimeUnavailableException::class);
+        ->and(fn() => $strict->negotiate('h3', false))->toThrow(RuntimeUnavailableException::class);
 });

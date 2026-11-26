@@ -8,6 +8,7 @@ use Closure;
 use Infocyph\Runwire\Http\Client\ClientRequest;
 use Infocyph\Runwire\Http\Enum\ProtocolVersion;
 use Infocyph\Runwire\Http\Headers;
+use Infocyph\Runwire\Http\Http2\Enum\ErrorCode;
 use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
@@ -72,14 +73,11 @@ final class Http2ClientSession
         if (!$this->started || $this->response->done()) {
             throw new RuntimeException('HTTP/2 session is not accepting frames.');
         }
-        if ($frame->streamId === 0) {
+        if ($frame->streamId === 0 || $frame->knownType() === FrameType::SETTINGS) {
             return $this->control($frame);
         }
         if (!$this->dispatched || $frame->streamId !== 1) {
             throw new RuntimeException('HTTP/2 response arrived on an unexpected stream.');
-        }
-        if ($this->request->method === 'HEAD' && $frame->knownType() === FrameType::DATA && $frame->payload !== '') {
-            throw new RuntimeException('HTTP/2 HEAD response must not contain body bytes.');
         }
         $this->response->push($frame, $this->headersCallback, $this->bodyCallback);
 
@@ -111,7 +109,9 @@ final class Http2ClientSession
     private function control(Frame $frame): string
     {
         $wire = $this->handshake->receive($frame);
-        if (!$this->handshake->ready() && !$this->response->done()) {
+        if (!$this->handshake->ready() && !$this->response->done()
+            && (!$this->dispatched || ($this->handshake->peerGoAwayLastStreamId() ?? 0) < 1
+                || $this->handshake->peerGoAwayErrorCode() !== ErrorCode::NO_ERROR->value)) {
             throw new RuntimeException('HTTP/2 peer closed or rejected the session before END_STREAM.');
         }
         if ($this->dispatched) {

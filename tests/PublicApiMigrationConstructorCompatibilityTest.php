@@ -3,16 +3,14 @@
 declare(strict_types=1);
 
 use Infocyph\Runwire\Http\Http2\Internal\ResponseScheduler;
-use Infocyph\Runwire\Http\Http3\Quic\PhpQuicHttp3Worker;
 use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\TlsOptions;
 use Infocyph\Runwire\WebSocket\Internal\WebSocketFrameParser;
 use Infocyph\Runwire\WebSocket\WebSocketSession;
 
-it('preserves all six reviewed 2.1.2 constructor required-arity contracts', function (): void {
+it('preserves all five retained reviewed 2.1.2 constructor required-arity contracts', function (): void {
     $approved = [
         ResponseScheduler::class => [9, 10, 'outboundDataCredit', null],
-        PhpQuicHttp3Worker::class => [4, 10, 'connectionFailureObserver', null],
         Connection::class => [2, 12, 'strictTlsPeerEof', false],
         TlsOptions::class => [1, 8, 'requireClientCertificate', false],
         WebSocketFrameParser::class => [1, 3, 'expectMasked', true],

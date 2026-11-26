@@ -15,7 +15,6 @@ use Infocyph\Runwire\Network\Connection;
 use Infocyph\Runwire\Network\Dialer;
 use Infocyph\Runwire\Network\HappyEyeballsDialer;
 use Infocyph\Runwire\Network\Internal\ByteBudget;
-use Infocyph\Runwire\Network\QuicClientSession;
 use Infocyph\Runwire\Runtime\AdmissionPolicy;
 use Infocyph\Runwire\Runtime\Internal\WorkerRecycleState;
 use Infocyph\Runwire\Supervisor\Enum\ShutdownReason;
@@ -65,9 +64,6 @@ final class WorkerContext
 
     /** @var array<int, BoundedConnectionPool> */
     private array $ownedPools = [];
-
-    /** @var array<int, QuicClientSession> */
-    private array $ownedQuicSessions = [];
 
     private bool $ready = false;
 
@@ -380,19 +376,6 @@ final class WorkerContext
     }
 
     /**
-     * Explicitly transfer a native QUIC session's shutdown to this worker.
-     * @throws \LogicException
-     */
-    public function ownQuicSession(QuicClientSession $session): void
-    {
-        if ($this->stopping) {
-            throw new LogicException('Stopping workers cannot accept QUIC session ownership.');
-        }
-
-        $this->ownedQuicSessions[spl_object_id($session)] = $session;
-    }
-
-    /**
      * Return the highest observed worker memory usage.
      */
     public function peakMemoryBytes(): int
@@ -659,14 +642,12 @@ final class WorkerContext
         $dialers = $this->ownedDialers;
         $happyDialers = $this->ownedHappyDialers;
         $pools = $this->ownedPools;
-        $sessions = $this->ownedQuicSessions;
         $this->ownedPools = [];
         $this->ownedConnections = [];
         $this->ownedDialers = [];
         $this->ownedHappyDialers = [];
-        $this->ownedQuicSessions = [];
 
-        WorkerOwnedResourceCleanup::network($happyDialers, $dialers, $connections, $pools, $sessions);
+        WorkerOwnedResourceCleanup::network($happyDialers, $dialers, $connections, $pools);
     }
 
     private function readControl(): ?ShutdownReason

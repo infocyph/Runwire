@@ -1,6 +1,12 @@
 Migrating from Runwire 2.1.2 to 3.0
 ===================================
 
+.. note::
+
+   This page records the historical 2.1.2 to 3.0 migration. For 4.0,
+   :doc:`upgrade-4.0` supersedes native HTTP/3 and QUIC references.
+   Historical protocol-specific tests are not part of the 4.0 suite.
+
 This guide explains API, error and lifecycle differences when upgrading
 applications from Runwire 2.1.2 to 3.0. Source-signature equality alone
 cannot guarantee identical runtime behavior.

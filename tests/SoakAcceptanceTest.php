@@ -7,12 +7,6 @@ use Infocyph\Runwire\Http\Headers;
 use Infocyph\Runwire\Http\Http1\Http1Connection;
 use Infocyph\Runwire\Http\Http1\Http1Limits;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
-use Infocyph\Runwire\Http\Http3\Enum\FrameType as Http3FrameType;
-use Infocyph\Runwire\Http\Http3\Frame as Http3Frame;
-use Infocyph\Runwire\Http\Http3\Http3Limits;
-use Infocyph\Runwire\Http\Http3\Internal\ConnectionState as Http3ConnectionState;
-use Infocyph\Runwire\Http\Http3\Qpack\Decoder as QpackDecoder;
-use Infocyph\Runwire\Http\Http3\Qpack\Encoder as QpackEncoder;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\Internal\BufferedRequestBody;
 use Infocyph\Runwire\Http\Internal\CallbackResponseWriter;
@@ -160,91 +154,6 @@ function runwireSoakHttp2(int $requests): array
     ];
 }
 
-/**
- * @return array{streams: int, lastReleased: bool}
- * @throws \InvalidArgumentException
- * @throws \LogicException
- * @throws \Throwable
- */
-function runwireSoakHttp3State(int $requests): array
-{
-    $limits = new Http3Limits(
-        maxConcurrentRequestStreams: 16,
-        maxRequestStreamsPerConnection: $requests + 16,
-    );
-    $state = new Http3ConnectionState($limits);
-    $encoder = new QpackEncoder(0, 0);
-    $lastStreamId = 0;
-
-    for ($index = 0; $index < $requests; ++$index) {
-        $streamId = $index * 4;
-        $lastStreamId = $streamId;
-        $headers = $encoder->encode([
-            [':method', 'GET'],
-            [':scheme', 'https'],
-            [':authority', 'example.test'],
-            [':path', '/soak/' . $index],
-        ], $streamId)->block;
-        $state->pushRequestStream(
-            $streamId,
-            new Http3Frame(Http3FrameType::HEADERS->value, $headers)->encode(),
-        );
-        $state->finishRequestStream($streamId);
-        $state->releaseRequestStream($streamId);
-    }
-
-    return [
-        'streams' => $requests,
-        'lastReleased' => $state->requestStream($lastStreamId) === null,
-    ];
-}
-
-/**
- * @return array{sections: int, knownReceived: int}
- * @throws \InvalidArgumentException
- * @throws \LogicException
- * @throws \Infocyph\Runwire\Http\Http3\Http3Exception
- * @throws \Throwable
- */
-function runwireSoakQpack(int $sections): array
-{
-    $encoder = new QpackEncoder(512, 8, dynamicTableCapacity: 512);
-    $decoder = new QpackDecoder(512, 8, maxBlockedBytes: 8_192);
-    $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
-
-    for ($index = 0; $index < $sections; ++$index) {
-        $streamId = $index * 4;
-        $expected = [
-            [':authority', 'example.test'],
-            ['x-soak', 'value-' . $index],
-        ];
-        $encoded = $encoder->encode($expected, $streamId);
-        $decoded = $decoder->decode($encoded->block, $streamId);
-        $ready = $decoder->pushEncoderInstructions($encoder->takeEncoderInstructions());
-
-        if ($decoded === null) {
-            if (count($ready) !== 1 || $ready[0]->streamId !== $streamId) {
-                throw new RuntimeException('QPACK soak section did not unblock deterministically.');
-            }
-            $decoded = $ready[0]->section;
-        }
-
-        if ($decoded->fields !== $expected) {
-            throw new RuntimeException('QPACK soak section changed application-visible fields.');
-        }
-
-        $decoderInstructions = $decoder->takeDecoderInstructions();
-        if ($decoderInstructions !== '') {
-            $encoder->pushDecoderInstructions($decoderInstructions);
-        }
-    }
-
-    return [
-        'sections' => $sections,
-        'knownReceived' => $encoder->knownReceivedCount(),
-    ];
-}
-
 it('keeps protocol and request-scope state bounded under deterministic churn', function (): void {
     $warmup = runwireSoakSnapshot();
     expect($warmup['memory'])->toBeGreaterThan(0);
@@ -252,8 +161,6 @@ it('keeps protocol and request-scope state bounded under deterministic churn', f
 
     $http1 = runwireSoakHttp1(128);
     $http2 = runwireSoakHttp2(128);
-    $http3 = runwireSoakHttp3State(256);
-    $qpack = runwireSoakQpack(192);
 
     $requestState = new class { public ?string $target = null; };
     $cleanups = 0;
@@ -282,9 +189,6 @@ it('keeps protocol and request-scope state bounded under deterministic churn', f
 
     expect($http1)->toBe(['requests' => 128, 'responses' => 128])
         ->and($http2)->toBe(['requests' => 128, 'active' => 0])
-        ->and($http3)->toBe(['streams' => 256, 'lastReleased' => true])
-        ->and($qpack['sections'])->toBe(192)
-        ->and($qpack['knownReceived'])->toBeGreaterThan(0)
         ->and($cleanups)->toBe(512)
         ->and($requestState->target)->toBeNull()
         ->and($after['resources'] - $before['resources'])->toBeLessThanOrEqual(4)

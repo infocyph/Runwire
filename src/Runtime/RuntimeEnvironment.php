@@ -31,7 +31,6 @@ final readonly class RuntimeEnvironment
         public bool $supportsSignals = false,
         public bool $supportsPosix = false,
         public bool $supportsOpenSsl = false,
-        public bool $supportsQuic = false,
         public bool $frankenPhpWorkerMode = false,
         public bool $opcacheAvailable = false,
         public bool $opcacheEnabled = false,

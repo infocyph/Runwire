@@ -11,9 +11,10 @@ it('is immutable and defaults unsupported capabilities to false', function (): v
     expect($capabilities->driver)->toBe(RuntimeDriver::NATIVE)
         ->and($capabilities->supportsFork)->toBeFalse()
         ->and($capabilities->supportsHttp2)->toBeFalse()
-        ->and($capabilities->supportsQuic)->toBeFalse()
-        ->and($capabilities->ownsHttp3Wire)->toBeFalse()
-        ->and($capabilities->toArray()['driver'])->toBe('native');
+        ->and($capabilities->toArray()['driver'])->toBe('native')
+        ->and($capabilities->toArray())->not->toHaveKey('supports_quic')
+        ->and($capabilities->toArray())->not->toHaveKey('supports_http3')
+        ->and($capabilities->toArray())->not->toHaveKey('owns_http3_wire');
 });
 
 it('reports explicitly enabled capabilities', function (): void {

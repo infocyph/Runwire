@@ -108,32 +108,6 @@ final class PortableNativeRuntime
     /**
      * @throws \RuntimeException
      * @throws \Throwable
-     * @throws \LogicException
-     * @throws \InvalidArgumentException
-     */
-    private function attachHttp3(string $name, BoundServer $target): void
-    {
-        if ($target->definition->http3 === null || !$this->selection->capabilities->supportsQuic) {
-            return;
-        }
-
-        $context = $this->newContext('http3:' . $name, WorkerRole::HTTP);
-        $runtimeContext = $this->runtimeContext($context);
-        $this->handles[] = NativeHttp3Worker::attach(
-            $this->requiredLoop(),
-            $context,
-            $target->definition,
-            $target->listener->address(),
-            $runtimeContext,
-            $this->options->requestExecution,
-            $this->options->applicationLifecycle,
-            $this->options->diagnostics,
-        );
-    }
-
-    /**
-     * @throws \RuntimeException
-     * @throws \Throwable
      */
     private function attachTarget(
         string $name,
@@ -156,10 +130,6 @@ final class PortableNativeRuntime
             $target instanceof BoundStreamServer => NativeStreamWorker::attach($loop, $context, $target),
             $target instanceof BoundDatagramServer => NativeDatagramWorker::attach($loop, $context, $target),
         };
-
-        if ($target instanceof BoundServer) {
-            $this->attachHttp3($name, $target);
-        }
     }
 
     private function cancelDrainTimers(): void

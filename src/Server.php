@@ -7,7 +7,6 @@ namespace Infocyph\Runwire;
 use Closure;
 use Infocyph\Runwire\Http\Http1\Http1Limits;
 use Infocyph\Runwire\Http\Http2\Http2Limits;
-use Infocyph\Runwire\Http\Http3\Http3Options;
 use Infocyph\Runwire\Http\HttpRequest;
 use Infocyph\Runwire\Http\ResponseWriterInterface;
 use Infocyph\Runwire\Loop\LoopInterface;
@@ -55,7 +54,6 @@ final readonly class Server
         public ?TlsOptions $tls = null,
         public Http1Limits $http1 = new Http1Limits(),
         public Http2Limits $http2 = new Http2Limits(),
-        public ?Http3Options $http3 = null,
         public float $workerReadyTimeoutSeconds = 10.0,
         public float $workerShutdownTimeoutSeconds = 30.0,
         ?callable $workerHandlerFactory = null,
@@ -72,9 +70,6 @@ final readonly class Server
         }
         if ($workerConnectionLimit < 1 || $workerConnectionLimit > 1_000_000) {
             throw new InvalidArgumentException('Worker connection limit must be between 1 and 1000000.');
-        }
-        if ($http3 !== null && $tls === null) {
-            throw new InvalidArgumentException('HTTP/3 requires TLS certificate configuration.');
         }
         if ($workerHandlerFactory !== null && $applicationFactory !== null) {
             throw new InvalidArgumentException('Worker handler factory and runtime application factory are mutually exclusive.');
@@ -201,35 +196,9 @@ final readonly class Server
             $this->tls,
             $this->http1,
             $this->http2,
-            $this->http3,
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             applicationFactory: $factory,
-        );
-    }
-
-    /**
-     * Return a copy with HTTP/3 enabled, replaced, or disabled.
-     * @throws \InvalidArgumentException
-     */
-    public function withHttp3(?Http3Options $http3 = new Http3Options()): self
-    {
-        return new self(
-            $this->name,
-            $this->address,
-            $this->handler,
-            $this->workers,
-            $this->workerConnectionLimit,
-            $this->listener,
-            $this->connection,
-            $this->tls,
-            $this->http1,
-            $this->http2,
-            $http3,
-            $this->workerReadyTimeoutSeconds,
-            $this->workerShutdownTimeoutSeconds,
-            $this->workerHandlerFactory,
-            $this->applicationFactory,
         );
     }
 
@@ -250,7 +219,6 @@ final readonly class Server
             $tls,
             $this->http1,
             $this->http2,
-            $this->http3,
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $this->workerHandlerFactory,
@@ -275,7 +243,6 @@ final readonly class Server
             $this->tls,
             $this->http1,
             $this->http2,
-            $this->http3,
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $this->workerHandlerFactory,
@@ -302,7 +269,6 @@ final readonly class Server
             $this->tls,
             $this->http1,
             $this->http2,
-            $this->http3,
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $factory,
@@ -326,7 +292,6 @@ final readonly class Server
             $this->tls,
             $this->http1,
             $this->http2,
-            $this->http3,
             $this->workerReadyTimeoutSeconds,
             $this->workerShutdownTimeoutSeconds,
             $this->workerHandlerFactory,

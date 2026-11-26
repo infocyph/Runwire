@@ -32,8 +32,8 @@ not connection attempts or client-side writes.
      - Tracing on/off comparison with same controlled workload
      - Assumption that logging is free
    * - Protocol overhead
-     - Separate H1 plaintext/TLS, H2 HPACK and H3 QPACK/QUIC hot paths
-     - A synthetic H1-backed H3 result
+     - Separate H1 plaintext/TLS and H2 HPACK hot paths
+     - A synthetic result without the measured protocol
    * - Slow peers and resets
      - Mixed slow receiver, reset/cancel and recycle correctness
      - A handshake that merely succeeds
@@ -41,7 +41,7 @@ not connection attempts or client-side writes.
      - Sequential/overlapped outbound and valid connection-pool benefit
      - An in-memory mock connector
    * - Independent protocol peers
-     - Independent real H1/H2/H3 and supported WebSocket client/server peers
+     - Independent real H1/H2 and supported WebSocket client/server peers
      - Only a client or a fake protocol
    * - File/network fairness
      - Process file I/O + socket + autoscale interleaving and loop fairness
@@ -75,16 +75,13 @@ The repository provides real protocol diagnostic runners:
 .. code-block:: console
 
    bash benchmarks/adaptive_http12_certify.sh 5 benchmark-results/adaptive-http12
-   bash benchmarks/adaptive_http3_certify.sh 5 benchmark-results/adaptive-http3
 
 The value `5` above is a **five-second phase** for short diagnostics,
-not a full matched comparison. HTTP/3 requires a functional native
-QUIC extension and independent aioquic reference client. A skipped
-H3 test on an incapable host does not certify H3.
+not a full matched comparison. Retained protocol qualification uses independent peers.
 
 For simultaneous protocol shutdown/cancellation, inspect and run
 `benchmarks/mixed_native_lifecycle.py` in its provisioned native
-interop CI environment. It checks independent H1/H2/H3/TCP/UDP peers
+interop CI environment. It checks independent H1/H2/TCP/UDP peers
 and accepted stream bodies, not a fake packet echo.
 
 Outbound and filesystem mixed work
@@ -143,7 +140,7 @@ correctness/variance/budget gate exits nonzero.
 Do **not** substitute diagnostic 5-second scripts, a shared saturated
 client/server CPU, a baseline from the wrong package revision or an
 incomplete trial. The current runner covers its **specified H1
-baseline workload**; additional H1/TLS, H2, H3 and WebSocket real
+baseline workload**; additional H1/TLS, H2 and WebSocket real
 counterpart profile cells remain independent U15 gates. A successful
 An H1 matched run does not qualify every protocol.
 
@@ -177,8 +174,7 @@ A stable parent heap is insufficient when child processes leak.
 After termination, check for zero stale worker PIDs and watchers.
 
 Accept only when all mandatory workloads have complete results and
-no unbounded resource growth or data loss. When a capability such
-as native QUIC is unavailable, mark that cell **not certified**;
+no unbounded resource growth or data loss. When a retained capability is unavailable, mark that cell **not certified**;
 do not invent fallback performance.
 
 Reproducibility record
@@ -189,7 +185,7 @@ Reproducibility record
    experiment id and UTC time
    baseline SHA / candidate SHA
    server PHP binary and configuration
-   loaded extensions and QUIC backend
+   loaded extensions
    OS/kernel/CPU/memory/cgroup limits
    generator version, location and spare headroom
    protocol, ALPN, payloads, concurrency and sample duration

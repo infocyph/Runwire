@@ -172,7 +172,7 @@ Worker-owned background resources
 ---------------------------------
 
 `WorkerContext` exposes explicit ownership methods for connections,
-dialers, DNS/Happy Eyeballs dialers, pools, QUIC sessions and process
+dialers, DNS/Happy Eyeballs dialers, pools,  process
 executors. It also offers `every()` for periodic tasks and
 `spawnBackground()` for worker-owned coroutines.
 

@@ -54,9 +54,11 @@ try {
             $previousTempPath = $path;
             $file = null;
             $pair = null;
+            $socketClean = false;
             $pool = null;
             $poolConnection = null;
-            $poolPair = null;
+            $poolSocket = null;
+            $poolPeer = null;
             $poolLoop = null;
 
             try {
@@ -81,8 +83,9 @@ try {
                 if (!is_array($poolPair) || count($poolPair) !== 2) {
                     throw new RuntimeException('RoadRunner pooled socket-pair is unavailable.');
                 }
+                [$poolSocket, $poolPeer] = $poolPair;
                 $poolLoop = new SelectLoop();
-                $poolConnection = new Connection($poolLoop, $poolPair[0]);
+                $poolConnection = new Connection($poolLoop, $poolSocket);
                 $pool = new IdleConnectionPool($poolLoop, maxIdle: 1, idleTtlSeconds: 1.0);
                 $poolKey = new PoolIsolationKey(
                     DialEndpoint::parse('unix:///tmp/runwire-rr-scoped-pool.sock'),
@@ -96,12 +99,11 @@ try {
                 $pool?->close();
                 $poolClosed = $poolConnection?->state() === ConnectionState::CLOSED;
                 $poolConnection?->abort();
-                if (is_array($poolPair)) {
-                    foreach ($poolPair as $poolStream) {
-                        if (get_resource_type($poolStream) !== 'Unknown') {
-                            fclose($poolStream);
-                        }
-                    }
+                if ($poolConnection === null && $poolSocket !== null) {
+                    fclose($poolSocket);
+                }
+                if ($poolPeer !== null) {
+                    fclose($poolPeer);
                 }
                 $poolWatchersClean = $poolLoop === null || (
                     $poolLoop->diagnostics()->readWatchers === 0
@@ -112,20 +114,15 @@ try {
                     fclose($file);
                 }
                 if (is_array($pair)) {
-                    foreach ($pair as $stream) {
-                        if (get_resource_type($stream) !== 'Unknown') {
-                            fclose($stream);
-                        }
-                    }
+                    $socketClean = fclose($pair[0]);
+                    $socketClean = fclose($pair[1]) && $socketClean;
                 }
                 if (is_file($path)) {
                     unlink($path);
                 }
             }
             clearstatcache(true, $path);
-            $fileClean = get_resource_type($file) === 'Unknown' && !is_file($path);
-            $socketClean = get_resource_type($pair[0]) === 'Unknown'
-                && get_resource_type($pair[1]) === 'Unknown';
+            $fileClean = gettype($file) === 'resource (closed)' && !is_file($path);
             $afterFds = roadRunnerFixtureFdCount();
             $fdStable = $afterFds <= $beforeFds;
             $lastRequestFds = $afterFds;

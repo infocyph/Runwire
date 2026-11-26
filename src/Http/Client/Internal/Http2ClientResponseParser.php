@@ -56,6 +56,26 @@ final class Http2ClientResponseParser
         $this->decoder = $sharedDecoder ?? new Decoder(maxHeaderListBytes: $maxHeaderBlockBytes);
     }
 
+    /**
+     * Decode in-flight header blocks after a local reset without publishing a response.
+     * HPACK state remains connection-owned even after stream callbacks are released.
+     * @throws \RuntimeException
+     * @throws \InvalidArgumentException
+     */
+    public function discardHeaders(Frame $frame): bool
+    {
+        if ($this->done || $frame->streamId !== $this->streamId) {
+            throw new RuntimeException('Unexpected terminal or foreign retired HTTP/2 stream.');
+        }
+        match ($frame->knownType()) {
+            FrameType::HEADERS => $this->headers($frame, null),
+            FrameType::CONTINUATION => $this->continuation($frame, null),
+            default => throw new RuntimeException('Expected a retired HTTP/2 header frame.'),
+        };
+
+        return $this->done;
+    }
+
     /** Response ownership terminates only after validated END_STREAM. */
     public function done(): bool
     {
@@ -112,14 +132,19 @@ final class Http2ClientResponseParser
     }
 
     /**
-     * @param callable(int,Headers):void $onHeaders
+     * @param (callable(int,Headers):void)|null $onHeaders
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
      */
-    private function completeHeaders(callable $onHeaders): void
+    private function completeHeaders(?callable $onHeaders): void
     {
         $pairs = $this->decoder->decode($this->headerBlock);
         $this->headerBlock = '';
+        if ($onHeaders === null) {
+            $this->done = $this->endStreamOnHeaders;
+
+            return;
+        }
         $status = null;
         $normal = [];
         $regularSeen = false;
@@ -178,11 +203,11 @@ final class Http2ClientResponseParser
     }
 
     /**
-     * @param callable(int,Headers):void $onHeaders
+     * @param (callable(int,Headers):void)|null $onHeaders
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
      */
-    private function continuation(Frame $frame, callable $onHeaders): void
+    private function continuation(Frame $frame, ?callable $onHeaders): void
     {
         if (!$this->awaitingContinuation || ($frame->flags & ~0x4) !== 0) {
             throw new RuntimeException('HTTP/2 orphan CONTINUATION or invalid flags.');
@@ -204,6 +229,9 @@ final class Http2ClientResponseParser
             throw new RuntimeException('HTTP/2 DATA requires complete headers and supported flags.');
         }
         $bytes = strlen($frame->payload);
+        if ($this->headRequest && $bytes > 0) {
+            throw new RuntimeException('HTTP/2 HEAD response must not contain body bytes.');
+        }
         if ($bytes > $this->maxBodyBytes - $this->bodyBytes) {
             throw new RuntimeException('HTTP/2 response body exceeds configured memory limit.');
         }
@@ -223,13 +251,13 @@ final class Http2ClientResponseParser
     }
 
     /**
-     * @param callable(int,Headers):void $onHeaders
+     * @param (callable(int,Headers):void)|null $onHeaders
      * @throws \RuntimeException
      * @throws \InvalidArgumentException
      */
-    private function headers(Frame $frame, callable $onHeaders): void
+    private function headers(Frame $frame, ?callable $onHeaders): void
     {
-        if ($this->headersSeen || $this->awaitingContinuation || ($frame->flags & ~0x5) !== 0) {
+        if (($onHeaders !== null && $this->headersSeen) || $this->awaitingContinuation || ($frame->flags & ~0x5) !== 0) {
             throw new RuntimeException('HTTP/2 duplicate HEADERS or unsupported flags.');
         }
         $this->endStreamOnHeaders = $frame->hasFlag(0x1);
