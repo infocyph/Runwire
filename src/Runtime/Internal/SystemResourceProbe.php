@@ -74,6 +74,11 @@ final readonly class SystemResourceProbe
         );
     }
 
+    private static function isDecimal(string $value): bool
+    {
+        return $value !== '' && strspn($value, '0123456789') === strlen($value);
+    }
+
     private static function parseCpuSet(string $value): ?int
     {
         $count = 0;
@@ -132,12 +137,12 @@ final readonly class SystemResourceProbe
     private function cgroupMemoryBytes(): ?int
     {
         $v2 = $this->read('/sys/fs/cgroup/memory.max');
-        if ($v2 !== null && $v2 !== 'max' && ctype_digit($v2)) {
+        if ($v2 !== null && self::isDecimal($v2)) {
             return self::reasonableMemoryLimit((int) $v2);
         }
 
         $v1 = $this->read('/sys/fs/cgroup/memory/memory.limit_in_bytes');
-        if ($v1 !== null && ctype_digit($v1)) {
+        if ($v1 !== null && self::isDecimal($v1)) {
             return self::reasonableMemoryLimit((int) $v1);
         }
 
@@ -179,7 +184,7 @@ final readonly class SystemResourceProbe
         }
 
         $windows = getenv('NUMBER_OF_PROCESSORS');
-        if (is_string($windows) && ctype_digit($windows) && (int) $windows > 0) {
+        if (is_string($windows) && self::isDecimal($windows) && (int) $windows > 0) {
             return (int) $windows;
         }
 
@@ -209,9 +214,8 @@ final readonly class SystemResourceProbe
             if (
                 is_array($parts)
                 && count($parts) >= 2
-                && $parts[0] !== 'max'
-                && ctype_digit($parts[0])
-                && ctype_digit($parts[1])
+                && self::isDecimal($parts[0])
+                && self::isDecimal($parts[1])
             ) {
                 return self::quotaToCpuCount((int) $parts[0], (int) $parts[1]);
             }
@@ -223,7 +227,7 @@ final readonly class SystemResourceProbe
             $quota !== null
             && $period !== null
             && preg_match('/^-?\d+$/D', $quota) === 1
-            && ctype_digit($period)
+            && self::isDecimal($period)
         ) {
             return self::quotaToCpuCount((int) $quota, (int) $period);
         }

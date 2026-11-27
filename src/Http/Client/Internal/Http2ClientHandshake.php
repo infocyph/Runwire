@@ -13,6 +13,8 @@ use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
 use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use Infocyph\Runwire\Http\Http2\PeerSettings;
+use Infocyph\Runwire\Http\Internal\AuthorityValidator;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -206,6 +208,7 @@ final class Http2ClientHandshake
 
     /**
      * @return list<array{0:string,1:string}>
+     * @throws \InvalidArgumentException
      * @throws \RuntimeException
      */
     private function requestHeaders(string $method, string $scheme, string $authority, string $path, ?Headers $headers): array
@@ -216,9 +219,18 @@ final class Http2ClientHandshake
             [':authority', $authority],
             [':path', $path],
         ];
+        $normalizedAuthority = null;
         foreach ($headers?->fields() ?? [] as $field) {
+            if ($field->name === 'host') {
+                $normalizedAuthority ??= AuthorityValidator::normalize($authority, $scheme);
+                if (AuthorityValidator::normalize(trim($field->value, " \t"), $scheme) !== $normalizedAuthority) {
+                    throw new InvalidArgumentException('HTTP/2 Host header must match the verified request authority.');
+                }
+
+                continue;
+            }
             if (in_array($field->name, [
-                'host', 'connection', 'keep-alive', 'proxy-connection',
+                'connection', 'keep-alive', 'proxy-connection',
                 'transfer-encoding', 'upgrade', 'te',
             ], true)) {
                 throw new RuntimeException('HTTP/2 request has forbidden connection-specific headers.');

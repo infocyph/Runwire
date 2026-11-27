@@ -57,7 +57,7 @@ Honor HTTP keep-alive only when parser and response framing are complete.
 Never reuse a connection with unread bytes, ambiguous length, incomplete
 trailers or an unexpected protocol upgrade.
 
-In the 3.0 tree, HTTP/1.1 connection and parser coverage is available
+HTTP/1.1 connection and parser coverage is available
 through:
 
 .. code-block:: console

@@ -64,7 +64,7 @@ WebSocket status
 
 Inbound HTTP/1.1 WebSocket upgrade validates request headers, masking,
 bounded fragmentation, UTF-8, ping/pong, close and session ownership.
-Runwire 3.0 also has an **experimental** outbound
+Runwire 4.0 also has an **experimental** outbound
 ``WebSocketClient::connect()`` for ws/wss over the verified nonblocking
 Happy Eyeballs dialer. It validates an HTTP/1.1 101 response and
 subprotocol, preserves coalesced frames, and uses the same WebSocket

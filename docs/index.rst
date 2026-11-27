@@ -4,9 +4,11 @@
 Runwire developer handbook
 ===========================
 
-This handbook documents Runwire APIs, integration patterns, runtime
+This handbook documents Runwire 4.0 APIs, integration patterns, runtime
 requirements and operational limits. Use the migration guide when
-upgrading an application from an earlier version.
+upgrading an application from an earlier version. Start with :doc:`upgrade-4.0`
+for the current breaking changes. Historical 3.0 migration pages are retained
+for reference; existing chapter URLs remain stable.
 
 The handbook is written for application developers, native and
 host-owned runtime integrators, operators, performance engineers
@@ -71,8 +73,7 @@ If this is your first visit, read :doc:`start` and
    migration-3.0
    documentation-maintenance-3.0
 
-**Key capability exclusions:** WebTransport is out of scope,
-nested TLS for an HTTPS proxy plus HTTPS origin is unsupported,
+**Key capability exclusions:** Nested TLS for an HTTPS proxy plus HTTPS origin is unsupported,
 and the asynchronous filesystem implementation uses bounded
 process-worker I/O rather than qualified kernel-native AIO.
 Native HTTP/3, QUIC and WebTransport are not supported by Runwire 4.0.

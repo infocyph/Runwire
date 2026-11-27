@@ -2,7 +2,7 @@ Transport and DNS guide
 =======================
 
 Features below have different host and optional extension
-requirements. Successful unit tests do not certify a 3.0 release.
+requirements. Successful unit tests do not certify a release.
 
 Real inbound TCP, Unix and UDP
 ------------------------------
@@ -156,7 +156,7 @@ are separate terminal outcomes.
 See the coroutine-network-3.0 and host-compatibility-3.0 guides for
 ownership transfers, host matrices and remaining QA limits.
 
-Optional public-address SSRF restrictions (3.0 development)
+Optional public-address SSRF restrictions
 -----------------------------------------------------------
 
 OutboundAddressPolicy is opt-in on DialOptions(addressPolicy: ...).

@@ -134,7 +134,7 @@ For unexplained TLS failures, verify hostname, certificate chain,
 ALPN and OpenSSL availability rather than disabling peer validation.
 For incorrect host behavior, distinguish request scope from worker
 scope and native prefork mode from host-managed application workers.
-For QUIC failures, verify ext-quic/OpenSSL compatibility, the peer's
-TLS 1.3 ALPN and native datagram limitations. Record reproduction
+For public HTTP/3 failures, inspect the independent edge proxy's QUIC/TLS
+configuration and its HTTP/1.1 or HTTP/2 upstream. Record reproduction
 command, PHP version, extension versions, workload shape and the
 exact commit SHA before reporting a regression.

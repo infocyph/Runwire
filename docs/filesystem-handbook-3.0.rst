@@ -11,7 +11,7 @@ pipes and receives completion callbacks; it does not issue filesystem
 reads or writes synchronously in a network callback.
 
 No PHP native kernel-accelerated filesystem backend is currently
-qualified or advertised by Runwire 3.0. It would be incorrect to label
+qualified or advertised by Runwire 4.0. It would be incorrect to label
 the process executor as io_uring or native asynchronous disk I/O.
 Execution remains subject to host process-spawn and filesystem limits.
 

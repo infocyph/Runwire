@@ -167,7 +167,7 @@ it('preserves short-circuiting and propagates middleware exceptions', function (
 
         /** @throws \RuntimeException */
         #[\Override]
-        public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+        public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): never
         {
             $this->next = $handler;
             throw new RuntimeException('middleware failure: ' . $request->getMethod());

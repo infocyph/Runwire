@@ -55,7 +55,7 @@ Portable Select, native prefork, FPM/FrankenPHP/RoadRunner and
 Swoole/OpenSwoole host-owned runtimes have distinct ownership
 contracts. Native prefork supervision requires appropriate PCNTL
 and POSIX support. TLS requires OpenSSL;
-WebTransport is explicitly excluded from 3.0. Async file and
+Native HTTP/3, QUIC and WebTransport are excluded from 4.0. Async file and
 off-loop DNS workers require process execution capability.
 
 See :doc:`features` for the complete feature/host inventory and

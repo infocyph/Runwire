@@ -109,7 +109,7 @@ inspect the public policy and event declarations for exact signatures.
 Autoscaling is real native process scaling
 ------------------------------------------
 
-The 3.0 supervisor drives physical scale-out and scale-in, not merely
+The native supervisor drives physical scale-out and scale-in, not merely
 calculating a target. Its `SupervisorAutoscaler` internal coordinator
 samples policy metrics and can fork additional child workers or retire
 surplus slots through the parent. It rejects invalid samples rather

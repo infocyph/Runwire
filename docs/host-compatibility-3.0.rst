@@ -68,9 +68,8 @@ Native supervision, recycling and autoscaling
 
 The native supervisor uses bounded worker groups and a deliberately explicit
 lifecycle. The existing Supervisor and WorkerGroup APIs select a fixed worker
-count; the published 2.1.2 contract does not include the new 3.0 native
-CPU/queue/p99-driven automatic scaling, but 3.0 source now implements
-and supports real scale-out and graceful scale-in.
+count; the native runtime also supports CPU/queue/p99-driven automatic
+scaling with real scale-out and graceful scale-in.
 
 * RestartPolicy limits restarts in a sliding window and applies bounded
   exponential backoff. Exhaustion is terminal rather than an infinite crash loop.

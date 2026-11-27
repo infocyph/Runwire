@@ -56,7 +56,7 @@ $check = static function (bool $condition, string $message): void {
     throw new RuntimeException($message);
 };
 /** @return array{pid:int,runtime_pid:int,worker_slot:int,request_id:string} */
-$request = static function (int $port, string $path = '/probe') use ($check): array {
+$request = static function (int $port, string $path = '/probe'): array {
     $stream = fopen('http://127.0.0.1:'.$port.$path, 'r', false, stream_context_create([
         'http' => ['timeout' => 3, 'ignore_errors' => true],
     ]));
@@ -64,24 +64,26 @@ $request = static function (int $port, string $path = '/probe') use ($check): ar
         throw new RuntimeException('HTTP request failed: '.$path);
     }
     try {
-        $metadata = stream_get_meta_data($stream);
-        $headers = $metadata['wrapper_data'] ?? null;
-        $status = is_array($headers) ? ($headers[0] ?? null) : null;
-        $check(is_string($status) && preg_match('/^HTTP\/\S+ 200\b/', $status) === 1, 'Unexpected HTTP status.');
+        $headers = http_get_last_response_headers();
+        if ($headers === null || ! isset($headers[0])
+            || preg_match('/^HTTP\/\S+ 200\b/', $headers[0]) !== 1) {
+            throw new RuntimeException('Unexpected HTTP status.');
+        }
         $body = stream_get_contents($stream);
         $metadata = stream_get_meta_data($stream);
         if (! is_string($body) || !empty($metadata['timed_out'])) {
             throw new RuntimeException('Incomplete HTTP response.');
         }
-        $result = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
-        if (! is_array($result)) {
-            throw new RuntimeException('Expected a JSON response object.');
-        }
-
-        return swooleWorkerResponse($result);
     } finally {
         fclose($stream);
     }
+
+    $result = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+    if (! is_array($result)) {
+        throw new RuntimeException('Expected a JSON response object.');
+    }
+
+    return swooleWorkerResponse($result);
 };
 
 // Keep simultaneous connections open until every request is submitted. The default

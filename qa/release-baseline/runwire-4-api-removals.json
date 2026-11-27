@@ -105,6 +105,7 @@
     "Infocyph\\Runwire\\Runtime\\Internal\\AdmissionController",
     "Infocyph\\Runwire\\Runtime\\Internal\\NativeTopologyValidator",
     "Infocyph\\Runwire\\Runtime\\Internal\\PortableNativeRuntime",
+    "Infocyph\\Runwire\\Runtime\\Internal\\SystemResourceProbe",
     "Infocyph\\Runwire\\Runtime\\RuntimeCapabilityResolver",
     "Infocyph\\Runwire\\Runtime\\RuntimeEnvironment",
     "Infocyph\\Runwire\\Runtime\\RuntimeEnvironmentProbe",
