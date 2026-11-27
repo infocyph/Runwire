@@ -32,12 +32,12 @@ The project supplies workload, environment and evidence runners:
    php benchmarks/u03_dial_profile.php
    php benchmarks/soak_resource_profile.php
 
-For matched 2.1.2/3.0 comparisons use the controlled benchmark
+For matched 3.1/4.0 comparisons use the controlled benchmark
 topology and frozen baseline prepared by
 benchmarks/matched_release_certification.sh, plus the
 benchmarks/release_topology_inventory.py and
 benchmarks/soak_runtime_telemetry.php scripts. Required final gates
-are defined in the 3.0 release plan, including repeated warmed
+are defined by the release-certification workflow, including repeated warmed
 successful throughput, sample variance, latency percentiles and
 sustained process-tree resource soak.
 

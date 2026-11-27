@@ -13,7 +13,7 @@ or ``fwrite`` directly in the reactor thread. Worker count and queue length
 are explicitly configured. Invalid operations, cancellations and deadlines
 complete callbacks exactly once.
 
-The current 3.0 facade offers bounded ``read``, offset ``write``,
+The current facade offers bounded ``read``, offset ``write``,
 ``stat``, ``rename``, ``unlink`` and ``cancel``. A single binary read
 or write is limited to 1 MiB. Larger transfers must be chunked by callers.
 The facade borrows the supplied executor; callers close the executor on
@@ -52,7 +52,7 @@ Untrusted paths need an explicit filesystem access policy. A successful
 ``fflush`` does not imply durable ``fsync`` across power failure.
 
 
-Bounded file to network streaming (3.0 development)
+Bounded file to network streaming
 ========================================================
 
 The experimental Coroutine/Filesystem/ScopedFileTransfer reuses one scope-owned
@@ -74,7 +74,7 @@ the worker/OS, not that data survived power loss. ``rename`` delegates to
 ordinary host ``rename()`` and reports its exact success or failure.
 
 On supporting filesystems, a same-filesystem rename may give atomic name
-visibility, but Runwire 3.0 does not guarantee atomic overwrite across file
+visibility, but Runwire does not guarantee atomic overwrite across file
 systems or network mounts, and provides no crash-durable replacement API.
 Cross-device rename may fail. A crash-safe replacement requires a verified
 same-directory temporary file, complete and checked writes, file
@@ -90,7 +90,7 @@ boundaries; see the worker-side path-security tests below.
 Portable open-file API contract and limitations
 -----------------------------------------------
 
-Runwire 3.0 declares an ``AsyncFileOperationsInterface``
+Runwire declares an ``AsyncFileOperationsInterface``
 for open, read, write, stat, rename, unlink and cancellation. An asynchronous
 open must deliver a worker-owned ``AsyncFileHandleInterface`` through a
 completion callback. ``FileAccessMode`` defines separate read/write roles.

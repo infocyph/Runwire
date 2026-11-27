@@ -112,26 +112,28 @@ Repository matched-pair runner
 
 The repository already provides a guarded end-to-end comparator:
 ``benchmarks/matched_release_certification.sh``. It expects
-**three** arguments: a complete published 2.1.2 source checkout,
-a complete frozen 3.0 candidate checkout and an output directory.
+**three** arguments: a complete published 3.1 source checkout,
+a complete frozen 4.0 candidate checkout and an output directory.
 Do not pass the same source directory for both versions.
 
 For example, from the Runwire repository root, substitute a reviewed
-immutable 3.0 SHA for ``<candidate-SHA>``:
+immutable 4.0 SHA for ``<candidate-SHA>``:
 
 .. code-block:: console
 
-   git worktree add --detach /tmp/runwire-2.1.2 7e9bf20ad0737a187dfed77b723791b141b36378
-   git worktree add --detach /tmp/runwire-3.0 <candidate-SHA>
-   cd /tmp/runwire-2.1.2
+   git worktree add --detach /tmp/runwire-3.1 refs/tags/3.1
+   git worktree add --detach /tmp/runwire-4.0 <candidate-SHA>
+   cd /tmp/runwire-3.1
    composer install --no-dev --no-interaction --prefer-dist --no-progress
-   cd /tmp/runwire-3.0
+   cd /tmp/runwire-4.0
    composer install --no-dev --no-interaction --prefer-dist --no-progress
-   RUNWIRE_CANDIDATE_BUILD=<candidate-SHA> bash benchmarks/matched_release_certification.sh /tmp/runwire-2.1.2 /tmp/runwire-3.0 benchmark-results/c4-matched
+   export RUNWIRE_BASELINE_BUILD="$(git -C /tmp/runwire-3.1 rev-parse HEAD)"
+   export RUNWIRE_CANDIDATE_BUILD="$(git rev-parse HEAD)"
+   bash benchmarks/matched_release_certification.sh /tmp/runwire-3.1 /tmp/runwire-4.0 benchmark-results/matched
 
 The shell harness validates OPcache enabled for CLI, Linux CPU affinity
 using distinct physical client/server cores, exact runtime hashes, a
-30-second warmup per server, 5 alternating baseline/candidate runs
+30-second warmup before each trial, 5 alternating baseline/candidate pairs
 lasting 180 seconds each, full successful-response correctness and
 the candidate-versus-baseline regression comparison. It emits separate
 raw trial JSON, both summaries and ``comparison.json``; a failed
@@ -141,26 +143,26 @@ Do **not** substitute diagnostic 5-second scripts, a shared saturated
 client/server CPU, a baseline from the wrong package revision or an
 incomplete trial. The current runner covers its **specified H1
 baseline workload**; additional H1/TLS, H2 and WebSocket real
-counterpart profile cells remain independent U15 gates. A successful
-An H1 matched run does not qualify every protocol.
+counterpart profile cells require separate evidence. A successful
+H1 matched run does not qualify every protocol.
 
 
 For each required protocol/workload cell:
 
 #. Freeze both revisions and publish the exact source and QA identities.
 #. Use matched PHP, extensions, hardware and server policies.
-#. Warm both versions before entering the measured phase.
+#. Warm each version immediately before each measured trial.
 #. Alternate comparison order to reduce time/thermal drift.
 #. Capture **five** complete old/new trials of at least 180 seconds.
 #. Verify every protocol response, body length and accepted request.
 #. Record individual p99, CPU/RSS/FD, correct RPS and error rates.
 #. Require the coefficient of variation for **both** versions below
    **2.5 percent**, without discarding bad trials.
-#. Apply the frozen release p99/RSS/RPS regression budgets.
+#. Apply the frozen release p95/p99/RSS/RPS regression budgets.
 #. Archive the raw logs, script hashes and measurement artifacts.
 
 A convenience script that accepts 180 as a duration is **not** on its
-own an old-versus-new paired certification. The baseline 2.1.2
+own an old-versus-new paired certification. The published 3.1 baseline
 source must actually be checked out and exercised.
 
 Continuous 1800-second process-tree soak

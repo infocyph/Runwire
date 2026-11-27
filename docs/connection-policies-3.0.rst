@@ -59,7 +59,7 @@ TLS record layers. PHP's existing OpenSSL stream transport does not
 expose a general second TLS layer over an already-encrypted stream.
 The attempted nested upgrade is therefore explicitly rejected and
 the proxy connection is aborted, preventing reuse as an origin-verified
-stream or silent credential/verification downgrade. Runwire 3.0
+stream or silent credential/verification downgrade. Runwire 4.0
 **excludes successful nested TLS over HTTPS proxies** from its
 supported contract: this refusal is a safety guarantee, not
 functional TLS-over-TLS. The original destination's independently
@@ -69,7 +69,7 @@ CONNECT path.
 Bidirectional stream relay
 --------------------------
 
-Runwire 3.0 contains a preliminary
+Runwire contains a preliminary
 ``Network\\StreamRelay`` for already-established TCP/Unix ``Connection``
 pairs. It takes exclusive protocol callback ownership of both connections,
 forwards bounded chunks using the existing receive/send queues and

@@ -127,7 +127,7 @@ Read :doc:`protocol-failure-atlas-3.0` before adding retries.
 Exercise E: bounded filesystem processing
 ------------------------------------------
 
-Ordinary PHP filesystem functions may block the reactor. The 3.0
+Ordinary PHP filesystem functions may block the reactor. The current
 filesystem facade uses a **bounded off-reactor subprocess executor**,
 not qualified kernel-native asynchronous file I/O.
 

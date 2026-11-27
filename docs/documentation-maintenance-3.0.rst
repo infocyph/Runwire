@@ -24,8 +24,10 @@ explain public symbols, protocol state and operational playbooks.
 * Public feature truth: `docs/features.rst`.
 * Architecture and implementation: the engineering handbook.
 * Examples and contract references: the topic-oriented guides and tests.
-* Compatibility: `docs/migration-3.0.rst` plus migration playbook.
+* Compatibility: :doc:`upgrade-4.0` and historical :doc:`migration-3.0`.
 * Immutable release baseline and API-change reviews: `qa/release-baseline/`.
+* Proposed engineering plans: `qa/plans/`, excluded from the public manual
+  and distribution archive.
 * Historical planning and completed trackers: Git history, not the public manual.
 * Test coverage: `tests/`; CI pipelines: `.github/workflows/`.
 
@@ -93,7 +95,7 @@ When code adds, removes or changes a public symbol:
    public documentation.
 
 A source-only manifest difference can be a trait move rather than a
-removed method. Use reflection and the frozen 2.1.2 manifest to
+removed method. Use reflection and the applicable frozen baseline manifest to
 distinguish such changes.
 
 Review checklist
@@ -105,7 +107,7 @@ Review checklist
 * Public method signatures and code-level documentation remain accurate.
 * Every example names its prerequisites, runtime and failure path.
 * Security boundaries and unsupported feature statements are explicit.
-* Historical guides are visibly versioned and not mistaken for 3.0.
+* Historical guides are visibly versioned and not mistaken for the current release.
 * Quantitative claims include methodology, source SHA and raw CI evidence.
 * Public site does not publish internal draft plans or secrets.
 * Hosting and release administration remain separate from public API guides.

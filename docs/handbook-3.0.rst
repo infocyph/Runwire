@@ -46,9 +46,9 @@ Documentation map
    * - Performance engineer
      - :doc:`performance-qa-handbook-3.0`
      - :doc:`performance-security-3.0`
-   * - 2.1.2 maintainer upgrading to 3.0
-     - :doc:`migration-playbook-3.0`
-     - :doc:`migration-3.0` and :doc:`configuration-reference-3.0`
+   * - Maintainer upgrading to 4.0
+     - :doc:`upgrade-4.0`
+     - :doc:`configuration-reference-3.0` and historical :doc:`migration-playbook-3.0`
 
 Execution architecture
 ----------------------
@@ -156,5 +156,5 @@ Consult :doc:`performance-qa-handbook-3.0` for benchmark methodology and
 For maintainers: source truth takes precedence over prose, followed by
 reproducible exact-commit tests. If an API shape, backend or capability
 changes, update both the specific guide and the feature matrix at the
-same time. Do not copy historical 2.0/2.1.x examples into the 3.0
+same time. Do not copy historical 2.0/2.1.x examples into the current
 reference without verifying their type signatures.

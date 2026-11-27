@@ -52,9 +52,9 @@ Test pyramid
 Frozen baseline protocol
 ------------------------
 
-The published comparison is Runwire **2.1.2** at documented immutable
-commit `7e9bf20ad0737a187dfed77b723791b141b36378` versus one
-**frozen** 3.0 candidate SHA. Run the same PHP major/minor,
+The 4.0 release-certification workflow compares published Runwire **3.1**
+(tag ``3.1`` at commit ``970e6f05f1ae5b5082cd3b4a329116d1d7a42325``)
+against one **frozen** 4.0 candidate SHA. Run the same PHP major/minor,
 extensions, CPU/RAM quotas, network topology, TLS policy, request
 payload distribution and independent peers. Use controlled warmup and
 record environmental metadata with every run.
@@ -72,7 +72,8 @@ For each matched protocol/workload cell, capture at least:
 
 The release methodology requires **five paired 180-second comparisons**,
 both baseline and candidate throughput coefficient-of-variation below
-**2.5%**, and strict p99, RSS, successful RPS and correctness gates.
+**2.5%**, a 30-second warmup before every trial, and strict p95/p99,
+RSS, successful RPS and correctness gates.
 Do not average away one failed peer, restart a bad trial silently
 or count rejected requests as successes.
 

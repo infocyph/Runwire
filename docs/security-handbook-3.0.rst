@@ -154,7 +154,7 @@ source revision/driver, and preserve nonsecret diagnostics for
 reproduction. Do not log raw client tokens to make debugging easier.
 
 Review the source API and perform a threat and
-release-risk review before declaring 3.0 production certified.
+release-risk review before declaring 4.0 production certified.
 
 
 Practical SSRF policy: what is rejected and when

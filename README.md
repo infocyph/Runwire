@@ -18,7 +18,7 @@ security controls, deployment and migration instructions.
 
 Hard package requirements:
 
-- 64-bit PHP `^8.4`;
+- 64-bit PHP `^8.4` with `ext-filter`;
 - Composer.
 
 Install:
@@ -239,7 +239,7 @@ $server = Server::http(
 );
 ```
 
-Native WebSocket serving is intentionally HTTP/1.1-only in 3.0. Compression and HTTP/2 extended CONNECT are not advertised. Browser requests carrying `Origin` require an explicit application origin policy; that policy complements authentication rather than replacing it.
+Native WebSocket serving is intentionally HTTP/1.1-only in 4.0. Compression and HTTP/2 extended CONNECT are not advertised. Browser requests carrying `Origin` require an explicit application origin policy; that policy complements authentication rather than replacing it.
 
 ## Framed TCP example
 
@@ -420,7 +420,8 @@ and built with strict Sphinx checks. Start with:
 - [Outbound networking](docs/outbound-handbook-3.0.rst)
 - [Security and capabilities](docs/security-handbook-3.0.rst)
 - [Production operations](docs/production-operations-3.0.rst)
-- [Migration from 2.1.2](docs/migration-3.0.rst)
+- [Upgrade from 3.1 to 4.0](docs/upgrade-4.0.rst)
+- [Historical migration from 2.1.2 to 3.0](docs/migration-3.0.rst)
 
 ## Development
 
