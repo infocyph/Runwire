@@ -14,7 +14,9 @@ use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
 use Infocyph\Runwire\Http\Http2\Hpack\Encoder;
 use Infocyph\Runwire\Http\Http2\Http2Connection;
+use Infocyph\Runwire\Interop\Psr\PsrMessageBridge;
 use InvalidArgumentException;
+use Nyholm\Psr7\Request;
 use RuntimeException;
 
 it('sends a single verified H2 request after peer SETTINGS and returns bounded DATA credit', function (): void {
@@ -116,6 +118,29 @@ function runwireOwnedHttp2ClientSessionTestCase02(): void
     expect(fn() => $session->receive(FrameWriter::goAway(0, \Infocyph\Runwire\Http\Http2\Enum\ErrorCode::NO_ERROR)))
         ->toThrow(RuntimeException::class, 'before END_STREAM');
 }
+
+it('encodes the approved PSR authority and rejects conflicting Host fields', function (): void {
+    $uri = 'https://example.test/status';
+    $approved = new Request('GET', $uri);
+    $ignore = static function (): void {};
+    foreach ([$approved, $approved->withHeader('Host', 'EXAMPLE.TEST:443')] as $psr) {
+        $session = new Http2ClientSession(PsrMessageBridge::outboundRequest($psr, approvedUri: $uri), $ignore, $ignore);
+        $session->start();
+        $frames = (new FrameParser())->push($session->receive(FrameWriter::settings()));
+        $fields = (new Decoder())->decode($frames[1]->payload);
+        expect($fields)->toContain([':authority', 'example.test'])
+            ->and(array_column($fields, 0))->not->toContain('host');
+    }
+
+    $conflicting = PsrMessageBridge::outboundRequest(
+        $approved->withHeader('Host', 'example.test:8443'),
+        approvedUri: $uri,
+    );
+    $session = new Http2ClientSession($conflicting, $ignore, $ignore);
+    $session->start();
+    expect(fn() => $session->receive(FrameWriter::settings()))
+        ->toThrow(InvalidArgumentException::class, 'verified request authority');
+});
 
 it('never publishes HEAD response DATA bytes even with a valid H2 HEADERS block', function (): void {
     runwireOwnedHttp2ClientSessionTestCase03();

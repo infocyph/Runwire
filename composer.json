@@ -223,7 +223,7 @@
                         "reason": "Reviewed authenticated operational worker filesystem boundary and restricted-root/special-file regression coverage; unrestricted-root paths retain caller-owned authority.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "73e02b51fccde19b3c8e07f92a945907e522752cce748262d977d9f76464aa67",
+                            "sha256": "a20a4d04a8473ff13e482228c3d87e2023af7fe5ef25e69554cf03e0a1b905b7",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -239,7 +239,7 @@
                         "reason": "PHP filesystem APIs can dereference network URL wrappers; the HMAC-authorized worker's guard rejects :// wrappers, NUL bytes, and off-root/symlink paths before opening. Bounded filesystem security regressions enforce this contract.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "73e02b51fccde19b3c8e07f92a945907e522752cce748262d977d9f76464aa67",
+                            "sha256": "a20a4d04a8473ff13e482228c3d87e2023af7fe5ef25e69554cf03e0a1b905b7",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -255,7 +255,7 @@
                         "reason": "PHP file_get_contents() and fopen() interpret wrapper-capable path strings as URL components. Authenticated executor guardFilePath validates local path shape, rejects stream-wrapper syntax, and enforces restricted-root and file-kind checks; security tests cover the boundary.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "73e02b51fccde19b3c8e07f92a945907e522752cce748262d977d9f76464aa67",
+                            "sha256": "a20a4d04a8473ff13e482228c3d87e2023af7fe5ef25e69554cf03e0a1b905b7",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"
@@ -271,7 +271,7 @@
                         "reason": "The worker's HMAC-authenticated and stream-wrapper-rejecting path guard feeds PHP fopen/file_get_contents, which Psalm models as URL-path sinks (TaintedUrlPath). Strict wrapper, null-byte, restricted-root/symlink and file-kind security regressions enforce the sanitized boundary.",
                         "security": {
                             "sanitizer": "runtime/executor-worker.php",
-                            "sha256": "73e02b51fccde19b3c8e07f92a945907e522752cce748262d977d9f76464aa67",
+                            "sha256": "a20a4d04a8473ff13e482228c3d87e2023af7fe5ef25e69554cf03e0a1b905b7",
                             "tests": [
                                 "tests/AsyncFilePathPolicyTest.php",
                                 "tests/AsyncFileSpecialFileSafetyTest.php"

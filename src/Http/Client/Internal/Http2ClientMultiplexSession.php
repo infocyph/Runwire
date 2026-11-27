@@ -12,6 +12,7 @@ use Infocyph\Runwire\Http\Http2\Enum\FrameType;
 use Infocyph\Runwire\Http\Http2\Frame;
 use Infocyph\Runwire\Http\Http2\FrameWriter;
 use Infocyph\Runwire\Http\Http2\Hpack\Decoder;
+use Infocyph\Runwire\Http\Http2\Internal\ConnectionError;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
@@ -136,6 +137,16 @@ final class Http2ClientMultiplexSession
         }
         if ($frame->streamId === 0 || $frame->knownType() === FrameType::SETTINGS) {
             return $this->control($frame);
+        }
+        // The peer may have queued stream credit before observing END_STREAM or RST_STREAM.
+        if ($frame->knownType() === FrameType::WINDOW_UPDATE
+            && $frame->streamId <= $this->lastStreamId && ($frame->streamId & 1) !== 0
+            && !isset($this->streams[$frame->streamId])) {
+            if (strlen($frame->payload) !== 4) {
+                throw new ConnectionError(ErrorCode::FRAME_SIZE_ERROR, 'HTTP/2 stream WINDOW_UPDATE requires four bytes.');
+            }
+
+            return '';
         }
         if (isset($this->retired[$frame->streamId])) {
             return $this->retiredFrame($frame, $this->retired[$frame->streamId]);

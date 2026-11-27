@@ -16,7 +16,7 @@ const MAX_MESSAGE_BYTES = 1_600_000;
 const MAX_FILE_BYTES = 1_048_576;
 
 $ipcKey = getenv('RUNWIRE_EXECUTOR_IPC_KEY');
-if (!is_string($ipcKey) || strlen($ipcKey) !== 64 || !ctype_xdigit($ipcKey)) {
+if (!is_string($ipcKey) || preg_match('/\A[0-9a-fA-F]{64}\z/', $ipcKey) !== 1) {
     throw new RuntimeException('Executor worker requires a private per-process IPC authorization key.');
 }
 putenv('RUNWIRE_EXECUTOR_IPC_KEY');

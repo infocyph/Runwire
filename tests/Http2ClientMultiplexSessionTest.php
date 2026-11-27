@@ -332,6 +332,39 @@ function runwireOwnedHttp2ClientMultiplexSessionTestCase08(): void
     expect($first)->toBe(1)->and($second)->toBe(1);
 }
 
+it('discards late stream credit after cancellation and preserves sibling responses', function (): void {
+    $session = new Http2ClientMultiplexSession(2);
+    $session->start();
+    $session->receive(FrameWriter::settings());
+    $ignore = static function (): void {};
+    $canceled = $session->request(new ClientRequest('GET', 'https://example.test/canceled'), $ignore, $ignore, $ignore);
+    $completed = [];
+    $sibling = $session->request(
+        new ClientRequest('GET', 'https://example.test/sibling'),
+        $ignore,
+        $ignore,
+        static function (?Throwable $error) use (&$completed): void {
+            $completed[] = $error;
+        },
+    );
+
+    $streamId = $canceled['stream'];
+    $session->cancel($streamId);
+    $lateCredit = FrameWriter::windowUpdate($streamId, 16);
+    expect($session->receive($lateCredit))->toBe('')
+        ->and($session->receive(FrameWriter::rstStream($streamId, ErrorCode::CANCEL)))->toBe('')
+        ->and($session->receive($lateCredit))->toBe('')
+        ->and($session->activeCount())->toBe(1);
+    expect(fn() => $session->receive(new Frame(FrameType::WINDOW_UPDATE->value, 0, $streamId, 'bad')))
+        ->toThrow(RuntimeException::class, 'four bytes');
+    expect(fn() => $session->receive(FrameWriter::windowUpdate($sibling['stream'] + 2, 16)))
+        ->toThrow(RuntimeException::class, 'unknown client response stream');
+
+    $headers = (new Encoder())->encode([[':status', '204']]);
+    $session->receive(new Frame(FrameType::HEADERS->value, 0x5, $sibling['stream'], $headers));
+    expect($completed)->toBe([null])->and($session->activeCount())->toBe(0);
+});
+
 it('validates peer RST and DATA framing even after a local H2 stream cancellation', function (): void {
     runwireOwnedHttp2ClientMultiplexSessionTestCase09();
 });
