@@ -65,7 +65,8 @@ $request = static function (int $port, string $path = '/probe'): array {
     }
     try {
         $headers = http_get_last_response_headers();
-        if (! is_string($headers[0] ?? null) || preg_match('/^HTTP\/\S+ 200\b/', $headers[0]) !== 1) {
+        if ($headers === null || ! isset($headers[0]) || ! is_string($headers[0])
+            || preg_match('/^HTTP\/\S+ 200\b/', $headers[0]) !== 1) {
             throw new RuntimeException('Unexpected HTTP status.');
         }
         $body = stream_get_contents($stream);
