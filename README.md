@@ -409,42 +409,34 @@ Report throughput together with p50/p95/p99 latency, errors, CPU, and RSS.
 
 See [performance qualification](docs/performance-qa-handbook-3.0.rst) for methodology, measurements and acceptance conditions.
 
-## Documentation
+## Security
 
-The [Runwire Manual](https://docs.infocyph.com/projects/Runwire) is maintained in native reStructuredText
-and built with strict Sphinx checks. Start with:
+Do not disclose suspected vulnerabilities in a public issue, discussion or pull request. Follow [SECURITY.md](SECURITY.md) and use [GitHub private vulnerability reporting](https://github.com/infocyph/Runwire/security/advisories/new).
 
-- [Installation and first validation](docs/start.rst)
-- [Runtime and architecture](docs/architecture.rst)
-- [Inbound HTTP and protocols](docs/inbound-handbook-3.0.rst)
-- [Outbound networking](docs/outbound-handbook-3.0.rst)
-- [Security and capabilities](docs/security-handbook-3.0.rst)
-- [Production operations](docs/production-operations-3.0.rst)
-- [Upgrade from 3.1 to 4.0](docs/upgrade-4.0.rst)
-- [Historical migration from 2.1.2 to 3.0](docs/migration-3.0.rst)
+Runwire is protected by [PHPForge](https://github.com/infocyph/PHPForge), which provides automated tests, static and taint analysis, dependency auditing, architecture checks and release-readiness gates. Automated controls do not replace responsible disclosure or manual review.
 
-## Development
+---
 
-Install development dependencies:
-
-```bash
-composer install
-```
-
-Run repository QA:
-
-```bash
-composer ic:ci
-```
-
-Run the automated formatting/refactor processing pipeline:
-
-```bash
-composer ic:process
-```
-
-The CI matrix covers supported PHP versions/dependency modes, static analysis, clean production installation, genuine no-PCNTL portable-native acceptance, benchmarks, Swoole/OpenSwoole acceptance, and independent H1/H2 interoperability and retained-protocol lifecycle lanes.
-
-## License
-
-Runwire is released under the MIT License.
+<div align="center">
+  <sub><strong>Made with ❤️ for the PHP community</strong></sub><br />
+  <sub><a href="LICENSE">MIT Licensed</a></sub><br />
+  <a href="https://docs.infocyph.com/projects/Runwire/">Documentation</a> •
+  <a href="SECURITY.md">Security</a> •
+  <a href="CODE_OF_CONDUCT.md">Code of Conduct</a> •
+  <a href="CONTRIBUTING.md">Contributing</a><br />
+  <span title="Issue templates" aria-label="Issue templates">🗂️</span>
+  <a href="https://github.com/infocyph/Runwire/issues/new?template=bug_report.yml">Bug</a> •
+  <a href="https://github.com/infocyph/Runwire/issues/new?template=feature_request.yml">Feature</a> •
+  <a href="https://github.com/infocyph/Runwire/issues/new?template=docs_improvement.yml">Documentation</a> •
+  <a href="https://github.com/infocyph/Runwire/issues/new?template=question.yml">Question</a> •
+  <a href="https://github.com/infocyph/Runwire/issues/new?template=ci_failure.yml">CI failure</a><br />
+  <span title="Pull request templates" aria-label="Pull request templates">🔀</span>
+  <a href="https://github.com/infocyph/Runwire/compare/main...HEAD?quick_pull=1&amp;template=PULL_REQUEST_TEMPLATE.md">General</a> •
+  <a href="https://github.com/infocyph/Runwire/compare/main...HEAD?quick_pull=1&amp;template=bug_fix.md">Bug fix</a> •
+  <a href="https://github.com/infocyph/Runwire/compare/main...HEAD?quick_pull=1&amp;template=feature.md">Feature</a> •
+  <a href="https://github.com/infocyph/Runwire/compare/main...HEAD?quick_pull=1&amp;template=refactor.md">Refactor</a> •
+  <a href="https://github.com/infocyph/Runwire/compare/main...HEAD?quick_pull=1&amp;template=performance.md">Performance</a> •
+  <a href="https://github.com/infocyph/Runwire/compare/main...HEAD?quick_pull=1&amp;template=security_reliability.md">Security &amp; reliability</a> •
+  <a href="https://github.com/infocyph/Runwire/compare/main...HEAD?quick_pull=1&amp;template=documentation.md">Documentation</a> •
+  <a href="https://github.com/infocyph/Runwire/compare/main...HEAD?quick_pull=1&amp;template=maintenance.md">Maintenance</a>
+</div>
